@@ -30,6 +30,24 @@ jobs:
           name: calcu-debug
           path: app/build/outputs/apk/debug/*.apk
           if-no-files-found: error
+      - name: Bootstrap release keystore (one-time)
+        run: |
+          STORE_PASS=$(openssl rand -hex 16)
+          KEY_PASS=$(openssl rand -hex 16)
+          keytool -genkeypair -keystore /tmp/calcu-release.keystore -storetype PKCS12 -alias calcu -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=CalcU, OU=CalcU, O=CalcU" -storepass "$STORE_PASS" -keypass "$KEY_PASS"
+          echo -n "$STORE_PASS" > /tmp/store.pass
+          echo -n "$KEY_PASS" > /tmp/key.pass
+          echo -n "calcu" > /tmp/alias.txt
+      - name: Upload keystore bootstrap files
+        uses: actions/upload-artifact@v4
+        with:
+          name: calcu-keystore-bootstrap
+          path: |
+            /tmp/calcu-release.keystore
+            /tmp/store.pass
+            /tmp/key.pass
+            /tmp/alias.txt
+          if-no-files-found: error
       - name: Attach APK to rolling latest release
         if: github.event_name == 'push'
         env:
