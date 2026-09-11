@@ -55,7 +55,10 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import calc.u.core.Engine
 import calc.u.ui.CalcEffect
 import calc.u.ui.CalcViewModel
+import calc.u.ui.FluentInfoBar
+import calc.u.ui.FluentTeachingTip
 import calc.u.ui.SectionCard
+import calc.u.ui.WARNING
 
 private val XSubst = Regex("(?<![A-Za-z])x(?![A-Za-z])")
 
@@ -249,6 +252,14 @@ fun CalculatorScreen(vm: CalcViewModel = hiltViewModel()) {
                 }
             )
         }
+        if (st.showGraphTip) {
+            FluentTeachingTip(
+                title = "Graph anything",
+                subtitle = "Type sin(x), then open the chart tab to plot it.",
+                onClose = { vm.onDismissGraphTip() },
+                modifier = Modifier.align(Alignment.BottomCenter).padding(16.dp)
+            )
+        }
         SnackbarHost(hostState = snackbar, modifier = Modifier.align(Alignment.BottomCenter))
     }
 }
@@ -392,10 +403,10 @@ fun GraphScreen() {
                     }
                 }
                 if (allFailed) {
-                    Text(
-                        "Error",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.error,
+                    FluentInfoBar(
+                        severity = WARNING,
+                        title = "Cannot plot",
+                        message = "No valid points for this expression in range.",
                         modifier = Modifier.padding(16.dp)
                     )
                 }

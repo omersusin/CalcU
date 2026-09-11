@@ -24,6 +24,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewModelScope
 import calc.u.data.SettingsRepository
+import calc.u.ui.FluentExpander
 import calc.u.ui.SectionCard
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
@@ -91,23 +92,25 @@ fun SettingsScreen(vm: SettingsViewModel = hiltViewModel()) {
             }
         }
         item {
-            SectionCard("Attributions") {
-                Text(
-                    "Expression evaluation powered by EvalEx (Apache License 2.0).",
-                    style = MaterialTheme.typography.bodyMedium
-                )
-                Text(
-                    "Converter coverage inspired by UnitConverterUltimate (Apache License 2.0).",
-                    style = MaterialTheme.typography.bodyMedium
-                )
-                Text(
-                    "Fluent-influenced visual language inspired by WinUI (MIT License).",
-                    style = MaterialTheme.typography.bodyMedium
-                )
-                Text(
-                    "Calculator interaction ideas re-implemented from OpenCalc / Fossify (GPL-family); all code here is original.",
-                    style = MaterialTheme.typography.bodyMedium
-                )
+            FluentExpander(header = "Attributions") {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(
+                        "Expression evaluation powered by EvalEx (Apache License 2.0).",
+                        style = MaterialTheme.typography.bodyMedium
+                    )
+                    Text(
+                        "Converter coverage inspired by UnitConverterUltimate (Apache License 2.0).",
+                        style = MaterialTheme.typography.bodyMedium
+                    )
+                    Text(
+                        "Fluent UI for Android forked at omersusin/fluentui-android (MIT License); visual language ported from WinUI (MIT License).",
+                        style = MaterialTheme.typography.bodyMedium
+                    )
+                    Text(
+                        "Calculator interaction ideas re-implemented from OpenCalc / Fossify (GPL-family); all code here is original.",
+                        style = MaterialTheme.typography.bodyMedium
+                    )
+                }
             }
         }
     }

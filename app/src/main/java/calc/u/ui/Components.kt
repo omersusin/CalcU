@@ -1,5 +1,9 @@
 package calc.u.ui
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.slideInVertically
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -12,14 +16,25 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.unit.dp
+import calc.u.ui.theme.FluentMotion
+import calc.u.ui.theme.FluentSpace
 
 @Composable
 fun SectionCard(title: String, modifier: Modifier = Modifier, content: @Composable () -> Unit) {
-    ElevatedCard(modifier = modifier.fillMaxWidth()) {
-        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            Text(title, style = MaterialTheme.typography.titleMedium, modifier = Modifier.semantics { heading() })
-            content()
+    AnimatedVisibility(
+        visible = true,
+        enter = fadeIn(tween(FluentMotion.Medium, easing = FluentMotion.Standard)) +
+            slideInVertically(tween(FluentMotion.Medium, easing = FluentMotion.Standard)) { it / 8 },
+        modifier = modifier
+    ) {
+        ElevatedCard(modifier = Modifier.fillMaxWidth()) {
+            Column(
+                Modifier.padding(FluentSpace.X16),
+                verticalArrangement = Arrangement.spacedBy(FluentSpace.X12)
+            ) {
+                Text(title, style = MaterialTheme.typography.titleMedium, modifier = Modifier.semantics { heading() })
+                content()
+            }
         }
     }
 }

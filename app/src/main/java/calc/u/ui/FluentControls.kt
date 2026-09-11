@@ -1,11 +1,17 @@
 package calc.u.ui
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -13,30 +19,39 @@ import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Error
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.filled.Warning
+import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.SegmentedButton
+import androidx.compose.material3.SegmentedButtonDefaults
+import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
+import calc.u.ui.theme.FluentMotion
 import calc.u.ui.theme.FluentSpace
 import calc.u.ui.theme.infoSeverityColor
 
@@ -177,6 +192,160 @@ fun FluentInfoBar(
                     Icon(Icons.Filled.Close, contentDescription = "Dismiss")
                 }
             }
+        }
+    }
+}
+
+enum class ExpandDirection { Down, Up }
+
+@Composable
+fun FluentExpander(
+    header: String,
+    modifier: Modifier = Modifier,
+    expanded: Boolean? = null,
+    expandDirection: ExpandDirection = ExpandDirection.Down,
+    content: @Composable () -> Unit
+) {
+    var internal by rememberSaveable { mutableStateOf(false) }
+    val isExpanded = expanded ?: internal
+    fun toggle() {
+        if (expanded == null) internal = !internal
+    }
+    Card(
+        modifier = modifier.fillMaxWidth(),
+        shape = MaterialTheme.shapes.medium,
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow)
+    ) {
+        Column {
+            Row(
+                Modifier.fillMaxWidth()
+                    .clickable(
+                        interactionSource = remember { MutableInteractionSource() },
+                        indication = null
+                    ) { toggle() }
+                    .padding(FluentSpace.X16),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    header,
+                    style = MaterialTheme.typography.titleSmall,
+                    modifier = Modifier.weight(1f)
+                )
+                Icon(
+                    Icons.Filled.ChevronRight,
+                    contentDescription = if (isExpanded) "Collapse" else "Expand",
+                    modifier = Modifier.rotate(if (isExpanded) 90f else 0f)
+                )
+            }
+            if (expandDirection == ExpandDirection.Up && isExpanded) {
+                AnimatedVisibility(
+                    visible = true,
+                    enter = fadeIn() + expandVertically(expandFrom = Alignment.Bottom),
+                    exit = fadeOut() + shrinkVertically(shrinkTowards = Alignment.Bottom)
+                ) {
+                    Box(Modifier.padding(horizontal = FluentSpace.X16)) { content() }
+                }
+            }
+            AnimatedVisibility(
+                visible = expandDirection == ExpandDirection.Down && isExpanded,
+                enter = fadeIn() + expandVertically(),
+                exit = fadeOut() + shrinkVertically()
+            ) {
+                Box(
+                    Modifier.padding(
+                        start = FluentSpace.X16,
+                        end = FluentSpace.X16,
+                        bottom = FluentSpace.X16
+                    )
+                ) { content() }
+            }
+        }
+    }
+}
+
+@Composable
+fun FluentTeachingTip(
+    title: String,
+    subtitle: String,
+    onClose: () -> Unit,
+    modifier: Modifier = Modifier,
+    actionLabel: String? = null,
+    onAction: (() -> Unit)? = null,
+    lightDismiss: Boolean = false
+) {
+    val card = @Composable {
+        Card(
+            shape = MaterialTheme.shapes.medium,
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerHigh)
+        ) {
+            Row(
+                Modifier.padding(FluentSpace.X16),
+                horizontalArrangement = Arrangement.spacedBy(FluentSpace.X12),
+                verticalAlignment = Alignment.Top
+            ) {
+                Icon(
+                    Icons.Filled.Info,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.primary
+                )
+                Column(
+                    Modifier.weight(1f),
+                    verticalArrangement = Arrangement.spacedBy(FluentSpace.X4)
+                ) {
+                    Text(title, style = MaterialTheme.typography.titleSmall)
+                    Text(
+                        subtitle,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    if (actionLabel != null && onAction != null) {
+                        Button(onClick = onAction) { Text(actionLabel) }
+                    }
+                }
+                IconButton(onClick = onClose, modifier = Modifier.size(40.dp)) {
+                    Icon(Icons.Filled.Close, contentDescription = "Close tip")
+                }
+            }
+        }
+    }
+    if (lightDismiss) {
+        Box(
+            Modifier.fillMaxSize().clickable(
+                interactionSource = remember { MutableInteractionSource() },
+                indication = null
+            ) { onClose() },
+            contentAlignment = Alignment.BottomCenter
+        ) {
+            Box(
+                modifier.padding(FluentSpace.X16).clickable(
+                    interactionSource = remember { MutableInteractionSource() },
+                    indication = null,
+                    enabled = true,
+                    onClick = {}
+                )
+            ) { card() }
+        }
+    } else {
+        Box(modifier) { card() }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun FluentSegmented(
+    options: List<String>,
+    selected: Int,
+    onSelect: (Int) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    SingleChoiceSegmentedButtonRow(modifier) {
+        options.forEachIndexed { i, label ->
+            SegmentedButton(
+                selected = selected == i,
+                onClick = { onSelect(i) },
+                shape = SegmentedButtonDefaults.itemShape(i, options.size),
+                label = { Text(label) }
+            )
         }
     }
 }

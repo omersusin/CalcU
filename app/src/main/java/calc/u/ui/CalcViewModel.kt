@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import calc.u.core.Engine
 import calc.u.data.HistoryRepository
+import calc.u.data.SettingsRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -21,7 +22,8 @@ data class CalcUiState(
     val angleDeg: Boolean = true,
     val memory: Double = 0.0,
     val history: List<String> = emptyList(),
-    val query: String = ""
+    val query: String = "",
+    val showGraphTip: Boolean = false
 ) {
     val canEvaluate: Boolean get() = input.isNotBlank()
 }
@@ -31,7 +33,10 @@ sealed interface CalcEffect {
 }
 
 @HiltViewModel
-class CalcViewModel @Inject constructor(private val historyRepo: HistoryRepository) : ViewModel() {
+class CalcViewModel @Inject constructor(
+    private val historyRepo: HistoryRepository,
+    private val settingsRepo: SettingsRepository
+) : ViewModel() {
     private val _uiState = MutableStateFlow(CalcUiState())
     val uiState: StateFlow<CalcUiState> = _uiState.asStateFlow()
     private val _effects = Channel<CalcEffect>(Channel.BUFFERED)
@@ -40,6 +45,11 @@ class CalcViewModel @Inject constructor(private val historyRepo: HistoryReposito
     init {
         viewModelScope.launch {
             historyRepo.history.collect { h -> _uiState.update { it.copy(history = h) } }
+        }
+        viewModelScope.launch {
+            settingsRepo.graphTipSeen.collect { seen ->
+                _uiState.update { it.copy(showGraphTip = !seen) }
+            }
         }
     }
 
@@ -88,4 +98,8 @@ class CalcViewModel @Inject constructor(private val historyRepo: HistoryReposito
     fun onClearHistory() { viewModelScope.launch { historyRepo.clear() } }
     fun onDeleteHistoryAt(index: Int) { viewModelScope.launch { historyRepo.deleteAt(index) } }
     fun onSetHistoryNote(index: Int, note: String) { viewModelScope.launch { historyRepo.setNote(index, note) } }
+    fun onDismissGraphTip() {
+        _uiState.update { it.copy(showGraphTip = false) }
+        viewModelScope.launch { settingsRepo.setGraphTipSeen() }
+    }
 }

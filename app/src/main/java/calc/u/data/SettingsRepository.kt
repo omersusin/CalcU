@@ -1,6 +1,7 @@
 package calc.u.data
 
 import android.content.Context
+import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
@@ -20,5 +21,13 @@ class SettingsRepository @Inject constructor(@ApplicationContext private val ctx
 
     suspend fun setTheme(value: String) {
         ctx.settingsDataStore.edit { it[themeKey] = value }
+    }
+
+    private val tipKey = booleanPreferencesKey("graph_tip_seen")
+
+    val graphTipSeen: Flow<Boolean> = ctx.settingsDataStore.data.map { it[tipKey] ?: false }
+
+    suspend fun setGraphTipSeen() {
+        ctx.settingsDataStore.edit { it[tipKey] = true }
     }
 }

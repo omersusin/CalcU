@@ -91,10 +91,10 @@ private fun fluentType(): Typography {
         displaySmall = s(28, 36, semi),
         headlineLarge = s(28, 36, semi),
         headlineMedium = s(20, 28, semi),
-        headlineSmall = s(18, 24, reg),
+        headlineSmall = s(20, 26, semi),
         titleLarge = s(20, 28, semi),
         titleMedium = s(16, 22, semi),
-        titleSmall = s(14, 20, semi),
+        titleSmall = s(16, 22, semi),
         bodyLarge = s(18, 24, reg),
         bodyMedium = s(14, 20, reg),
         bodySmall = s(12, 16, reg),
@@ -199,10 +199,10 @@ private val FluentContrast = darkColorScheme(
 )
 
 val FluentShapes = Shapes(
-    extraSmall = RoundedCornerShape(4.dp),
+    extraSmall = RoundedCornerShape(2.dp),
     small = RoundedCornerShape(4.dp),
     medium = RoundedCornerShape(8.dp),
-    large = RoundedCornerShape(8.dp),
+    large = RoundedCornerShape(12.dp),
     extraLarge = RoundedCornerShape(28.dp)
 )
 
