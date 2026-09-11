@@ -30,23 +30,27 @@ jobs:
           name: calcu-debug
           path: app/build/outputs/apk/debug/*.apk
           if-no-files-found: error
-      - name: Bootstrap release keystore (one-time)
+      - name: Decode release keystore
+        env:
+          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
         run: |
-          STORE_PASS=$(openssl rand -hex 16)
-          KEY_PASS=$(openssl rand -hex 16)
-          keytool -genkeypair -keystore /tmp/calcu-release.keystore -storetype PKCS12 -alias calcu -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=CalcU, OU=CalcU, O=CalcU" -storepass "$STORE_PASS" -keypass "$KEY_PASS"
-          echo -n "$STORE_PASS" > /tmp/store.pass
-          echo -n "$KEY_PASS" > /tmp/key.pass
-          echo -n "calcu" > /tmp/alias.txt
-      - name: Upload keystore bootstrap files
+          if [ -n "$KEYSTORE_BASE64" ]; then
+            echo "$KEYSTORE_BASE64" | base64 -d > /tmp/calcu-release.keystore
+            echo "KEYSTORE_PATH=/tmp/calcu-release.keystore" >> "$GITHUB_ENV"
+          fi
+      - run: gradle :app:assembleRelease --stacktrace
+        env:
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+      - name: Verify release signature
+        if: env.KEYSTORE_PATH != ''
+        run: $ANDROID_HOME/build-tools/34.0.0/apksigner verify --print-certs app/build/outputs/apk/release/*.apk | head -5
+      - name: Upload release APK artifact
         uses: actions/upload-artifact@v4
         with:
-          name: calcu-keystore-bootstrap
-          path: |
-            /tmp/calcu-release.keystore
-            /tmp/store.pass
-            /tmp/key.pass
-            /tmp/alias.txt
+          name: calcu-release
+          path: app/build/outputs/apk/release/*.apk
           if-no-files-found: error
       - name: Attach APK to rolling latest release
         if: github.event_name == 'push'
@@ -54,4 +58,4 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           gh release delete latest --cleanup-tag -y || true
-          gh release create latest app/build/outputs/apk/debug/*.apk --title "Latest debug build" --notes "Automated debug APK from main (${{ github.sha }})."
+          gh release create latest app/build/outputs/apk/debug/*.apk app/build/outputs/apk/release/*.apk --title "Latest build" --notes "Debug + signed release APKs from main (${{ github.sha }})."
