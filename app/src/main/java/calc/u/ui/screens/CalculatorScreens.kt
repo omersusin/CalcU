@@ -14,6 +14,7 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.LocalIndication
+import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -29,9 +30,12 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Backspace
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
@@ -59,6 +63,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -70,6 +75,7 @@ import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -81,6 +87,7 @@ import calc.u.ui.CalcViewModel
 import calc.u.ui.FluentCalcKey
 import calc.u.ui.FluentInfoBar
 import calc.u.ui.FluentKeyKind
+import calc.u.ui.FluentStagger
 import calc.u.ui.FluentTeachingTip
 import calc.u.ui.SectionCard
 import calc.u.ui.WARNING
@@ -284,6 +291,7 @@ fun CalculatorScreen(vm: CalcViewModel = hiltViewModel()) {
     }
 }
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun HistorySheetContent(
     history: List<String>,
@@ -294,6 +302,19 @@ private fun HistorySheetContent(
     onNote: (Int, String) -> Unit,
     onDelete: (Int) -> Unit
 ) {
+    var selected by remember { mutableStateOf(setOf<Int>()) }
+    val inSelection = selected.isNotEmpty()
+    val listState = rememberLazyListState()
+    val haptics = LocalHapticFeedback.current
+    LaunchedEffect(listState) {
+        var prev = listState.firstVisibleItemIndex
+        snapshotFlow { listState.firstVisibleItemIndex }.collect {
+            if (it != prev) {
+                prev = it
+                haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+            }
+        }
+    }
     val indexed = history.mapIndexed { i, h -> i to h }.filter { (_, h) ->
         query.isBlank() || h.contains(query, ignoreCase = true)
     }.take(50)
@@ -308,6 +329,40 @@ private fun HistorySheetContent(
                 TextButton(onClick = onClear) { Text("Clear") }
             }
         }
+        AnimatedVisibility(
+            visible = inSelection,
+            enter = slideInVertically(tween(FluentMotion.Medium, easing = FluentMotion.Standard)) + fadeIn(),
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Row(
+                Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    "${selected.size} selected",
+                    style = MaterialTheme.typography.titleMedium,
+                    color = MaterialTheme.colorScheme.primary
+                )
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    IconButton(
+                        onClick = {
+                            selected.sortedDescending().forEach { onDelete(it) }
+                            selected = emptySet()
+                        },
+                        modifier = Modifier.size(48.dp)
+                    ) {
+                        Icon(Icons.Filled.Delete, contentDescription = "Delete selected")
+                    }
+                    IconButton(
+                        onClick = { selected = emptySet() },
+                        modifier = Modifier.size(48.dp)
+                    ) {
+                        Icon(Icons.Filled.Close, contentDescription = "Close selection")
+                    }
+                }
+            }
+        }
         OutlinedTextField(
             value = query,
             onValueChange = onQuery,
@@ -315,7 +370,20 @@ private fun HistorySheetContent(
             singleLine = true,
             modifier = Modifier.fillMaxWidth()
         )
-        LazyColumn(Modifier.fillMaxWidth().height(360.dp)) {
+        Box(Modifier.fillMaxWidth().padding(vertical = 8.dp), contentAlignment = Alignment.Center) {
+            Box(
+                Modifier.background(MaterialTheme.colorScheme.surfaceContainerHigh, RoundedCornerShape(50.dp))
+                    .padding(horizontal = 16.dp, vertical = 8.dp)
+            ) {
+                Text(
+                    "${indexed.size} entries",
+                    style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold),
+                    color = MaterialTheme.colorScheme.primary,
+                    textAlign = TextAlign.Center
+                )
+            }
+        }
+        LazyColumn(state = listState, modifier = Modifier.fillMaxWidth().height(360.dp)) {
             if (history.isEmpty()) {
                 item {
                     Text(
@@ -333,14 +401,30 @@ private fun HistorySheetContent(
                     )
                 }
             } else {
-                items(indexed) { (realIndex, h) ->
+                itemsIndexed(indexed, key = { _, p -> p.first }) { pos, (realIndex, h) ->
                     val note = historyNote(h)
+                    val isSelected = realIndex in selected
+                    FluentStagger(pos) {
                     Card(
-                        onClick = { onTap(h) },
-                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow)
+                        colors = CardDefaults.cardColors(
+                            containerColor = if (isSelected) MaterialTheme.colorScheme.primaryContainer
+                            else MaterialTheme.colorScheme.surfaceContainerLow
+                        )
                     ) {
                         Row(
-                            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp),
+                            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp)
+                                .combinedClickable(
+                                    interactionSource = remember { MutableInteractionSource() },
+                                    indication = LocalIndication.current,
+                                    onClick = {
+                                        if (inSelection) {
+                                            selected = if (isSelected) selected - realIndex else selected + realIndex
+                                        } else {
+                                            onTap(h)
+                                        }
+                                    },
+                                    onLongClick = { selected = selected + realIndex }
+                                ),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Column(Modifier.weight(1f)) {
@@ -374,6 +458,7 @@ private fun HistorySheetContent(
                                 Icon(Icons.Filled.Delete, contentDescription = "Delete entry")
                             }
                         }
+                    }
                     }
                 }
             }

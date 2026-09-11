@@ -1,6 +1,9 @@
 package calc.u.ui.screens
 
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
+import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -10,6 +13,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
@@ -42,12 +46,17 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
+import calc.u.core.ClockKit
+import calc.u.core.ColorKit
 import calc.u.core.Constants
 import calc.u.core.Currency
 import calc.u.core.Engine
@@ -55,6 +64,8 @@ import calc.u.core.Finance
 import calc.u.core.Geometry
 import calc.u.core.HealthDate
 import calc.u.core.Matrix
+import calc.u.core.ScreenKit
+import calc.u.core.TripKit
 import calc.u.core.Units
 import calc.u.data.CurrencyRepository
 import calc.u.data.UnitPrefsRepository
@@ -62,8 +73,10 @@ import com.microsoft.fluentui.tokenized.bottomsheet.BottomSheet
 import com.microsoft.fluentui.tokenized.bottomsheet.BottomSheetValue
 import com.microsoft.fluentui.tokenized.bottomsheet.rememberBottomSheetState
 import calc.u.ui.CalcUNumberBox
+import calc.u.ui.FluentStagger
 import calc.u.ui.ResultLine
 import calc.u.ui.SectionCard
+import calc.u.ui.theme.FluentMotion
 import java.util.Calendar
 import kotlin.math.PI
 import kotlin.math.sqrt
@@ -425,7 +438,11 @@ fun ConvertersScreen() {
                     }
                 }
                 HorizontalDivider()
-                ResultLine("Result", "$result $safeTo")
+                FluentStagger(0) {
+                    Column {
+                        ResultLine("Result", "$result $safeTo")
+                    }
+                }
             }
         }
         item {
@@ -441,10 +458,14 @@ fun ConvertersScreen() {
                     val totalCm = Units.ftInToCm(num(feet), num(inches))
                     val cmDef = Units.length["cm"]
                     HorizontalDivider()
-                    ResultLine("Centimeters", fmt(totalCm, 2))
-                    if (cmDef != null) {
-                        Units.length.forEach { (name, def) ->
-                            ResultLine(name, fmt(Units.convert(totalCm, cmDef, def), 4))
+                    FluentStagger(1) {
+                        Column {
+                            ResultLine("Centimeters", fmt(totalCm, 2))
+                            if (cmDef != null) {
+                                Units.length.forEach { (name, def) ->
+                                    ResultLine(name, fmt(Units.convert(totalCm, cmDef, def), 4))
+                                }
+                            }
                         }
                     }
                 }
@@ -464,8 +485,12 @@ fun ConvertersScreen() {
                         Units.convertCookingToWeight(volMl, num(gramsPerCup))
                     }.getOrDefault(Double.NaN)
                     HorizontalDivider()
-                    ResultLine("Volume", "${fmt(volMl, 2)} mL")
-                    ResultLine("Weight", "${fmt(weight, 2)} g")
+                    FluentStagger(2) {
+                        Column {
+                            ResultLine("Volume", "${fmt(volMl, 2)} mL")
+                            ResultLine("Weight", "${fmt(weight, 2)} g")
+                        }
+                    }
                 }
             }
         }
@@ -473,12 +498,60 @@ fun ConvertersScreen() {
             SectionCard("Bases and Roman") {
                 NumField(baseInput, { baseInput = it }, "Integer", integer = true)
                 HorizontalDivider()
-                ResultLine("Binary", if (baseLong == null) "—" else Units.fromBase(baseLong.toDouble(), 2))
-                ResultLine("Octal", if (baseLong == null) "—" else Units.fromBase(baseLong.toDouble(), 8))
-                ResultLine("Hex", if (baseLong == null) "—" else Units.fromBase(baseLong.toDouble(), 16))
-                val roman = if (baseLong == null || baseLong < 1 || baseLong > 3999) "—"
-                else runCatching { Units.toRoman(baseLong.toInt()) }.getOrDefault("—").ifEmpty { "—" }
-                ResultLine("Roman", roman)
+                FluentStagger(3) {
+                    Column {
+                        ResultLine("Binary", if (baseLong == null) "—" else Units.fromBase(baseLong.toDouble(), 2))
+                        ResultLine("Octal", if (baseLong == null) "—" else Units.fromBase(baseLong.toDouble(), 8))
+                        ResultLine("Hex", if (baseLong == null) "—" else Units.fromBase(baseLong.toDouble(), 16))
+                        val roman = if (baseLong == null || baseLong < 1 || baseLong > 3999) "—"
+                        else runCatching { Units.toRoman(baseLong.toInt()) }.getOrDefault("—").ifEmpty { "—" }
+                        ResultLine("Roman", roman)
+                    }
+                }
+            }
+        }
+        item {
+            var hex by remember { mutableStateOf("#FF0000") }
+            var rs by remember { mutableStateOf("255") }
+            var gs by remember { mutableStateOf("0") }
+            var bs by remember { mutableStateOf("0") }
+            val rgbFromHex = runCatching { ColorKit.hexToRgb(hex) }.getOrNull()
+            val ri = rs.toIntOrNull()
+            val gi = gs.toIntOrNull()
+            val bi = bs.toIntOrNull()
+            val hexFromRgb = if (ri != null && gi != null && bi != null) runCatching { ColorKit.rgbToHex(ri, gi, bi) }.getOrNull() else null
+            val hsl = if (ri != null && gi != null && bi != null) runCatching { ColorKit.rgbToHsl(ri, gi, bi) }.getOrNull() else null
+            val swatch = if (ri != null && gi != null && bi != null && ri in 0..255 && gi in 0..255 && bi in 0..255) Color(ri, gi, bi) else Color.Gray
+            SectionCard("Color") {
+                OutlinedTextField(value = hex, onValueChange = { hex = it }, label = { Text("Hex") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Box(Modifier.weight(1f)) { NumField(rs, { rs = it }, "R", integer = true) }
+                    Box(Modifier.weight(1f)) { NumField(gs, { gs = it }, "G", integer = true) }
+                    Box(Modifier.weight(1f)) { NumField(bs, { bs = it }, "B", integer = true) }
+                }
+                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Box(Modifier.weight(1f)) {
+                        Button(onClick = {
+                            val t = runCatching { ColorKit.hexToRgb(hex) }.getOrNull()
+                            if (t != null) { rs = "${t.first}"; gs = "${t.second}"; bs = "${t.third}" }
+                        }) { Text("Hex→RGB") }
+                    }
+                    Box(Modifier.weight(1f)) {
+                        Button(onClick = {
+                            val t = if (ri != null && gi != null && bi != null) runCatching { ColorKit.rgbToHex(ri, gi, bi) }.getOrNull() else null
+                            if (t != null) hex = t
+                        }) { Text("RGB→Hex") }
+                    }
+                }
+                HorizontalDivider()
+                FluentStagger(4) {
+                    Column {
+                        ResultLine("Hex→RGB", rgbFromHex?.let { "${it.first}, ${it.second}, ${it.third}" } ?: "—")
+                        ResultLine("RGB→Hex", hexFromRgb ?: "—")
+                        ResultLine("HSL", hsl?.let { "${fmt(it.first, 1)}°, ${fmt(it.second * 100, 1)}%, ${fmt(it.third * 100, 1)}%" } ?: "—")
+                    }
+                }
+                Box(Modifier.fillMaxWidth().height(48.dp).background(swatch))
             }
         }
         }
@@ -624,6 +697,45 @@ fun FinanceScreen() {
                 ResultLine("Invested", fmt(res?.first ?: Double.NaN, 2))
                 ResultLine("Gain", fmt(res?.second ?: Double.NaN, 2))
                 ResultLine("Total", fmt(res?.third ?: Double.NaN, 2))
+                val sipInvested = res?.first ?: 0.0
+                val sipGain = res?.second ?: 0.0
+                val sipTotal = res?.third ?: 0.0
+                val sipPrimary = MaterialTheme.colorScheme.primary
+                val sipTertiary = MaterialTheme.colorScheme.tertiary
+                val surfaceTrack = MaterialTheme.colorScheme.surfaceContainerHighest
+                val sipSweep by animateFloatAsState(
+                    if (sipTotal > 0) 1f else 0f,
+                    animationSpec = tween(FluentMotion.Medium, easing = FluentMotion.Standard),
+                    label = "sip-sweep"
+                )
+                Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+                    Canvas(Modifier.size(120.dp)) {
+                        val invFrac = if (sipTotal <= 0) 0f else (sipInvested / sipTotal).toFloat().coerceIn(0f, 1f)
+                        drawArc(
+                            color = surfaceTrack,
+                            startAngle = 0f,
+                            sweepAngle = 360f,
+                            useCenter = false,
+                            style = Stroke(width = 18.dp.toPx(), cap = StrokeCap.Round)
+                        )
+                        if (sipSweep > 0f) {
+                            drawArc(
+                                color = sipPrimary,
+                                startAngle = -90f,
+                                sweepAngle = 360f * invFrac * sipSweep,
+                                useCenter = false,
+                                style = Stroke(width = 18.dp.toPx(), cap = StrokeCap.Round)
+                            )
+                            drawArc(
+                                color = sipTertiary,
+                                startAngle = -90f + 360f * invFrac * sipSweep,
+                                sweepAngle = 360f * (1f - invFrac) * sipSweep,
+                                useCenter = false,
+                                style = Stroke(width = 18.dp.toPx(), cap = StrokeCap.Round)
+                            )
+                        }
+                    }
+                }
             }
         }
         item {
@@ -685,6 +797,27 @@ fun FinanceScreen() {
                 ResultLine("Net", fmt(res?.first ?: Double.NaN, 2))
                 ResultLine("Tax", fmt(res?.second ?: Double.NaN, 2))
                 ResultLine("Gross", fmt(res?.third ?: Double.NaN, 2))
+            }
+        }
+        item {
+            var dist by remember { mutableStateOf("500") }
+            var cons by remember { mutableStateOf("7.5") }
+            var fuelPrice by remember { mutableStateOf("1.8") }
+            var avg by remember { mutableStateOf("90") }
+            val cost = runCatching { TripKit.fuelCost(num(dist), num(cons), num(fuelPrice)) }.getOrNull()
+            val time = runCatching { TripKit.tripTime(num(dist), num(avg)) }.getOrNull()
+            SectionCard("Trip cost") {
+                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Box(Modifier.weight(1f)) { NumField(dist, { dist = it }, "Km") }
+                    Box(Modifier.weight(1f)) { NumField(cons, { cons = it }, "L/100km") }
+                }
+                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Box(Modifier.weight(1f)) { NumField(fuelPrice, { fuelPrice = it }, "Price/L") }
+                    Box(Modifier.weight(1f)) { NumField(avg, { avg = it }, "Avg km/h") }
+                }
+                HorizontalDivider()
+                ResultLine("Fuel cost", cost?.let { fmt(it, 2) } ?: "—")
+                ResultLine("Drive time h", time?.let { fmt(it, 2) } ?: "—")
             }
         }
     }
@@ -942,6 +1075,23 @@ private fun NumbersContent() {
                 if (hits.isEmpty()) ResultLine("No match", "—")
             }
         }
+        item {
+            var sw by remember { mutableStateOf("1920") }
+            var sh by remember { mutableStateOf("1080") }
+            var diag by remember { mutableStateOf("6.1") }
+            val aspect = runCatching { ScreenKit.aspectRatio(sw.toIntOrNull() ?: 0, sh.toIntOrNull() ?: 0) }.getOrNull()
+            val ppiV = runCatching { ScreenKit.ppi(sw.toIntOrNull() ?: 0, sh.toIntOrNull() ?: 0, num(diag)) }.getOrNull()
+            SectionCard("Screen") {
+                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Box(Modifier.weight(1f)) { NumField(sw, { sw = it }, "W px", integer = true) }
+                    Box(Modifier.weight(1f)) { NumField(sh, { sh = it }, "H px", integer = true) }
+                    Box(Modifier.weight(1f)) { NumField(diag, { diag = it }, "Inch") }
+                }
+                HorizontalDivider()
+                ResultLine("Aspect", aspect ?: "—")
+                ResultLine("PPI", ppiV?.let { fmt(it, 1) } ?: "—")
+            }
+        }
     }
 }
 
@@ -1025,6 +1175,25 @@ fun GeometryScreen() {
                 }
                 HorizontalDivider()
                 outputs.forEach { (label, value) -> ResultLine(label, value) }
+            }
+        }
+        item {
+            var sa by remember { mutableStateOf("3") }
+            var sb by remember { mutableStateOf("4") }
+            var sc by remember { mutableStateOf("5") }
+            val tri = runCatching { Geometry.solveTriangleSSS(num(sa), num(sb), num(sc)) }.getOrNull()
+            SectionCard("Triangle SSS") {
+                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Box(Modifier.weight(1f)) { NumField(sa, { sa = it }, "a") }
+                    Box(Modifier.weight(1f)) { NumField(sb, { sb = it }, "b") }
+                    Box(Modifier.weight(1f)) { NumField(sc, { sc = it }, "c") }
+                }
+                HorizontalDivider()
+                ResultLine("Angle A", tri?.get("angleA")?.let { fmt(it, 2) + "°" } ?: "—")
+                ResultLine("Angle B", tri?.get("angleB")?.let { fmt(it, 2) + "°" } ?: "—")
+                ResultLine("Angle C", tri?.get("angleC")?.let { fmt(it, 2) + "°" } ?: "—")
+                ResultLine("Perimeter", tri?.get("perimeter")?.let { fmt(it, 2) } ?: "—")
+                ResultLine("Area", tri?.get("area")?.let { fmt(it, 2) } ?: "—")
             }
         }
     }
@@ -1145,6 +1314,26 @@ fun HealthScreen() {
                     if (ageRes == null) "invalid date"
                     else "${ageRes.first}y ${ageRes.second}m ${ageRes.third}d"
                 )
+            }
+        }
+        item {
+            var cy by remember { mutableStateOf("2026") }
+            var cm by remember { mutableStateOf("9") }
+            var cd by remember { mutableStateOf("11") }
+            var zone by remember { mutableStateOf("UTC") }
+            val weekday = runCatching { ClockKit.weekdayName(cy.toIntOrNull() ?: 0, cm.toIntOrNull() ?: 0, cd.toIntOrNull() ?: 0) }.getOrNull()
+            val until = runCatching { ClockKit.daysUntil(cy.toIntOrNull() ?: 0, cm.toIntOrNull() ?: 0, cd.toIntOrNull() ?: 0) }.getOrNull()
+            SectionCard("Date and world clock") {
+                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Box(Modifier.weight(1f)) { NumField(cy, { cy = it }, "Year", integer = true) }
+                    Box(Modifier.weight(1f)) { NumField(cm, { cm = it }, "Month", integer = true) }
+                    Box(Modifier.weight(1f)) { NumField(cd, { cd = it }, "Day", integer = true) }
+                }
+                OutlinedTextField(value = zone, onValueChange = { zone = it }, label = { Text("Zone ID") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+                HorizontalDivider()
+                ResultLine("Weekday", weekday ?: "—")
+                ResultLine("Days until", until?.toString() ?: "—")
+                ResultLine(zone, ClockKit.worldTime(zone))
             }
         }
     }

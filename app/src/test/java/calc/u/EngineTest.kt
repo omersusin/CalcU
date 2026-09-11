@@ -1,10 +1,13 @@
 package calc.u
 
+import calc.u.core.ClockKit
+import calc.u.core.ColorKit
 import calc.u.core.Currency
 import calc.u.core.Engine
 import calc.u.core.Finance
 import calc.u.core.Geometry
 import calc.u.core.HealthDate
+import calc.u.core.ScreenKit
 import calc.u.core.Units
 import org.junit.Assert.*
 import org.junit.Test
@@ -177,5 +180,15 @@ class EngineTest {
         assertEquals(1.0, Units.convert(si, Units.flow["m³/s"]!!, Units.flow["L/min"]!!), 1e-9)
         val bps = Units.convert(1.0, Units.datarate["MBps"]!!, Units.datarate["bps"]!!)
         assertEquals(1.0, Units.convert(bps, Units.datarate["bps"]!!, Units.datarate["MBps"]!!), 1e-9)
+    }
+    @Test fun stolenSlice() {
+        assertEquals(Triple(255, 0, 0), ColorKit.hexToRgb("#FF0000"))
+        assertEquals("16:9", ScreenKit.aspectRatio(1920, 1080))
+        assertTrue(ScreenKit.ppi(1920, 1080, 6.1) > 0)
+        val tri = Geometry.solveTriangleSSS(3.0, 4.0, 5.0)
+        assertEquals(36.87, tri["angleA"]!!, 0.01)
+        assertEquals(53.13, tri["angleB"]!!, 0.01)
+        assertEquals(90.0, tri["angleC"]!!, 0.01)
+        assertEquals("Friday", ClockKit.weekdayName(2026, 9, 11))
     }
 }

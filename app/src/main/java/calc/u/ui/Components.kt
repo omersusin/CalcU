@@ -1,7 +1,10 @@
 package calc.u.ui
 
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.slideInVertically
@@ -13,6 +16,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ElevatedCard
@@ -78,6 +82,16 @@ fun tintExpression(input: String, number: Color, operator: Color): AnnotatedStri
     }
 
 @Composable
+fun FluentStagger(index: Int, content: @Composable () -> Unit) {
+    val delay = minOf(index * 45, 300)
+    AnimatedVisibility(
+        visible = true,
+        enter = fadeIn(tween(FluentMotion.Medium, delayMillis = delay, easing = FluentMotion.Standard)) +
+            slideInVertically(tween(FluentMotion.Medium, delayMillis = delay, easing = FluentMotion.Standard)) { it / 6 }
+    ) { content() }
+}
+
+@Composable
 fun FluentCalcKey(
     label: String,
     onClick: () -> Unit,
@@ -92,14 +106,25 @@ fun FluentCalcKey(
         animationSpec = tween(FluentMotion.Short, easing = FluentMotion.Standard),
         label = "fluent-press"
     )
+    val pressSpec = spring<Float>(stiffness = Spring.StiffnessMediumLow, dampingRatio = Spring.DampingRatioMediumBouncy)
+    val equalsScale by animateFloatAsState(
+        if (pressed) 0.91f else 1f,
+        animationSpec = pressSpec,
+        label = "fluent-equals-press"
+    )
+    val equalsCorner by animateDpAsState(
+        if (pressed) 12.dp else 50.dp,
+        animationSpec = spring(stiffness = Spring.StiffnessMediumLow, dampingRatio = Spring.DampingRatioMediumBouncy),
+        label = "fluent-equals-morph"
+    )
     val pressModifier = modifier.graphicsLayer(scaleX = scale, scaleY = scale)
     val shape = MaterialTheme.shapes.small
     when (kind) {
         FluentKeyKind.Equals -> Button(
             onClick = onClick,
-            modifier = pressModifier.height(keyHeight),
+            modifier = modifier.graphicsLayer(scaleX = equalsScale, scaleY = equalsScale).height(keyHeight),
             interactionSource = interactions,
-            shape = shape,
+            shape = RoundedCornerShape(equalsCorner),
             elevation = ButtonDefaults.buttonElevation(defaultElevation = 4.dp, pressedElevation = 2.dp)
         ) { Text(label, style = MaterialTheme.typography.titleMedium) }
         FluentKeyKind.Operator -> FilledTonalButton(
