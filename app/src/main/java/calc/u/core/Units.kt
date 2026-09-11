@@ -59,6 +59,42 @@ object Units {
         "km_l" to UnitDef("km_l", Double.NaN),
         "km/L" to UnitDef("km/L", Double.NaN)
     )
+    val cooking = mapOf(
+        "tsp" to UnitDef("tsp", 4.92892159375),
+        "tbsp" to UnitDef("tbsp", 14.78676478125),
+        "fl_oz" to UnitDef("fl_oz", 29.5735295625),
+        "cup" to UnitDef("cup", 236.5882365),
+        "pint_us" to UnitDef("pint_us", 473.176473),
+        "pint_uk" to UnitDef("pint_uk", 568.26125),
+        "quart_us" to UnitDef("quart_us", 946.352946),
+        "quart_uk" to UnitDef("quart_uk", 1136.5225),
+        "gallon_us" to UnitDef("gallon_us", 3785.411784),
+        "gallon_uk" to UnitDef("gallon_uk", 4546.09),
+        "ml" to UnitDef("ml", 1.0),
+        "l" to UnitDef("l", 1000.0)
+    )
+    val shoe = mapOf(
+        "US_M" to UnitDef("US_M", 3.0),
+        "US_W" to UnitDef("US_W", 2.5714285714285716),
+        "UK" to UnitDef("UK", 3.375),
+        "EU" to UnitDef("EU", 0.6428571428571429),
+        "CM" to UnitDef("CM", 1.0)
+    )
+    val ring = mapOf(
+        "US" to UnitDef("US", 8.666666666666666),
+        "UK" to UnitDef("UK", 9.454545454545455),
+        "EU" to UnitDef("EU", 1.0),
+        "JP" to UnitDef("JP", 4.333333333333333)
+    )
+    val historic = mapOf(
+        "cubit" to UnitDef("cubit", 0.4572),
+        "furlong" to UnitDef("furlong", 201.168),
+        "light_year" to UnitDef("light_year", 9.4607304725808E15),
+        "angstrom" to UnitDef("angstrom", 1.0E-10),
+        "parsec" to UnitDef("parsec", 3.08567758149137E16),
+        "stone" to UnitDef("stone", 6.35029318),
+        "grain" to UnitDef("grain", 6.479891E-5)
+    )
 
     private val fuelIds = fuel.keys
     private const val MPG_US_CONST = 235.214583
@@ -79,6 +115,11 @@ object Units {
         require(from in fuelIds) { "unknown fuel unit: $from" }
         require(to in fuelIds) { "unknown fuel unit: $to" }
         return l100kmToFuel(fuelToL100km(value, from), to)
+    }
+
+    fun convertCookingToWeight(volumeMl: Double, gramsPerCup: Double): Double {
+        val cupMl = cooking["cup"]?.toBase ?: 236.5882365
+        return volumeMl * gramsPerCup / cupMl
     }
 
     fun convert(value: Double, from: UnitDef, to: UnitDef): Double {

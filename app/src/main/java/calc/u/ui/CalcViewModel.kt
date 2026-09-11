@@ -87,4 +87,5 @@ class CalcViewModel @Inject constructor(private val historyRepo: HistoryReposito
     fun onMemClear() { _uiState.update { it.copy(memory = 0.0) } }
     fun onClearHistory() { viewModelScope.launch { historyRepo.clear() } }
     fun onDeleteHistoryAt(index: Int) { viewModelScope.launch { historyRepo.deleteAt(index) } }
+    fun onSetHistoryNote(index: Int, note: String) { viewModelScope.launch { historyRepo.setNote(index, note) } }
 }

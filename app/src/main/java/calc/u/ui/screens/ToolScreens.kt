@@ -11,6 +11,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.material3.Button
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExposedDropdownMenuBox
@@ -22,25 +23,32 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
+import calc.u.core.Currency
 import calc.u.core.Engine
 import calc.u.core.Finance
 import calc.u.core.Geometry
 import calc.u.core.HealthDate
 import calc.u.core.Units
+import calc.u.data.CurrencyRepository
 import calc.u.ui.ResultLine
 import calc.u.ui.SectionCard
 import java.util.Calendar
 import kotlin.math.PI
 import kotlin.math.sqrt
+import kotlinx.coroutines.launch
 
 private fun fmt(v: Double, digits: Int = 4): String {
     if (!v.isFinite()) return "—"
@@ -60,6 +68,10 @@ private fun mapFor(cat: String): Map<String, Units.UnitDef> = when (cat) {
     "power" -> Units.power
     "data" -> Units.data
     "fuel" -> Units.fuel
+    "cooking" -> Units.cooking
+    "shoe" -> Units.shoe
+    "ring" -> Units.ring
+    "historic" -> Units.historic
     else -> emptyMap()
 }
 
@@ -186,6 +198,46 @@ private fun UnitDropdown(
     }
 }
 
+@Composable
+private fun CurrencyCard() {
+    val appCtx = LocalContext.current.applicationContext
+    val repo = remember { CurrencyRepository(appCtx) }
+    val rates by repo.rates.collectAsState(initial = Currency.fallbackUsdRates)
+    val stale by repo.isStale.collectAsState(initial = true)
+    val source by repo.source.collectAsState()
+    var amount by remember { mutableStateOf("100") }
+    var from by remember { mutableStateOf("USD") }
+    var to by remember { mutableStateOf("EUR") }
+    val scope = rememberCoroutineScope()
+    LaunchedEffect(Unit) { repo.refresh() }
+    val options = remember(rates) { (Currency.codes + rates.keys).distinct().sorted() }
+    val safeFrom = if (from in options) from else "USD"
+    val safeTo = if (to in options) to else "EUR"
+    val fromRate = rates[safeFrom] ?: Currency.fallbackUsdRates[safeFrom] ?: 0.0
+    val toRate = rates[safeTo] ?: Currency.fallbackUsdRates[safeTo] ?: 0.0
+    val result = Currency.convert(num(amount), fromRate, toRate)
+    SectionCard("Currency") {
+        NumField(amount, { amount = it }, "Amount")
+        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            Box(Modifier.weight(1f)) { UnitDropdown(safeFrom, options, { from = it }, "From") }
+            Box(Modifier.weight(1f)) { UnitDropdown(safeTo, options, { to = it }, "To") }
+        }
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween,
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Text(
+                if (stale && source.label == "live") "live · stale" else source.label,
+                style = MaterialTheme.typography.labelLarge
+            )
+            Button(onClick = { scope.launch { repo.refresh() } }) { Text("Refresh") }
+        }
+        HorizontalDivider()
+        ResultLine("Result", "${fmt(result, 2)} $safeTo")
+    }
+}
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ConvertersScreen() {
@@ -196,9 +248,12 @@ fun ConvertersScreen() {
     var feet by remember { mutableStateOf("5") }
     var inches by remember { mutableStateOf("9") }
     var baseInput by remember { mutableStateOf("42") }
+    var cookCups by remember { mutableStateOf("1") }
+    var gramsPerCup by remember { mutableStateOf("128") }
     val cats = listOf(
         "length", "mass", "volume", "temp", "area", "speed",
-        "pressure", "energy", "power", "data", "fuel"
+        "pressure", "energy", "power", "data", "fuel",
+        "cooking", "shoe", "ring", "historic"
     )
     val v = num(input)
     val units: List<String> = if (cat == "temp") Units.temperature else mapFor(cat).keys.toList()
@@ -239,6 +294,9 @@ fun ConvertersScreen() {
                 ResultLine("Result", "$result $safeTo")
             }
         }
+        item {
+            CurrencyCard()
+        }
         if (cat == "length") {
             item {
                 SectionCard("Feet and inches") {
@@ -255,6 +313,25 @@ fun ConvertersScreen() {
                             ResultLine(name, fmt(Units.convert(totalCm, cmDef, def), 4))
                         }
                     }
+                }
+            }
+        }
+        if (cat == "cooking") {
+            item {
+                SectionCard("Cups to grams") {
+                    Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                        Box(Modifier.weight(1f)) { NumField(cookCups, { cookCups = it }, "Cups") }
+                        Box(Modifier.weight(1f)) { NumField(gramsPerCup, { gramsPerCup = it }, "Grams per cup") }
+                    }
+                    val volMl = runCatching {
+                        Units.convert(num(cookCups), Units.cooking["cup"]!!, Units.cooking["ml"]!!)
+                    }.getOrDefault(Double.NaN)
+                    val weight = runCatching {
+                        Units.convertCookingToWeight(volMl, num(gramsPerCup))
+                    }.getOrDefault(Double.NaN)
+                    HorizontalDivider()
+                    ResultLine("Volume", "${fmt(volMl, 2)} mL")
+                    ResultLine("Weight", "${fmt(weight, 2)} g")
                 }
             }
         }
@@ -769,6 +846,224 @@ fun HealthScreen() {
                     if (ageRes == null) "invalid date"
                     else "${ageRes.first}y ${ageRes.second}m ${ageRes.third}d"
                 )
+            }
+        }
+    }
+}
+
+@Composable
+fun StepsScreen() {
+    var tab by remember { mutableStateOf("quad") }
+    var qa by remember { mutableStateOf("1") }
+    var qb by remember { mutableStateOf("-3") }
+    var qc by remember { mutableStateOf("2") }
+    var ep by remember { mutableStateOf("10000") }
+    var er by remember { mutableStateOf("5") }
+    var en by remember { mutableStateOf("24") }
+    var g1 by remember { mutableStateOf("48") }
+    var g2 by remember { mutableStateOf("18") }
+    var cv by remember { mutableStateOf("1") }
+    var cf by remember { mutableStateOf("km") }
+    var ct by remember { mutableStateOf("m") }
+    val tabs = listOf("quad" to "Quadratic", "emi" to "EMI", "gcd" to "GCD", "units" to "Units")
+    Column(
+        Modifier.fillMaxSize().padding(vertical = 16.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
+        LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            items(tabs) { (id, label) ->
+                FilterChip(selected = tab == id, onClick = { tab = id }, label = { Text(label) })
+            }
+        }
+        Box(Modifier.weight(1f).fillMaxWidth()) {
+            when (tab) {
+                "emi" -> {
+                    val p = ep.toDoubleOrNull()
+                    val annual = er.toDoubleOrNull()
+                    val months = en.toIntOrNull()
+                    LazyColumn(Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                        item {
+                            SectionCard("Inputs") {
+                                NumField(ep, { ep = it }, "Principal")
+                                NumField(er, { er = it }, "Annual %")
+                                NumField(en, { en = it }, "Months", integer = true)
+                            }
+                        }
+                        item {
+                            SectionCard("Steps") {
+                                if (p == null || annual == null || months == null || months <= 0 || p <= 0) {
+                                    Text(
+                                        "Enter a principal above 0, a valid rate, and whole months above 0.",
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        color = MaterialTheme.colorScheme.error
+                                    )
+                                } else {
+                                    val r = annual / 1200
+                                    val emi = Finance.emi(p, annual, months)
+                                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                                        Text("1. Monthly rate r = $annual / 12 / 100 = ${fmt(r, 6)}", style = MaterialTheme.typography.bodyMedium)
+                                        if (r == 0.0) {
+                                            Text("2. No interest, so EMI = P / n = ${fmt(p, 2)} / $months", style = MaterialTheme.typography.bodyMedium)
+                                        } else {
+                                            val f = Math.pow(1 + r, months.toDouble())
+                                            Text("2. Growth factor (1 + r)^n = (1 + ${fmt(r, 6)})^$months = ${fmt(f, 6)}", style = MaterialTheme.typography.bodyMedium)
+                                            Text("3. EMI = P·r·(1+r)^n / ((1+r)^n − 1) = ${fmt(p, 2)}·${fmt(r, 6)}·${fmt(f, 6)} / ${fmt(f - 1, 6)}", style = MaterialTheme.typography.bodyMedium)
+                                        }
+                                        Text("4. Pay ${fmt(emi, 2)} each month for $months months", style = MaterialTheme.typography.bodyMedium)
+                                    }
+                                    HorizontalDivider()
+                                    ResultLine("Monthly EMI", fmt(emi, 2))
+                                    ResultLine("Total interest", fmt(emi * months - p, 2))
+                                }
+                            }
+                        }
+                    }
+                }
+                "gcd" -> {
+                    val a = g1.toLongOrNull()
+                    val b = g2.toLongOrNull()
+                    LazyColumn(Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                        item {
+                            SectionCard("Inputs") {
+                                NumField(g1, { g1 = it }, "a", integer = true)
+                                NumField(g2, { g2 = it }, "b", integer = true)
+                            }
+                        }
+                        item {
+                            SectionCard("Steps") {
+                                if (a == null || b == null) {
+                                    Text(
+                                        "Enter two whole numbers.",
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        color = MaterialTheme.colorScheme.error
+                                    )
+                                } else if (a == 0L && b == 0L) {
+                                    Text(
+                                        "GCD(0, 0) is undefined. Enter at least one non-zero value.",
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        color = MaterialTheme.colorScheme.error
+                                    )
+                                } else {
+                                    var x = Math.abs(a)
+                                    var y = Math.abs(b)
+                                    val lines = mutableListOf<String>()
+                                    var i = 1
+                                    while (y != 0L) {
+                                        lines.add("$i. $x = $y × ${x / y} + ${x % y}")
+                                        val t = x % y
+                                        x = y
+                                        y = t
+                                        i++
+                                    }
+                                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                                        lines.forEach { Text(it, style = MaterialTheme.typography.bodyMedium) }
+                                        Text("$i. Remainder is 0, so the last non-zero remainder is the GCD", style = MaterialTheme.typography.bodyMedium)
+                                    }
+                                    HorizontalDivider()
+                                    ResultLine("GCD", "$x")
+                                }
+                            }
+                        }
+                    }
+                }
+                "units" -> {
+                    val v = cv.toDoubleOrNull()
+                    val f = Units.length[cf.trim()]
+                    val t = Units.length[ct.trim()]
+                    val names = Units.length.keys.sorted().joinToString(", ")
+                    LazyColumn(Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                        item {
+                            SectionCard("Inputs") {
+                                NumField(cv, { cv = it }, "Value")
+                                NumField(cf, { cf = it }, "From unit")
+                                NumField(ct, { ct = it }, "To unit")
+                                Text(
+                                    "Available: $names",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                        }
+                        item {
+                            SectionCard("Steps") {
+                                if (v == null) {
+                                    Text(
+                                        "Enter a valid number to convert.",
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        color = MaterialTheme.colorScheme.error
+                                    )
+                                } else if (f == null || t == null) {
+                                    Text(
+                                        "Unknown unit. Use one of: $names.",
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        color = MaterialTheme.colorScheme.error
+                                    )
+                                } else {
+                                    val base = v * f.toBase / 1.0
+                                    val out = Units.convert(v, f, t)
+                                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                                        Text("1. Factors to metres: 1 ${f.id} = ${fmt(f.toBase, 6)} m, 1 ${t.id} = ${fmt(t.toBase, 6)} m", style = MaterialTheme.typography.bodyMedium)
+                                        Text("2. To base: $v × ${fmt(f.toBase, 6)} = ${fmt(base, 6)} m", style = MaterialTheme.typography.bodyMedium)
+                                        Text("3. To target: ${fmt(base, 6)} ÷ ${fmt(t.toBase, 6)} = ${fmt(out, 6)} ${t.id}", style = MaterialTheme.typography.bodyMedium)
+                                    }
+                                    HorizontalDivider()
+                                    ResultLine("Result", "${fmt(out)} ${t.id}")
+                                }
+                            }
+                        }
+                    }
+                }
+                else -> {
+                    val a = qa.toDoubleOrNull()
+                    val b = qb.toDoubleOrNull()
+                    val c = qc.toDoubleOrNull()
+                    LazyColumn(Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                        item {
+                            SectionCard("Inputs") {
+                                NumField(qa, { qa = it }, "a")
+                                NumField(qb, { qb = it }, "b")
+                                NumField(qc, { qc = it }, "c")
+                            }
+                        }
+                        item {
+                            SectionCard("Steps") {
+                                if (a == null || b == null || c == null) {
+                                    Text(
+                                        "Enter valid numbers for a, b, and c.",
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        color = MaterialTheme.colorScheme.error
+                                    )
+                                } else if (a == 0.0) {
+                                    Text(
+                                        "Coefficient a must not be zero for a quadratic. Got a = 0.",
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        color = MaterialTheme.colorScheme.error
+                                    )
+                                } else {
+                                    val d = b * b - 4 * a * c
+                                    val nature = when {
+                                        d > 0 -> "D > 0, so two distinct real roots"
+                                        d == 0.0 -> "D = 0, so one repeated real root"
+                                        else -> "D < 0, so a pair of complex roots"
+                                    }
+                                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                                        Text("1. Equation: ${fmt(a)}x² + ${fmt(b)}x + ${fmt(c)} = 0", style = MaterialTheme.typography.bodyMedium)
+                                        Text("2. D = b² − 4ac = (${fmt(b)})² − 4·(${fmt(a)})·(${fmt(c)}) = ${fmt(d)}", style = MaterialTheme.typography.bodyMedium)
+                                        Text("3. $nature", style = MaterialTheme.typography.bodyMedium)
+                                        if (d >= 0) {
+                                            val s = sqrt(d)
+                                            Text("4. x = (−b ± √D) / 2a = (${fmt(-b)} ± ${fmt(s)}) / ${fmt(2 * a)}", style = MaterialTheme.typography.bodyMedium)
+                                        } else {
+                                            Text("4. x = (−b ± i√|D|) / 2a = (${fmt(-b)} ± ${fmt(sqrt(-d))}i) / ${fmt(2 * a)}", style = MaterialTheme.typography.bodyMedium)
+                                        }
+                                    }
+                                    HorizontalDivider()
+                                    ResultLine("Roots", Engine.solveQuadratic(a, b, c).joinToString())
+                                }
+                            }
+                        }
+                    }
+                }
             }
         }
     }

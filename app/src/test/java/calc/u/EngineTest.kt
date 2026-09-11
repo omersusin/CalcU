@@ -98,4 +98,24 @@ class EngineTest {
         val eur = Currency.Rate("EUR", 0.92)
         assertEquals(92.0, Currency.convert(100.0, usd, eur), 1e-9)
     }
+    @Test fun cookingCupIs236588Ml() {
+        assertEquals(236.588, Units.convert(1.0, Units.cooking["cup"]!!, Units.cooking["ml"]!!), 0.01)
+        assertEquals(128.0, Units.convertCookingToWeight(236.5882365, 128.0), 0.01)
+    }
+    @Test fun shoeEu42Is27cm() {
+        assertEquals(27.0, Units.convert(42.0, Units.shoe["EU"]!!, Units.shoe["CM"]!!), 0.5)
+    }
+    @Test fun romanBoundsHold() {
+        assertEquals("—", Units.toRoman(0))
+        assertEquals("—", Units.toRoman(4000))
+    }
+    @Test fun historicFurlongIs201m() {
+        assertEquals(201.168, Units.convert(1.0, Units.historic["furlong"]!!, Units.length["m"]!!), 1e-6)
+    }
+    @Test fun currencyConvertMath() {
+        assertEquals(0.0, Currency.convert(100.0, 0.0, 0.92), 0.0)
+        assertEquals(100.0, Currency.convert(100.0, 1.0, 1.0), 1e-9)
+        assertEquals(50.0, Currency.convert(100.0, 2.0, 1.0), 1e-9)
+        assertEquals(184.0, Currency.convert(100.0, 0.5, 0.92), 1e-9)
+    }
 }

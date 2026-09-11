@@ -21,7 +21,7 @@ class HistoryRepository @Inject constructor(@ApplicationContext private val ctx:
         try { Json.decodeFromString<List<String>>(it[key] ?: "[]") } catch (e: Exception) { emptyList() }
     }
     suspend fun push(expr: String, result: String) {
-        val entry = "${System.currentTimeMillis()}|$expr=$result"
+        val entry = "${System.currentTimeMillis()}|$expr=$result|"
         ctx.dataStore.edit { p ->
             val cur: MutableList<String> = try { Json.decodeFromString<MutableList<String>>(p[key] ?: "[]") } catch (e: Exception) { mutableListOf() }
             cur.add(0, entry)
@@ -35,6 +35,19 @@ class HistoryRepository @Inject constructor(@ApplicationContext private val ctx:
         ctx.dataStore.edit { p ->
             val cur: MutableList<String> = try { Json.decodeFromString<MutableList<String>>(p[key] ?: "[]") } catch (e: Exception) { mutableListOf() }
             if (index in cur.indices) cur.removeAt(index)
+            p[key] = Json.encodeToString(cur.take(200))
+        }
+    }
+    suspend fun setNote(index: Int, note: String) {
+        val clean = note.replace("|", "/").replace("\n", " ").take(140)
+        ctx.dataStore.edit { p ->
+            val cur: MutableList<String> = try { Json.decodeFromString<MutableList<String>>(p[key] ?: "[]") } catch (e: Exception) { mutableListOf() }
+            if (index in cur.indices) {
+                val parts = cur[index].split("|", limit = 3)
+                val ts = parts.getOrNull(0) ?: System.currentTimeMillis().toString()
+                val body = parts.getOrNull(1) ?: ""
+                cur[index] = "$ts|$body|$clean"
+            }
             p[key] = Json.encodeToString(cur.take(200))
         }
     }

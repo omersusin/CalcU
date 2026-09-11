@@ -15,6 +15,7 @@ import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.ShowChart
 import androidx.compose.material.icons.filled.SwapHoriz
+import androidx.compose.material.icons.filled.Timeline
 import androidx.compose.material3.DrawerValue
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -56,6 +57,7 @@ import calc.u.ui.screens.FinanceScreen
 import calc.u.ui.screens.GraphScreen
 import calc.u.ui.screens.MathScreen
 import calc.u.ui.screens.SettingsScreen
+import calc.u.ui.screens.StepsScreen
 import calc.u.ui.theme.CalcUTheme
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.launch
@@ -69,6 +71,7 @@ private val Dests = listOf(
     Dest("convert", "Convert", Icons.Filled.SwapHoriz),
     Dest("finance", "Finance", Icons.Filled.AttachMoney),
     Dest("math", "Math", Icons.Filled.GridOn),
+    Dest("steps", "Steps", Icons.Filled.Timeline),
     Dest("settings", "Settings", Icons.Filled.Settings)
 )
 
@@ -165,6 +168,7 @@ class MainActivity : ComponentActivity() {
                                     composable("convert") { Centered { ConvertersScreen() } }
                                     composable("finance") { Centered { FinanceScreen() } }
                                     composable("math") { Centered { MathScreen() } }
+                                    composable("steps") { Centered { StepsScreen() } }
                                     composable("settings") { Centered { SettingsScreen() } }
                                 }
                             }

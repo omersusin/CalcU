@@ -10,11 +10,15 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Backspace
 import androidx.compose.material.icons.filled.ContentCopy
+import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.NoteAdd
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
@@ -55,6 +59,14 @@ import calc.u.ui.SectionCard
 
 private val XSubst = Regex("(?<![A-Za-z])x(?![A-Za-z])")
 
+private fun historyBody(entry: String): String {
+    val after = entry.substringAfter("|", entry)
+    return if (entry.count { it == '|' } >= 2) after.substringBeforeLast("|") else after
+}
+
+private fun historyNote(entry: String): String =
+    if (entry.count { it == '|' } >= 2) entry.substringAfterLast("|") else ""
+
 @Composable
 fun CalculatorScreen(vm: CalcViewModel = hiltViewModel()) {
     val st by vm.uiState.collectAsStateWithLifecycle()
@@ -71,6 +83,11 @@ fun CalculatorScreen(vm: CalcViewModel = hiltViewModel()) {
         }
     }
     val filtered = if (st.query.isBlank()) st.history else st.history.filter { it.contains(st.query, ignoreCase = true) }
+    val indexed = st.history.mapIndexed { i, h -> i to h }.filter { (_, h) ->
+        st.query.isBlank() || h.contains(st.query, ignoreCase = true)
+    }.take(30)
+    var noteIndex by remember { mutableStateOf<Int?>(null) }
+    var noteDraft by remember { mutableStateOf("") }
     Box(Modifier.fillMaxSize()) {
         LazyColumn(
             Modifier.fillMaxSize().padding(vertical = 16.dp),
@@ -156,7 +173,7 @@ fun CalculatorScreen(vm: CalcViewModel = hiltViewModel()) {
             if (st.history.isEmpty()) {
                 item {
                     Text(
-                        "No calculations yet. Results you evaluate will appear here.",
+                        "No history yet",
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -170,18 +187,67 @@ fun CalculatorScreen(vm: CalcViewModel = hiltViewModel()) {
                     )
                 }
             } else {
-                items(filtered.take(30)) { h ->
+                items(indexed) { (realIndex, h) ->
+                    val note = historyNote(h)
                     Card(
                         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow)
                     ) {
-                        Text(
-                            h,
-                            style = MaterialTheme.typography.bodyMedium,
-                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp)
-                        )
+                        Row(
+                            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Column(Modifier.weight(1f)) {
+                                Text(
+                                    historyBody(h),
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    modifier = Modifier.padding(vertical = 8.dp)
+                                )
+                                if (note.isNotBlank()) {
+                                    Text(
+                                        note,
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        modifier = Modifier.padding(bottom = 8.dp)
+                                    )
+                                }
+                            }
+                            IconButton(
+                                onClick = { noteIndex = realIndex; noteDraft = note },
+                                modifier = Modifier.size(48.dp)
+                            ) {
+                                Icon(
+                                    if (note.isBlank()) Icons.Filled.NoteAdd else Icons.Filled.Edit,
+                                    contentDescription = if (note.isBlank()) "Add note" else "Edit note"
+                                )
+                            }
+                        }
                     }
                 }
             }
+        }
+        val editIndex = noteIndex
+        if (editIndex != null) {
+            AlertDialog(
+                onDismissRequest = { noteIndex = null },
+                title = { Text("History note") },
+                text = {
+                    OutlinedTextField(
+                        value = noteDraft,
+                        onValueChange = { noteDraft = it },
+                        label = { Text("Note") },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                },
+                confirmButton = {
+                    TextButton(onClick = { vm.onSetHistoryNote(editIndex, noteDraft.trim()); noteIndex = null }) {
+                        Text("Save")
+                    }
+                },
+                dismissButton = {
+                    TextButton(onClick = { noteIndex = null }) { Text("Cancel") }
+                }
+            )
         }
         SnackbarHost(hostState = snackbar, modifier = Modifier.align(Alignment.BottomCenter))
     }
