@@ -78,6 +78,13 @@ object FluentMotion {
     val Standard: Easing = CubicBezierEasing(0.1f, 0.9f, 0.2f, 1.0f)
 }
 
+object FluentElevation {
+    val Display = 4.dp
+    val Key = 2.dp
+    val KeyPressed = 1.dp
+    val AccentKey = 4.dp
+}
+
 private fun fluentType(): Typography {
     val f = FontFamily.Default
     fun s(size: Int, height: Int, w: FontWeight) = TextStyle(

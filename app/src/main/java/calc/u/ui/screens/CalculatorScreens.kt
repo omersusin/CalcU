@@ -1,10 +1,24 @@
 package calc.u.ui.screens
 
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateContentSize
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
+import androidx.compose.animation.togetherWith
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.LocalIndication
 import androidx.compose.foundation.border
 import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsPressedAsState
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -25,17 +39,14 @@ import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.NoteAdd
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.AssistChip
-import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ElevatedCard
-import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
@@ -52,12 +63,14 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -65,10 +78,16 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import calc.u.core.Engine
 import calc.u.ui.CalcEffect
 import calc.u.ui.CalcViewModel
+import calc.u.ui.FluentCalcKey
 import calc.u.ui.FluentInfoBar
+import calc.u.ui.FluentKeyKind
 import calc.u.ui.FluentTeachingTip
 import calc.u.ui.SectionCard
 import calc.u.ui.WARNING
+import calc.u.ui.theme.FluentElevation
+import calc.u.ui.theme.FluentMotion
+import calc.u.ui.theme.FluentStroke
+import calc.u.ui.tintExpression
 import com.microsoft.fluentui.tokenized.bottomsheet.BottomSheet
 import com.microsoft.fluentui.tokenized.bottomsheet.BottomSheetValue
 import com.microsoft.fluentui.tokenized.bottomsheet.rememberBottomSheetState
@@ -133,10 +152,14 @@ fun CalculatorScreen(vm: CalcViewModel = hiltViewModel()) {
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             item {
+                val stroke = if (isSystemInDarkTheme()) FluentStroke.CardDark else FluentStroke.CardLight
                 ElevatedCard(
                     colors = CardDefaults.elevatedCardColors(
-                        containerColor = MaterialTheme.colorScheme.surfaceContainerHigh
-                    )
+                        containerColor = MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = 0.72f)
+                    ),
+                    border = BorderStroke(1.dp, stroke),
+                    elevation = CardDefaults.elevatedCardElevation(defaultElevation = FluentElevation.Display),
+                    shape = MaterialTheme.shapes.medium
                 ) {
                     Column(
                         Modifier.fillMaxWidth().padding(20.dp).animateContentSize(),
@@ -144,26 +167,51 @@ fun CalculatorScreen(vm: CalcViewModel = hiltViewModel()) {
                         horizontalAlignment = Alignment.End
                     ) {
                         Text(
-                            st.input.ifBlank { "0" },
+                            tintExpression(
+                                st.input.ifBlank { "0" },
+                                MaterialTheme.colorScheme.onSurface,
+                                MaterialTheme.colorScheme.primary
+                            ),
                             style = MaterialTheme.typography.titleLarge,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
                             maxLines = 3,
-                            overflow = TextOverflow.Ellipsis
+                            overflow = TextOverflow.Ellipsis,
+                            textAlign = TextAlign.End,
+                            modifier = Modifier.fillMaxWidth()
                         )
-                        Row(verticalAlignment = Alignment.CenterVertically) {
+                        AnimatedContent(
+                            targetState = st.result,
+                            transitionSpec = {
+                                (slideInVertically(tween(FluentMotion.Medium, easing = FluentMotion.Standard)) { it / 4 } + fadeIn()) togetherWith
+                                    (slideOutVertically(tween(FluentMotion.Medium, easing = FluentMotion.Standard)) { -it / 4 } + fadeOut())
+                            },
+                            label = "result"
+                        ) { target ->
                             Text(
-                                st.result.ifBlank { "" },
+                                target.ifBlank { "" },
                                 style = MaterialTheme.typography.displayMedium,
                                 color = MaterialTheme.colorScheme.primary,
                                 maxLines = 2,
                                 overflow = TextOverflow.Ellipsis,
-                                modifier = Modifier.weight(1f)
+                                textAlign = TextAlign.End,
+                                modifier = Modifier.fillMaxWidth()
                             )
-                            IconButton(onClick = { scope.launch { historySheet.show() } }) {
+                        }
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.End,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            IconButton(
+                                onClick = { scope.launch { historySheet.show() } },
+                                modifier = Modifier.size(48.dp)
+                            ) {
                                 Icon(Icons.Filled.History, contentDescription = "Open history")
                             }
                             if (st.result.isNotBlank()) {
-                                IconButton(onClick = { vm.onCopyResult() }) {
+                                IconButton(
+                                    onClick = { vm.onCopyResult() },
+                                    modifier = Modifier.size(48.dp)
+                                ) {
                                     Icon(Icons.Filled.ContentCopy, contentDescription = "Copy result")
                                 }
                             }
@@ -348,50 +396,79 @@ private fun Keypad(
         listOf("(", ")", "^", "√"),
         listOf("sin(", "cos(", "tan(", "π")
     )
-    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        sciRows.forEach { row ->
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                row.forEach { k ->
-                    OutlinedButton(
-                        onClick = { onKey(k) },
-                        modifier = Modifier.weight(1f).height(48.dp)
-                    ) { Text(k, style = MaterialTheme.typography.titleSmall) }
-                }
-            }
-        }
-        digitRows.forEach { row ->
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                row.forEach { k ->
-                    val isOp = k in setOf("÷", "×", "−", "+")
-                    when {
-                        k == "=" -> Button(
+    fun rowEnter(delay: Int) =
+        fadeIn(tween(FluentMotion.Medium, delayMillis = delay, easing = FluentMotion.Standard)) +
+            slideInVertically(tween(FluentMotion.Medium, delayMillis = delay, easing = FluentMotion.Standard)) { it / 8 }
+    val backInteractions = remember { MutableInteractionSource() }
+    val backPressed by backInteractions.collectIsPressedAsState()
+    val backScale by animateFloatAsState(
+        if (backPressed) 0.95f else 1f,
+        animationSpec = tween(FluentMotion.Short, easing = FluentMotion.Standard),
+        label = "back-press"
+    )
+    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        sciRows.forEachIndexed { i, row ->
+            AnimatedVisibility(visible = true, enter = rowEnter(i * 40)) {
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    row.forEach { k ->
+                        FluentCalcKey(
+                            label = k,
                             onClick = { onKey(k) },
-                            modifier = Modifier.weight(1f).height(56.dp)
-                        ) { Text(k, style = MaterialTheme.typography.titleMedium) }
-                        isOp -> FilledTonalButton(
-                            onClick = { onKey(k) },
-                            modifier = Modifier.weight(1f).height(56.dp)
-                        ) { Text(k, style = MaterialTheme.typography.titleMedium) }
-                        else -> FilledTonalButton(
-                            onClick = { onKey(k) },
-                            modifier = Modifier.weight(1f).height(56.dp)
-                        ) { Text(k, style = MaterialTheme.typography.titleLarge) }
+                            modifier = Modifier.weight(1f),
+                            kind = FluentKeyKind.Sci,
+                            keyHeight = 48.dp
+                        )
                     }
                 }
             }
         }
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            OutlinedButton(onClick = onClear, modifier = Modifier.weight(1f).height(48.dp)) {
-                Text("C", style = MaterialTheme.typography.titleSmall)
+        digitRows.forEachIndexed { j, row ->
+            AnimatedVisibility(visible = true, enter = rowEnter((j + sciRows.size) * 40)) {
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    row.forEach { k ->
+                        val isOp = k in setOf("÷", "×", "−", "+")
+                        FluentCalcKey(
+                            label = k,
+                            onClick = { onKey(k) },
+                            modifier = Modifier.weight(1f),
+                            kind = when {
+                                k == "=" -> FluentKeyKind.Equals
+                                isOp -> FluentKeyKind.Operator
+                                else -> FluentKeyKind.Digit
+                            },
+                            keyHeight = 60.dp
+                        )
+                    }
+                }
             }
-            Box(
-                modifier = Modifier.weight(1f).height(48.dp)
-                    .clip(ButtonDefaults.outlinedShape)
-                    .border(1.dp, MaterialTheme.colorScheme.outline, ButtonDefaults.outlinedShape)
-                    .combinedClickable(onClick = onBack, onLongClick = onBackLong),
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(Icons.Filled.Backspace, contentDescription = "Backspace, long-press to clear")
+        }
+        AnimatedVisibility(
+            visible = true,
+            enter = rowEnter((sciRows.size + digitRows.size) * 40)
+        ) {
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                FluentCalcKey(
+                    label = "C",
+                    onClick = onClear,
+                    modifier = Modifier.weight(1f),
+                    kind = FluentKeyKind.Sci,
+                    keyHeight = 48.dp
+                )
+                Box(
+                    modifier = Modifier.weight(1f).height(48.dp)
+                        .graphicsLayer(scaleX = backScale, scaleY = backScale)
+                        .clip(ButtonDefaults.outlinedShape)
+                        .border(1.dp, MaterialTheme.colorScheme.outline, ButtonDefaults.outlinedShape)
+                        .combinedClickable(
+                            interactionSource = backInteractions,
+                            indication = LocalIndication.current,
+                            onClick = onBack,
+                            onLongClick = onBackLong
+                        ),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(Icons.Filled.Backspace, contentDescription = "Backspace, long-press to clear")
+                }
             }
         }
     }
