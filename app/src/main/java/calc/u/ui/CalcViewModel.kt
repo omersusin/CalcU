@@ -12,6 +12,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import java.math.BigDecimal
 import javax.inject.Inject
 
 data class CalcUiState(
@@ -19,7 +20,8 @@ data class CalcUiState(
     val result: String = "",
     val angleDeg: Boolean = true,
     val memory: Double = 0.0,
-    val history: List<String> = emptyList()
+    val history: List<String> = emptyList(),
+    val query: String = ""
 ) {
     val canEvaluate: Boolean get() = input.isNotBlank()
 }
@@ -45,13 +47,19 @@ class CalcViewModel @Inject constructor(private val historyRepo: HistoryReposito
     fun onClear() { _uiState.update { it.copy(input = "", result = "") } }
     fun onBackspace() { _uiState.update { it.copy(input = it.input.dropLast(1)) }; evaluate() }
     fun onToggleAngle() { _uiState.update { it.copy(angleDeg = !it.angleDeg) }; evaluate() }
+    fun onQueryChange(q: String) { _uiState.update { it.copy(query = q) } }
+
+    fun onCopyResult() {
+        val r = _uiState.value.result
+        if (r.isNotBlank()) _effects.trySend(CalcEffect.Copy(r))
+    }
 
     fun onEquals() {
         val st = _uiState.value
         Engine.eval(st.input, st.angleDeg).onSuccess {
             val r = Engine.format(it)
             _uiState.update { s -> s.copy(result = r) }
-            viewModelScope.launch { historyRepo.push("${st.input} = $r") }
+            viewModelScope.launch { historyRepo.push(st.input, r) }
         }.onFailure {
             _uiState.update { s -> s.copy(result = "Error") }
         }
@@ -75,7 +83,8 @@ class CalcViewModel @Inject constructor(private val historyRepo: HistoryReposito
             _uiState.update { it.copy(memory = it.memory - v) }
         }
     }
-    fun onMemRecall() { _uiState.update { it.copy(input = it.input + it.memory.toString()) }; evaluate() }
+    fun onMemRecall() { _uiState.update { it.copy(input = it.input + Engine.format(BigDecimal.valueOf(it.memory))) }; evaluate() }
     fun onMemClear() { _uiState.update { it.copy(memory = 0.0) } }
     fun onClearHistory() { viewModelScope.launch { historyRepo.clear() } }
+    fun onDeleteHistoryAt(index: Int) { viewModelScope.launch { historyRepo.deleteAt(index) } }
 }

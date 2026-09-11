@@ -1,5 +1,7 @@
 package calc.u.core
 
+// Conversion factors retyped from unitconverterultimate (Apache-2.0).
+
 object Units {
     data class UnitDef(val id: String, val toBase: Double, val offset: Double = 0.0)
 
@@ -50,12 +52,44 @@ object Units {
         "TB" to UnitDef("TB", 1024.0 * 1024 * 1024 * 1024)
     )
     val fuel = mapOf(
-        "L/100km" to UnitDef("L/100km", 1.0), "mpg" to UnitDef("mpg", 235.214),
-        "km/L" to UnitDef("km/L", 100.0)
+        "l_100km" to UnitDef("l_100km", 1.0),
+        "L/100km" to UnitDef("L/100km", 1.0),
+        "mpg_us" to UnitDef("mpg_us", Double.NaN),
+        "mpg" to UnitDef("mpg", Double.NaN),
+        "km_l" to UnitDef("km_l", Double.NaN),
+        "km/L" to UnitDef("km/L", Double.NaN)
     )
 
-    fun convert(value: Double, from: UnitDef, to: UnitDef): Double =
-        value * from.toBase / to.toBase
+    private val fuelIds = fuel.keys
+    private const val MPG_US_CONST = 235.214583
+
+    fun fuelToL100km(v: Double, from: String): Double = when (from) {
+        "mpg_us", "mpg" -> MPG_US_CONST / v
+        "km_l", "km/L" -> 100.0 / v
+        else -> v
+    }
+
+    fun l100kmToFuel(v: Double, to: String): Double = when (to) {
+        "mpg_us", "mpg" -> MPG_US_CONST / v
+        "km_l", "km/L" -> 100.0 / v
+        else -> v
+    }
+
+    fun convertFuel(value: Double, from: String, to: String): Double {
+        require(from in fuelIds) { "unknown fuel unit: $from" }
+        require(to in fuelIds) { "unknown fuel unit: $to" }
+        return l100kmToFuel(fuelToL100km(value, from), to)
+    }
+
+    fun convert(value: Double, from: UnitDef, to: UnitDef): Double {
+        val fromFuel = from.id in fuelIds
+        val toFuel = to.id in fuelIds
+        if (fromFuel || toFuel) {
+            require(fromFuel && toFuel) { "cannot mix fuel and linear units" }
+            return convertFuel(value, from.id, to.id)
+        }
+        return value * from.toBase / to.toBase
+    }
 
     fun convertTemp(v: Double, from: String, to: String): Double {
         val c = when (from) { "C" -> v; "F" -> (v - 32) * 5 / 9; "K" -> v - 273.15; else -> v }
@@ -65,20 +99,47 @@ object Units {
     fun ftInToCm(ft: Double, inch: Double): Double = ft * 30.48 + inch * 2.54
 
     fun toRoman(n: Int): String {
+        if (n !in 1..3999) return "—"
         val table = listOf(1000 to "M", 900 to "CM", 500 to "D", 400 to "CD", 100 to "C", 90 to "XC", 50 to "L", 40 to "XL", 10 to "X", 9 to "IX", 5 to "V", 4 to "IV", 1 to "I")
-        var x = n; val sb = StringBuilder()
+        var x = n
+        val sb = StringBuilder()
         for ((v, s) in table) while (x >= v) { sb.append(s); x -= v }
         return sb.toString()
     }
 
     fun fromBase(value: Double, base: Int): String {
-        require(base in 2..36)
+        require(base in 2..36) { "base must be in 2..36" }
+        if (!value.isFinite()) return "Error"
         if (value == 0.0) return "0"
         val digits = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ"
-        var n = value.toLong(); val neg = n < 0; n = kotlin.math.abs(n)
+        val neg = value < 0
+        var rest = kotlin.math.abs(value)
+        var intPart = kotlin.math.floor(rest).toLong()
+        var frac = rest - intPart
         val sb = StringBuilder()
-        while (n > 0) { sb.append(digits[(n % base).toInt()]); n /= base }
-        if (neg) sb.append('-')
-        return sb.reverse().toString()
+        if (intPart == 0L) sb.append('0')
+        val intSb = StringBuilder()
+        while (intPart > 0) {
+            intSb.append(digits[(intPart % base).toInt()])
+            intPart /= base
+        }
+        if (intSb.isNotEmpty()) sb.clear().append(intSb.reverse())
+        if (frac > 0.0) {
+            sb.append('.')
+            var count = 0
+            while (frac > 0.0 && count < 10) {
+                frac *= base
+                val d = kotlin.math.floor(frac).toInt()
+                sb.append(digits[d])
+                frac -= d
+                count++
+            }
+            var end = sb.length
+            while (end > 0 && sb[end - 1] == '0') end--
+            if (end > 0 && sb[end - 1] == '.') end--
+            sb.setLength(end)
+        }
+        if (neg) sb.insert(0, '-')
+        return sb.toString()
     }
 }

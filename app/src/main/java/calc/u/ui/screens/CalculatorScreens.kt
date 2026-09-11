@@ -3,12 +3,12 @@ package calc.u.ui.screens
 import androidx.compose.animation.animateContentSize
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -27,9 +27,12 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -46,106 +49,141 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import calc.u.core.Engine
+import calc.u.ui.CalcEffect
 import calc.u.ui.CalcViewModel
 import calc.u.ui.SectionCard
+
+private val XSubst = Regex("(?<![A-Za-z])x(?![A-Za-z])")
 
 @Composable
 fun CalculatorScreen(vm: CalcViewModel = hiltViewModel()) {
     val st by vm.uiState.collectAsStateWithLifecycle()
     val clipboard = LocalClipboardManager.current
-    LazyColumn(
-        Modifier.fillMaxSize().padding(vertical = 16.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp)
-    ) {
-        item {
-            ElevatedCard(
-                colors = CardDefaults.elevatedCardColors(
-                    containerColor = MaterialTheme.colorScheme.surfaceContainerHigh
-                )
-            ) {
-                Column(
-                    Modifier.fillMaxWidth().padding(20.dp).animateContentSize(),
-                    verticalArrangement = Arrangement.spacedBy(4.dp),
-                    horizontalAlignment = Alignment.End
-                ) {
-                    Text(
-                        st.input.ifBlank { "0" },
-                        style = MaterialTheme.typography.titleLarge,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        maxLines = 3,
-                        overflow = TextOverflow.Ellipsis
+    val snackbar = remember { SnackbarHostState() }
+    LaunchedEffect(Unit) {
+        vm.effects.collect { e ->
+            when (e) {
+                is CalcEffect.Copy -> {
+                    clipboard.setText(AnnotatedString(e.text))
+                    snackbar.showSnackbar("Copied")
+                }
+            }
+        }
+    }
+    val filtered = if (st.query.isBlank()) st.history else st.history.filter { it.contains(st.query, ignoreCase = true) }
+    Box(Modifier.fillMaxSize()) {
+        LazyColumn(
+            Modifier.fillMaxSize().padding(vertical = 16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            item {
+                ElevatedCard(
+                    colors = CardDefaults.elevatedCardColors(
+                        containerColor = MaterialTheme.colorScheme.surfaceContainerHigh
                     )
-                    Row(verticalAlignment = Alignment.CenterVertically) {
+                ) {
+                    Column(
+                        Modifier.fillMaxWidth().padding(20.dp).animateContentSize(),
+                        verticalArrangement = Arrangement.spacedBy(4.dp),
+                        horizontalAlignment = Alignment.End
+                    ) {
                         Text(
-                            st.result.ifBlank { "" },
-                            style = MaterialTheme.typography.displayMedium,
-                            color = MaterialTheme.colorScheme.primary,
-                            maxLines = 2,
-                            overflow = TextOverflow.Ellipsis,
-                            modifier = Modifier.weight(1f)
+                            st.input.ifBlank { "0" },
+                            style = MaterialTheme.typography.titleLarge,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            maxLines = 3,
+                            overflow = TextOverflow.Ellipsis
                         )
-                        if (st.result.isNotBlank()) {
-                            IconButton(onClick = { clipboard.setText(AnnotatedString(st.result)) }) {
-                                Icon(Icons.Filled.ContentCopy, contentDescription = "Copy result")
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text(
+                                st.result.ifBlank { "" },
+                                style = MaterialTheme.typography.displayMedium,
+                                color = MaterialTheme.colorScheme.primary,
+                                maxLines = 2,
+                                overflow = TextOverflow.Ellipsis,
+                                modifier = Modifier.weight(1f)
+                            )
+                            if (st.result.isNotBlank()) {
+                                IconButton(onClick = { vm.onCopyResult() }) {
+                                    Icon(Icons.Filled.ContentCopy, contentDescription = "Copy result")
+                                }
                             }
                         }
                     }
                 }
             }
-        }
-        item {
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                FilterChip(
-                    selected = st.angleDeg,
-                    onClick = { vm.onToggleAngle() },
-                    label = { Text(if (st.angleDeg) "DEG" else "RAD") }
-                )
-                AssistChip(onClick = { vm.onMemClear() }, label = { Text("MC") })
-                AssistChip(onClick = { vm.onMemRecall() }, label = { Text("MR") })
-                AssistChip(onClick = { vm.onMemPlus() }, label = { Text("M+") })
-                AssistChip(onClick = { vm.onMemMinus() }, label = { Text("M-") })
-            }
-        }
-        item {
-            Keypad(
-                onKey = { k -> if (k == "=") vm.onEquals() else vm.onInput(k) },
-                onClear = { vm.onClear() },
-                onBack = { vm.onBackspace() }
-            )
-        }
-        item {
-            Row(
-                Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text("History", style = MaterialTheme.typography.titleMedium, modifier = Modifier.semantics { heading() })
-                if (st.history.isNotEmpty()) {
-                    TextButton(onClick = { vm.onClearHistory() }) { Text("Clear") }
+            item {
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    FilterChip(
+                        selected = st.angleDeg,
+                        onClick = { vm.onToggleAngle() },
+                        label = { Text(if (st.angleDeg) "DEG" else "RAD") }
+                    )
+                    AssistChip(onClick = { vm.onMemClear() }, label = { Text("MC") })
+                    AssistChip(onClick = { vm.onMemRecall() }, label = { Text("MR") })
+                    AssistChip(onClick = { vm.onMemPlus() }, label = { Text("M+") })
+                    AssistChip(onClick = { vm.onMemMinus() }, label = { Text("M-") })
                 }
             }
-        }
-        if (st.history.isEmpty()) {
             item {
-                Text(
-                    "No calculations yet. Results you evaluate will appear here.",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                Keypad(
+                    onKey = { k -> if (k == "=") vm.onEquals() else vm.onInput(k) },
+                    onClear = { vm.onClear() },
+                    onBack = { vm.onBackspace() }
                 )
             }
-        } else {
-            items(st.history.take(30)) { h ->
-                Card(
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow)
+            item {
+                Row(
+                    Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
+                    Text("History", style = MaterialTheme.typography.titleMedium, modifier = Modifier.semantics { heading() })
+                    if (st.history.isNotEmpty()) {
+                        TextButton(onClick = { vm.onClearHistory() }) { Text("Clear") }
+                    }
+                }
+            }
+            item {
+                OutlinedTextField(
+                    value = st.query,
+                    onValueChange = { vm.onQueryChange(it) },
+                    label = { Text("Search history") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
+            if (st.history.isEmpty()) {
+                item {
                     Text(
-                        h,
+                        "No calculations yet. Results you evaluate will appear here.",
                         style = MaterialTheme.typography.bodyMedium,
-                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp)
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
+            } else if (filtered.isEmpty()) {
+                item {
+                    Text(
+                        "No matches.",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            } else {
+                items(filtered.take(30)) { h ->
+                    Card(
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow)
+                    ) {
+                        Text(
+                            h,
+                            style = MaterialTheme.typography.bodyMedium,
+                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp)
+                        )
+                    }
+                }
             }
         }
+        SnackbarHost(hostState = snackbar, modifier = Modifier.align(Alignment.BottomCenter))
     }
 }
 
@@ -207,9 +245,26 @@ private fun Keypad(onKey: (String) -> Unit, onClear: () -> Unit, onBack: () -> U
 @Composable
 fun GraphScreen() {
     var expr by remember { mutableStateOf("sin(x)") }
+    var range by remember { mutableStateOf(10) }
     val grid = MaterialTheme.colorScheme.outlineVariant
     val axes = MaterialTheme.colorScheme.outline
     val line = MaterialTheme.colorScheme.primary
+    val step = range / 100.0
+    val ys = remember(expr, range) {
+        var x = -range.toDouble()
+        buildList {
+            while (x <= range.toDouble()) {
+                val y = try {
+                    Engine.eval(XSubst.replace(expr, "($x)"), true).getOrNull()?.toDouble() ?: Double.NaN
+                } catch (e: Exception) {
+                    Double.NaN
+                }
+                add(y)
+                x += step
+            }
+        }
+    }
+    val allFailed = ys.all { !it.isFinite() }
     LazyColumn(
         Modifier.fillMaxSize().padding(vertical = 16.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)
@@ -223,8 +278,17 @@ fun GraphScreen() {
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth()
                 )
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    listOf(5, 10, 20, 50).forEach { r ->
+                        FilterChip(
+                            selected = range == r,
+                            onClick = { range = r },
+                            label = { Text(r.toString()) }
+                        )
+                    }
+                }
                 Text(
-                    "Plots x in [-10, 10] with the same EvalEx engine as the calculator.",
+                    "Plots x in [-$range, $range] with the same EvalEx engine as the calculator.",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -248,31 +312,28 @@ fun GraphScreen() {
                     drawLine(axes, Offset(0f, h / 2), Offset(w, h / 2), strokeWidth = 3f)
                     drawLine(axes, Offset(w / 2, 0f), Offset(w / 2, h), strokeWidth = 3f)
                     var prev: Offset? = null
-                    var x = -10.0
-                    while (x <= 10.0) {
-                        val y = try {
-                            Engine.eval(expr.replace("x", "($x)"), true).getOrNull()?.toDouble() ?: Double.NaN
-                        } catch (e: Exception) {
-                            Double.NaN
-                        }
+                    ys.forEachIndexed { i, y ->
+                        val x = -range.toDouble() + i * step
                         if (y.isFinite()) {
-                            val px = (w / 2 + x / 10 * w / 2).toFloat()
-                            val py = (h / 2 - y.toFloat() / 10 * h / 2).toFloat()
+                            val px = (w / 2 + x / range * w / 2).toFloat()
+                            val py = (h / 2 - y / range * h / 2).toFloat()
                             val p = Offset(px, py)
                             prev?.let { drawLine(line, it, p, strokeWidth = 5f) }
                             prev = p
                         } else {
                             prev = null
                         }
-                        x += 0.1
                     }
+                }
+                if (allFailed) {
+                    Text(
+                        "Error",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.error,
+                        modifier = Modifier.padding(16.dp)
+                    )
                 }
             }
         }
     }
-}
-
-@Composable
-private fun PlaceholderBox() {
-    Card(Modifier.fillMaxWidth().heightIn(min = 0.dp)) { }
 }

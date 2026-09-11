@@ -20,11 +20,22 @@ class HistoryRepository @Inject constructor(@ApplicationContext private val ctx:
     val history: Flow<List<String>> = ctx.dataStore.data.map {
         try { Json.decodeFromString<List<String>>(it[key] ?: "[]") } catch (e: Exception) { emptyList() }
     }
-    suspend fun push(entry: String) {
+    suspend fun push(expr: String, result: String) {
+        val entry = "${System.currentTimeMillis()}|$expr=$result"
         ctx.dataStore.edit { p ->
             val cur: MutableList<String> = try { Json.decodeFromString<MutableList<String>>(p[key] ?: "[]") } catch (e: Exception) { mutableListOf() }
             cur.add(0, entry)
-            p[key] = Json.encodeToString(cur.take(100))
+            p[key] = Json.encodeToString(cur.take(200))
+        }
+    }
+    fun search(q: String): Flow<List<String>> = history.map { list ->
+        if (q.isBlank()) list else list.filter { it.contains(q, ignoreCase = true) }
+    }
+    suspend fun deleteAt(index: Int) {
+        ctx.dataStore.edit { p ->
+            val cur: MutableList<String> = try { Json.decodeFromString<MutableList<String>>(p[key] ?: "[]") } catch (e: Exception) { mutableListOf() }
+            if (index in cur.indices) cur.removeAt(index)
+            p[key] = Json.encodeToString(cur.take(200))
         }
     }
     suspend fun clear() { ctx.dataStore.edit { it.remove(key) } }

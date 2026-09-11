@@ -8,6 +8,7 @@ import calc.u.core.HealthDate
 import calc.u.core.Units
 import org.junit.Assert.*
 import org.junit.Test
+import java.math.BigDecimal
 
 class EngineTest {
     @Test fun basic() {
@@ -34,4 +35,67 @@ class EngineTest {
         assertTrue(HealthDate.bmi(70.0, 175.0) > 20)
     }
     @Test fun currencyCodes() { assertTrue(Currency.codes.size >= 60) }
+
+    @Test fun formatHonorsScaleAndNonFinite() {
+        assertEquals("3.14", Engine.format(BigDecimal("3.14000")))
+        assertEquals("3.142", Engine.format(BigDecimal("3.14159"), 3))
+        assertEquals("Error", Engine.format(BigDecimal("1E+100000"), 10))
+    }
+    @Test fun radRewriteKeepsAsin() {
+        val r = Engine.eval("ASIN(1)", false).getOrThrow().toDouble()
+        assertEquals(90.0, r, 1e-9)
+        val s = Engine.eval("SIN(PI/2)", false).getOrThrow().toDouble()
+        assertEquals(1.0, s, 1e-6)
+    }
+    @Test fun complexRoots() {
+        val roots = Engine.solveQuadratic(1.0, -2.0, 5.0)
+        assertEquals(1, roots.size)
+        assertTrue(roots[0].contains("±") && roots[0].contains("i"))
+    }
+    @Test fun linearSystem() {
+        val (x, y) = Engine.solveLinearSystem2x2(2.0, 3.0, 8.0, 1.0, -1.0, 1.0)
+        assertEquals(2.2, x.toDouble(), 1e-9)
+        assertEquals(1.2, y.toDouble(), 1e-9)
+    }
+    @Test fun factorialMeans() {
+        assertEquals(120L, Engine.factorial(5))
+        assertEquals(2.5, Engine.mean(listOf(1.0, 2.0, 3.0, 4.0)), 1e-9)
+        assertEquals(1.92, Engine.mean(listOf(1.0, 2.0, 3.0, 4.0), "harmonic"), 0.01)
+        assertEquals(2.21, Engine.mean(listOf(1.0, 2.0, 3.0, 4.0), "geometric"), 0.01)
+    }
+    @Test fun amortizationZeroAndSchedule() {
+        val zero = Finance.amortization(1200.0, 0.0, 12)
+        assertEquals(12, zero.size)
+        assertEquals(100.0, zero.first().second, 1e-9)
+        assertEquals(0.0, zero.first().third, 1e-9)
+        val sched = Finance.amortization(10000.0, 12.0, 12)
+        assertEquals(12, sched.size)
+        assertTrue(sched.first().third > sched.last().third)
+        assertEquals(10000.0, sched.sumOf { it.second }, 50.0)
+    }
+    @Test fun fuelConversions() {
+        assertEquals(235.214583 / 30.0, Units.convertFuel(30.0, "mpg_us", "l_100km"), 1e-6)
+        assertEquals(30.0, Units.convertFuel(235.214583 / 30.0, "l_100km", "mpg_us"), 1e-6)
+        assertEquals(20.0, Units.convertFuel(5.0, "l_100km", "km_l"), 1e-9)
+        assertEquals(5.0, Units.convertFuel(20.0, "km_l", "l_100km"), 1e-9)
+    }
+    @Test fun romanBoundsAndFractions() {
+        assertEquals("—", Units.toRoman(0))
+        assertEquals("—", Units.toRoman(4000))
+        assertEquals("MCMXCIV", Units.toRoman(1994))
+        assertEquals("1010.1", Units.fromBase(10.5, 2))
+    }
+    @Test fun combinatoricsOverflowSafe() {
+        assertEquals(10L, Engine.nCr(5, 2))
+        assertEquals(20L, Engine.nPr(5, 2))
+        assertEquals(1L, Engine.factorial(0))
+    }
+    @Test fun currencyDedupeAndRate() {
+        assertFalse(Currency.codes.contains("HRK"))
+        assertEquals(1, Currency.codes.count { it == "KWD" })
+        assertEquals(1, Currency.codes.count { it == "QAR" })
+        val usd = Currency.Rate("USD", 1.0)
+        val eur = Currency.Rate("EUR", 0.92)
+        assertEquals(92.0, Currency.convert(100.0, usd, eur), 1e-9)
+    }
 }

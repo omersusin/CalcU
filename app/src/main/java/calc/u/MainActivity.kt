@@ -12,6 +12,7 @@ import androidx.compose.material.icons.filled.AttachMoney
 import androidx.compose.material.icons.filled.Calculate
 import androidx.compose.material.icons.filled.GridOn
 import androidx.compose.material.icons.filled.Menu
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.ShowChart
 import androidx.compose.material.icons.filled.SwapHoriz
 import androidx.compose.material3.DrawerValue
@@ -44,17 +45,21 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
+import calc.u.data.SettingsRepository
 import calc.u.ui.screens.CalculatorScreen
 import calc.u.ui.screens.ConvertersScreen
 import calc.u.ui.screens.FinanceScreen
 import calc.u.ui.screens.GraphScreen
 import calc.u.ui.screens.MathScreen
+import calc.u.ui.screens.SettingsScreen
 import calc.u.ui.theme.CalcUTheme
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.launch
+import javax.inject.Inject
 
 data class Dest(val route: String, val label: String, val icon: ImageVector)
 
@@ -63,15 +68,19 @@ private val Dests = listOf(
     Dest("graph", "Graph", Icons.Filled.ShowChart),
     Dest("convert", "Convert", Icons.Filled.SwapHoriz),
     Dest("finance", "Finance", Icons.Filled.AttachMoney),
-    Dest("math", "Math", Icons.Filled.GridOn)
+    Dest("math", "Math", Icons.Filled.GridOn),
+    Dest("settings", "Settings", Icons.Filled.Settings)
 )
 
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
+    @Inject lateinit var settingsRepo: SettingsRepository
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContent {
-            CalcUTheme {
+            val theme by settingsRepo.theme.collectAsStateWithLifecycle(initialValue = "system")
+            CalcUTheme(theme = theme) {
                 val nav = rememberNavController()
                 val drawer = rememberDrawerState(DrawerValue.Closed)
                 val scope = rememberCoroutineScope()
@@ -156,6 +165,7 @@ class MainActivity : ComponentActivity() {
                                     composable("convert") { Centered { ConvertersScreen() } }
                                     composable("finance") { Centered { FinanceScreen() } }
                                     composable("math") { Centered { MathScreen() } }
+                                    composable("settings") { Centered { SettingsScreen() } }
                                 }
                             }
                         }

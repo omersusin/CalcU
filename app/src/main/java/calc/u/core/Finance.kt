@@ -1,6 +1,7 @@
 package calc.u.core
 
-import kotlin.math.*
+import kotlin.math.maxOf
+import kotlin.math.pow
 
 object Finance {
     fun tip(total: Double, percent: Double, split: Int): Triple<Double, Double, Double> {
@@ -36,4 +37,21 @@ object Finance {
     }
 
     fun unitPrice(price: Double, qty: Double): Double = if (qty == 0.0) 0.0 else price / qty
+
+    fun amortization(principal: Double, annualRatePct: Double, months: Int): List<Triple<Int, Double, Double>> {
+        require(months > 0) { "months must be > 0" }
+        require(principal >= 0.0) { "principal must be >= 0" }
+        val r = annualRatePct / 1200
+        val payment = emi(principal, annualRatePct, months)
+        var balance = principal
+        val out = ArrayList<Triple<Int, Double, Double>>(months)
+        for (m in 1..months) {
+            val interest = if (r == 0.0) 0.0 else balance * r
+            var principalPaid = payment - interest
+            if (m == months) principalPaid = balance
+            out.add(Triple(m, principalPaid, interest))
+            balance -= principalPaid
+        }
+        return out
+    }
 }
