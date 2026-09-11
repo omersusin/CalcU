@@ -534,7 +534,7 @@ private fun NumbersContent() {
                     Box(Modifier.weight(1f)) { NumField(qc, { qc = it }, "c") }
                 }
                 HorizontalDivider()
-                ResultLine("Roots", if (roots.isEmpty()) "no real roots" else roots.joinToString { fmt(it, 6) })
+                ResultLine("Roots", if (roots.isEmpty()) "—" else roots.joinToString())
             }
         }
         item {
