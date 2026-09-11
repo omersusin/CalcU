@@ -157,10 +157,12 @@ fun CalculatorScreen(vm: CalcViewModel = hiltViewModel()) {
                     colors = CardDefaults.elevatedCardColors(
                         containerColor = MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = 0.72f)
                     ),
-                    border = BorderStroke(1.dp, stroke),
                     elevation = CardDefaults.elevatedCardElevation(defaultElevation = FluentElevation.Display),
                     shape = MaterialTheme.shapes.medium
                 ) {
+                    Box(
+                        Modifier.border(BorderStroke(1.dp, stroke), MaterialTheme.shapes.medium)
+                    ) {
                     Column(
                         Modifier.fillMaxWidth().padding(20.dp).animateContentSize(),
                         verticalArrangement = Arrangement.spacedBy(4.dp),
@@ -217,6 +219,7 @@ fun CalculatorScreen(vm: CalcViewModel = hiltViewModel()) {
                             }
                         }
                     }
+                }
                 }
             }
             item {

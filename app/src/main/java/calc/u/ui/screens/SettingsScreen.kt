@@ -139,6 +139,10 @@ fun SettingsScreen(vm: SettingsViewModel = hiltViewModel()) {
                         "Calculator interaction ideas re-implemented from OpenCalc / Fossify (GPL-family); all code here is original.",
                         style = MaterialTheme.typography.bodyMedium
                     )
+                    Text(
+                        "Investment formulas after CalcHub (MIT); matrix/constants/solver interaction ideas re-implemented from Stagnant09/Android-Calculator (unlicensed, ideas only).",
+                        style = MaterialTheme.typography.bodyMedium
+                    )
                 }
             }
         }

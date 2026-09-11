@@ -6,8 +6,12 @@ import java.math.BigInteger
 import java.math.RoundingMode
 import java.security.SecureRandom
 import kotlin.math.abs
+import kotlin.math.acos
+import kotlin.math.cbrt
+import kotlin.math.cos
 import kotlin.math.exp
 import kotlin.math.floor
+import kotlin.math.PI
 import kotlin.math.ln
 import kotlin.math.sqrt
 
@@ -201,4 +205,84 @@ object Engine {
     }
 
     fun randomDecimal(): Double = SecureRandom().nextDouble()
+
+    fun solveCubic(a: Double, b: Double, c: Double, d: Double): List<String> {
+        if (a == 0.0) return solveQuadratic(b, c, d)
+        val B = b / a
+        val C = c / a
+        val D = d / a
+        val p = C - B * B / 3.0
+        val q = 2.0 * B * B * B / 27.0 - B * C / 3.0 + D
+        val disc = (q / 2.0) * (q / 2.0) + (p / 3.0) * (p / 3.0) * (p / 3.0)
+        val shift = B / 3.0
+        val eps = 1e-12
+        if (disc > eps) {
+            val s = sqrt(disc)
+            val u = cbrt(-q / 2.0 + s)
+            val v = cbrt(-q / 2.0 - s)
+            val x1 = u + v - shift
+            val real = -(u + v) / 2.0 - shift
+            val imag = abs(u - v) * sqrt(3.0) / 2.0
+            return listOf(fmt(x1), "${fmt(real)}±${fmt(imag)}i")
+        }
+        if (abs(disc) <= eps) {
+            val u = cbrt(-q / 2.0)
+            val x1 = 2 * u - shift
+            val x2 = -u - shift
+            if (abs(x1 - x2) < 1e-9) return listOf(fmt(x1))
+            return listOf(fmt(x1), fmt(x2))
+        }
+        val r = 2.0 * sqrt(-p / 3.0)
+        val arg = (-q / 2.0) / sqrt(-(p / 3.0) * (p / 3.0) * (p / 3.0))
+        val phi = acos(arg.coerceIn(-1.0, 1.0))
+        return (0..2).map { k ->
+            fmt(r * cos((phi - 2.0 * PI * k) / 3.0) - shift)
+        }.sortedBy { it.toDoubleOrNull() ?: Double.NaN }
+    }
+
+    fun statsMedian(values: List<Double>): Double {
+        require(values.isNotEmpty()) { "values must not be empty" }
+        val s = values.sorted()
+        return if (s.size % 2 == 1) s[s.size / 2]
+        else (s[s.size / 2 - 1] + s[s.size / 2]) / 2.0
+    }
+
+    fun statsMode(values: List<Double>): Double {
+        require(values.isNotEmpty()) { "values must not be empty" }
+        return values.groupingBy { it }.eachCount()
+            .entries.sortedWith(compareByDescending<Map.Entry<Double, Int>> { it.value }.thenBy { it.key })
+            .first().key
+    }
+
+    fun statsVariance(values: List<Double>): Double {
+        require(values.isNotEmpty()) { "values must not be empty" }
+        val m = values.sum() / values.size
+        return values.sumOf { (it - m) * (it - m) } / values.size
+    }
+
+    fun statsStdev(values: List<Double>): Double = sqrt(statsVariance(values))
+
+    private fun evalAt(expr: String, xVal: Double, angleDeg: Boolean): Double? {
+        val sub = expr.replace(Regex("\\bx\\b"), "($xVal)")
+        return eval(sub, angleDeg).getOrNull()?.toDouble()
+    }
+
+    fun derivative(expr: String, x: Double, angleDeg: Boolean = true): Double {
+        val h = 1e-5
+        val f1 = evalAt(expr, x + h, angleDeg) ?: return Double.NaN
+        val f2 = evalAt(expr, x - h, angleDeg) ?: return Double.NaN
+        return (f1 - f2) / (2 * h)
+    }
+
+    fun integral(expr: String, a: Double, b: Double, angleDeg: Boolean = true): Double {
+        val n = 1000
+        val h = (b - a) / n
+        var sum = (evalAt(expr, a, angleDeg) ?: return Double.NaN) +
+            (evalAt(expr, b, angleDeg) ?: return Double.NaN)
+        for (i in 1 until n) {
+            val fx = evalAt(expr, a + i * h, angleDeg) ?: return Double.NaN
+            sum += if (i % 2 == 1) 4 * fx else 2 * fx
+        }
+        return sum * h / 3.0
+    }
 }

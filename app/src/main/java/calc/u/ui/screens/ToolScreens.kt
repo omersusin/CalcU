@@ -43,14 +43,18 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
+import calc.u.core.Constants
 import calc.u.core.Currency
 import calc.u.core.Engine
 import calc.u.core.Finance
 import calc.u.core.Geometry
 import calc.u.core.HealthDate
+import calc.u.core.Matrix
 import calc.u.core.Units
 import calc.u.data.CurrencyRepository
 import calc.u.data.UnitPrefsRepository
@@ -605,6 +609,84 @@ fun FinanceScreen() {
                 ResultLine("Verdict", verdict)
             }
         }
+        item {
+            var sipM by remember { mutableStateOf("5000") }
+            var sipR by remember { mutableStateOf("12") }
+            var sipY by remember { mutableStateOf("10") }
+            val res = runCatching { Finance.sip(num(sipM), num(sipR), num(sipY)) }.getOrNull()
+            SectionCard("SIP") {
+                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Box(Modifier.weight(1f)) { NumField(sipM, { sipM = it }, "Monthly") }
+                    Box(Modifier.weight(1f)) { NumField(sipR, { sipR = it }, "Annual %") }
+                    Box(Modifier.weight(1f)) { NumField(sipY, { sipY = it }, "Years") }
+                }
+                HorizontalDivider()
+                ResultLine("Invested", fmt(res?.first ?: Double.NaN, 2))
+                ResultLine("Gain", fmt(res?.second ?: Double.NaN, 2))
+                ResultLine("Total", fmt(res?.third ?: Double.NaN, 2))
+            }
+        }
+        item {
+            var cagrI by remember { mutableStateOf("10000") }
+            var cagrF by remember { mutableStateOf("20000") }
+            var cagrY by remember { mutableStateOf("10") }
+            val r = runCatching { Finance.cagr(num(cagrI), num(cagrF), num(cagrY)) }.getOrNull()
+            SectionCard("CAGR") {
+                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Box(Modifier.weight(1f)) { NumField(cagrI, { cagrI = it }, "Initial") }
+                    Box(Modifier.weight(1f)) { NumField(cagrF, { cagrF = it }, "Final") }
+                    Box(Modifier.weight(1f)) { NumField(cagrY, { cagrY = it }, "Years") }
+                }
+                HorizontalDivider()
+                ResultLine("CAGR %", if (r == null) "—" else fmt(r * 100, 2))
+            }
+        }
+        item {
+            var fdP by remember { mutableStateOf("10000") }
+            var fdR by remember { mutableStateOf("6") }
+            var fdY by remember { mutableStateOf("5") }
+            val res = runCatching { Finance.fd(num(fdP), num(fdR), num(fdY), 4) }.getOrNull()
+            SectionCard("Fixed deposit") {
+                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Box(Modifier.weight(1f)) { NumField(fdP, { fdP = it }, "Principal") }
+                    Box(Modifier.weight(1f)) { NumField(fdR, { fdR = it }, "Rate %") }
+                    Box(Modifier.weight(1f)) { NumField(fdY, { fdY = it }, "Years") }
+                }
+                HorizontalDivider()
+                ResultLine("Interest", fmt(res?.second ?: Double.NaN, 2))
+                ResultLine("Total", fmt(res?.third ?: Double.NaN, 2))
+            }
+        }
+        item {
+            var vatA by remember { mutableStateOf("100") }
+            var vatP by remember { mutableStateOf("18") }
+            var vatIncl by remember { mutableStateOf(false) }
+            val res = runCatching { Finance.vat(num(vatA), num(vatP), vatIncl) }.getOrNull()
+            SectionCard("VAT") {
+                NumField(vatA, { vatA = it }, "Amount")
+                NumField(vatP, { vatP = it }, "VAT %")
+                LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    item {
+                        FilterChip(
+                            selected = !vatIncl,
+                            onClick = { vatIncl = false },
+                            label = { Text("Excl. VAT") }
+                        )
+                    }
+                    item {
+                        FilterChip(
+                            selected = vatIncl,
+                            onClick = { vatIncl = true },
+                            label = { Text("Incl. VAT") }
+                        )
+                    }
+                }
+                HorizontalDivider()
+                ResultLine("Net", fmt(res?.first ?: Double.NaN, 2))
+                ResultLine("Tax", fmt(res?.second ?: Double.NaN, 2))
+                ResultLine("Gross", fmt(res?.third ?: Double.NaN, 2))
+            }
+        }
     }
 }
 
@@ -776,6 +858,89 @@ private fun NumbersContent() {
         }
         item {
             ProgrammerScreen()
+        }
+        item {
+            var a11 by remember { mutableStateOf("1") }
+            var a12 by remember { mutableStateOf("2") }
+            var a21 by remember { mutableStateOf("3") }
+            var a22 by remember { mutableStateOf("4") }
+            val m = runCatching { Matrix.of2x2(num(a11), num(a12), num(a21), num(a22)) }.getOrNull()
+            SectionCard("Matrix 2x2") {
+                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Box(Modifier.weight(1f)) { NumField(a11, { a11 = it }, "a11") }
+                    Box(Modifier.weight(1f)) { NumField(a12, { a12 = it }, "a12") }
+                }
+                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Box(Modifier.weight(1f)) { NumField(a21, { a21 = it }, "a21") }
+                    Box(Modifier.weight(1f)) { NumField(a22, { a22 = it }, "a22") }
+                }
+                HorizontalDivider()
+                ResultLine("det", m?.let { runCatching { fmt(it.determinant()) }.getOrDefault("—") } ?: "—")
+                ResultLine(
+                    "transpose",
+                    m?.transpose()?.let { t -> "${fmt(t[0, 0])}, ${fmt(t[0, 1])} / ${fmt(t[1, 0])}, ${fmt(t[1, 1])}" } ?: "—"
+                )
+                ResultLine(
+                    "inverse",
+                    m?.let { runCatching { it.inverse().pretty().replace("\n", " ") }.getOrDefault("singular") } ?: "—"
+                )
+            }
+        }
+        item {
+            var ca by remember { mutableStateOf("1") }
+            var cb by remember { mutableStateOf("-6") }
+            var cc by remember { mutableStateOf("11") }
+            var cd by remember { mutableStateOf("-6") }
+            val roots = runCatching { Engine.solveCubic(num(ca), num(cb), num(cc), num(cd)) }.getOrDefault(emptyList())
+            SectionCard("Cubic solver") {
+                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Box(Modifier.weight(1f)) { NumField(ca, { ca = it }, "a") }
+                    Box(Modifier.weight(1f)) { NumField(cb, { cb = it }, "b") }
+                    Box(Modifier.weight(1f)) { NumField(cc, { cc = it }, "c") }
+                    Box(Modifier.weight(1f)) { NumField(cd, { cd = it }, "d") }
+                }
+                HorizontalDivider()
+                ResultLine("Roots", if (roots.isEmpty()) "—" else roots.joinToString())
+            }
+        }
+        item {
+            var statsIn by remember { mutableStateOf("1, 2, 3, 4, 5") }
+            val vals = parseList(statsIn)
+            SectionCard("Distribution stats") {
+                NumField(statsIn, { statsIn = it }, "Values, comma separated")
+                HorizontalDivider()
+                ResultLine("Median", vals.let { runCatching { fmt(Engine.statsMedian(it)) }.getOrDefault("—") })
+                ResultLine("Mode", vals.let { runCatching { fmt(Engine.statsMode(it)) }.getOrDefault("—") })
+                ResultLine("Variance", vals.let { runCatching { fmt(Engine.statsVariance(it)) }.getOrDefault("—") })
+                ResultLine("Stdev", vals.let { runCatching { fmt(Engine.statsStdev(it)) }.getOrDefault("—") })
+            }
+        }
+        item {
+            var cq by remember { mutableStateOf("") }
+            val clipboard = LocalClipboardManager.current
+            val hits = remember(cq) { Constants.search(cq).take(30) }
+            SectionCard("Constants") {
+                OutlinedTextField(
+                    value = cq,
+                    onValueChange = { cq = it },
+                    label = { Text("Search constants") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth()
+                )
+                HorizontalDivider()
+                hits.forEach { c ->
+                    Row(
+                        modifier = Modifier.fillMaxWidth().clickable {
+                            clipboard.setText(AnnotatedString(c.value.toString()))
+                        }.padding(vertical = 4.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Text("${c.symbol} · ${c.name}", style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f))
+                        Text(fmt(c.value, 6), style = MaterialTheme.typography.bodyMedium)
+                    }
+                }
+                if (hits.isEmpty()) ResultLine("No match", "—")
+            }
         }
     }
 }

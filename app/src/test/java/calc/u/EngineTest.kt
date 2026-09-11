@@ -144,6 +144,32 @@ class EngineTest {
     @Test fun accelerationGToBase() {
         assertEquals(9.80665, Units.convert(1.0, Units.acceleration["g"]!!, Units.acceleration["m/s²"]!!), 1e-9)
     }
+    @Test fun newTools() {
+        val m = calc.u.core.Matrix.of2x2(4.0, 7.0, 2.0, 6.0)
+        assertEquals(10.0, m.determinant(), 1e-9)
+        val t = m.transpose()
+        assertEquals(7.0, t[1, 0], 1e-9)
+        val inv = m.inverse()
+        val id = m.multiply(inv)
+        assertEquals(1.0, id[0, 0], 1e-9)
+        assertEquals(0.0, id[0, 1], 1e-9)
+        assertEquals(0.0, id[1, 0], 1e-9)
+        assertEquals(1.0, id[1, 1], 1e-9)
+        try {
+            calc.u.core.Matrix.of2x2(1.0, 2.0, 2.0, 4.0).inverse()
+            fail("singular should throw")
+        } catch (e: IllegalArgumentException) { }
+        val roots = Engine.solveCubic(1.0, -6.0, 11.0, -6.0).mapNotNull { it.toDoubleOrNull() }.sorted()
+        assertEquals(listOf(1.0, 2.0, 3.0), roots.map { Math.round(it).toDouble() })
+        assertEquals(3.0, Engine.statsMedian(listOf(1.0, 2.0, 3.0, 4.0, 5.0)), 1e-9)
+        assertEquals(2.0, Engine.statsMode(listOf(1.0, 2.0, 2.0, 3.0)), 1e-9)
+        assertEquals(2.0, Engine.statsVariance(listOf(1.0, 2.0, 3.0, 4.0, 5.0)), 1e-9)
+        assertEquals(Math.sqrt(2.0), Engine.statsStdev(listOf(1.0, 2.0, 3.0, 4.0, 5.0)), 1e-9)
+        assertEquals(6.0, Engine.derivative("x^2", 3.0, true), 1e-3)
+        assertEquals(0.5, Engine.integral("x", 0.0, 1.0, true), 1e-6)
+        assertTrue(calc.u.core.Constants.search("Planck").isNotEmpty())
+        assertTrue(calc.u.core.Constants.search("planck").any { it.name.contains("Planck") })
+    }
     @Test fun torqueFlowDatarateRoundTrip() {
         val base = Units.convert(1.0, Units.torque["lbf·ft"]!!, Units.torque["N·m"]!!)
         assertEquals(1.0, Units.convert(base, Units.torque["N·m"]!!, Units.torque["lbf·ft"]!!), 1e-9)
