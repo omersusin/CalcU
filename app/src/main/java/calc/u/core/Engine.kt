@@ -8,7 +8,6 @@ import kotlin.math.abs
 import kotlin.math.exp
 import kotlin.math.floor
 import kotlin.math.ln
-import kotlin.math.minOf
 import kotlin.math.sqrt
 
 object Engine {
@@ -104,7 +103,7 @@ object Engine {
 
     fun nCr(n: Long, r: Long): Long {
         if (r < 0L || r > n) return 0L
-        val rr = minOf(r, n - r)
+        val rr = if (r < n - r) r else n - r
         var res = BigInteger.ONE
         for (i in 1L..rr) {
             res = res.multiply(BigInteger.valueOf(n - rr + i)).divide(BigInteger.valueOf(i))

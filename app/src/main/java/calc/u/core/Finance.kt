@@ -1,13 +1,12 @@
 package calc.u.core
 
-import kotlin.math.maxOf
 import kotlin.math.pow
 
 object Finance {
     fun tip(total: Double, percent: Double, split: Int): Triple<Double, Double, Double> {
         val tipAmt = total * percent / 100
         val grand = total + tipAmt
-        return Triple(tipAmt, grand, grand / maxOf(1, split))
+        return Triple(tipAmt, grand, grand / if (split > 1) split else 1)
     }
 
     fun withTax(amount: Double, rate: Double, inclusive: Boolean): Pair<Double, Double> {
