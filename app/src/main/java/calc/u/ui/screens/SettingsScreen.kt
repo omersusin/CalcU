@@ -51,7 +51,8 @@ fun SettingsScreen(vm: SettingsViewModel = hiltViewModel()) {
         "system" to "System",
         "light" to "Light",
         "dark" to "Dark",
-        "amoled" to "AMOLED"
+        "amoled" to "AMOLED",
+        "contrast" to "High contrast"
     )
     LazyColumn(
         Modifier.fillMaxSize().padding(vertical = 16.dp),

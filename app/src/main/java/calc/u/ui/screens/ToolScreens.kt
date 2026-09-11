@@ -43,6 +43,7 @@ import calc.u.core.Geometry
 import calc.u.core.HealthDate
 import calc.u.core.Units
 import calc.u.data.CurrencyRepository
+import calc.u.ui.CalcUNumberBox
 import calc.u.ui.ResultLine
 import calc.u.ui.SectionCard
 import java.util.Calendar
@@ -155,15 +156,12 @@ private fun NumField(
     modifier: Modifier = Modifier,
     integer: Boolean = false
 ) {
-    OutlinedTextField(
+    CalcUNumberBox(
         value = value,
         onValueChange = onChange,
-        label = { Text(label) },
-        singleLine = true,
-        keyboardOptions = KeyboardOptions(
-            keyboardType = if (integer) KeyboardType.Number else KeyboardType.Decimal
-        ),
-        modifier = modifier.fillMaxWidth()
+        label = label,
+        integer = integer,
+        modifier = modifier
     )
 }
 
