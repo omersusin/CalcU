@@ -38,6 +38,16 @@ jobs:
             echo "$KEYSTORE_BASE64" | base64 -d > /tmp/calcu-release.keystore
             echo "KEYSTORE_PATH=/tmp/calcu-release.keystore" >> "$GITHUB_ENV"
           fi
+      - name: Debug secret lengths (temporary)
+        env:
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+        run: |
+          echo "store_len=${#KEYSTORE_PASSWORD}"
+          echo "key_len=${#KEY_PASSWORD}"
+          echo "alias=[$KEY_ALIAS]"
+          ls -la "$KEYSTORE_PATH"
       - run: gradle :app:assembleRelease --stacktrace
         env:
           KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
