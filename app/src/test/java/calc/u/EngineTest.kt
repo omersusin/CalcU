@@ -26,7 +26,7 @@ class EngineTest {
         assertEquals(32.0, Units.convertTemp(0.0, "C", "F"), 1e-9)
     }
     @Test fun finance() {
-        assertEquals(88.0, Finance.emi(1000.0, 0.0, 12).let { 1000.0 / 12 }, 1e-9)
+        assertEquals(1000.0 / 12, Finance.emi(1000.0, 0.0, 12), 1e-9)
         assertTrue(Finance.compound(100.0, 10.0, 1.0) > 100)
     }
     @Test fun geometryHealth() {
