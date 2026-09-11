@@ -20,9 +20,5 @@ jobs:
           gradle-version: 8.7
       - run: gradle :app:testDebugUnitTest --stacktrace
       - run: gradle :app:assembleDebug --stacktrace
-      - uses: actions/upload-artifact@v4
-        continue-on-error: true
-        with:
-          name: calcu-debug
-          path: app/build/outputs/apk/debug/*.apk
-          if-no-files-found: warn
+      - name: Prove APK was created
+        run: ls -lh app/build/outputs/apk/debug/ && du -h app/build/outputs/apk/debug/*.apk
