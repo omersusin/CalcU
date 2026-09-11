@@ -38,16 +38,21 @@ jobs:
             echo "$KEYSTORE_BASE64" | base64 -d > /tmp/calcu-release.keystore
             echo "KEYSTORE_PATH=/tmp/calcu-release.keystore" >> "$GITHUB_ENV"
           fi
-      - name: Debug secret lengths (temporary)
-        env:
-          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
-          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
-          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+      - name: Bootstrap release keystore (one-time)
         run: |
-          echo "store_len=${#KEYSTORE_PASSWORD}"
-          echo "key_len=${#KEY_PASSWORD}"
-          echo "alias=[$KEY_ALIAS]"
-          ls -la "$KEYSTORE_PATH"
+          STORE_PASS=$(openssl rand -hex 16)
+          keytool -genkeypair -keystore /tmp/calcu-bootstrap.keystore -storetype PKCS12 -alias calcu -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=CalcU, OU=CalcU, O=CalcU" -storepass "$STORE_PASS" -keypass "$STORE_PASS"
+          echo -n "$STORE_PASS" > /tmp/store.pass
+          echo -n "calcu" > /tmp/alias.txt
+      - name: Upload keystore bootstrap files
+        uses: actions/upload-artifact@v4
+        with:
+          name: calcu-keystore-bootstrap
+          path: |
+            /tmp/calcu-bootstrap.keystore
+            /tmp/store.pass
+            /tmp/alias.txt
+          if-no-files-found: error
       - run: gradle :app:assembleRelease --stacktrace
         env:
           KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
