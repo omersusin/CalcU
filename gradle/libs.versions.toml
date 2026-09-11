@@ -52,6 +52,7 @@ fluentui-core = { group = "com.microsoft.fluentui", name = "fluentui_core", vers
 fluentui-controls = { group = "com.microsoft.fluentui", name = "fluentui_controls", version.ref = "fluentuiControls" }
 fluentui-drawer = { group = "com.microsoft.fluentui", name = "fluentui_drawer", version.ref = "fluentuiDrawer" }
 coil-compose = { group = "io.coil-kt", name = "coil-compose", version.ref = "coil" }
+desugar-jdk-libs = { group = "com.android.tools", name = "desugar_jdk_libs", version = "2.1.4" }
 junit = { group = "junit", name = "junit", version.ref = "junit" }
 
 [plugins]
