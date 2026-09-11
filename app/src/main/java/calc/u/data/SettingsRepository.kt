@@ -1,6 +1,7 @@
 package calc.u.data
 
 import android.content.Context
+import android.os.Build
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringPreferencesKey
@@ -37,5 +38,15 @@ class SettingsRepository @Inject constructor(@ApplicationContext private val ctx
 
     suspend fun setVibration(value: Boolean) {
         ctx.settingsDataStore.edit { it[vibrationKey] = value }
+    }
+
+    private val dynamicKey = booleanPreferencesKey("dynamic_color")
+
+    val dynamicColor: Flow<Boolean> = ctx.settingsDataStore.data.map {
+        it[dynamicKey] ?: (Build.VERSION.SDK_INT >= 31)
+    }
+
+    suspend fun setDynamicColor(value: Boolean) {
+        ctx.settingsDataStore.edit { it[dynamicKey] = value }
     }
 }

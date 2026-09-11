@@ -22,6 +22,8 @@ jobs:
           gradle-version: 8.7
       - run: gradle :app:testDebugUnitTest --stacktrace
       - run: gradle :app:assembleDebug --stacktrace
+      - run: gradle :app:lintDebug --stacktrace
+        continue-on-error: true
       - name: Prove APK was created
         run: ls -lh app/build/outputs/apk/debug/ && du -h app/build/outputs/apk/debug/*.apk
       - name: Upload debug APK artifact

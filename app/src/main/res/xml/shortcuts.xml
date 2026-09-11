@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8"?>
+<shortcuts xmlns:android="http://schemas.android.com/apk/res/android">
+    <shortcut
+        android:enabled="true"
+        android:icon="@android:drawable/ic_dialog_dialer"
+        android:shortcutId="calc"
+        android:shortcutLongLabel="@string/shortcut_calc"
+        android:shortcutShortLabel="@string/shortcut_calc">
+        <intent
+            android:action="calc.u.action.CALC"
+            android:targetClass="calc.u.MainActivity"
+            android:targetPackage="calc.u" />
+    </shortcut>
+    <shortcut
+        android:enabled="true"
+        android:icon="@android:drawable/ic_dialog_map"
+        android:shortcutId="graph"
+        android:shortcutLongLabel="@string/shortcut_graph"
+        android:shortcutShortLabel="@string/shortcut_graph">
+        <intent
+            android:action="calc.u.action.GRAPH"
+            android:targetClass="calc.u.MainActivity"
+            android:targetPackage="calc.u">
+            <extra
+                android:name="dest"
+                android:value="graph" />
+        </intent>
+    </shortcut>
+</shortcuts>

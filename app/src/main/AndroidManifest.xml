@@ -5,7 +5,8 @@
     <application
         android:name=".CalcUApp"
         android:allowBackup="true"
-        android:icon="@android:mipmap/sym_def_app_icon"
+        android:icon="@mipmap/ic_launcher"
+        android:roundIcon="@mipmap/ic_launcher_round"
         android:label="CalcU"
         android:supportsRtl="true"
         android:theme="@style/Theme.CalcU">
@@ -16,7 +17,20 @@
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
+            <meta-data
+                android:name="android.app.shortcuts"
+                android:resource="@xml/shortcuts" />
         </activity>
+        <service
+            android:name=".system.CalcUTileService"
+            android:exported="true"
+            android:icon="@android:drawable/ic_dialog_dialer"
+            android:label="@string/tile_label"
+            android:permission="android.permission.BIND_QUICK_SETTINGS_TILE">
+            <intent-filter>
+                <action android:name="android.service.quicksettings.action.QS_TILE" />
+            </intent-filter>
+        </service>
         <receiver
             android:name=".widget.CalcUWidget"
             android:exported="false">

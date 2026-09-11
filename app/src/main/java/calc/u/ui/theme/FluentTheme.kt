@@ -1,5 +1,6 @@
 package calc.u.ui.theme
 
+import android.os.Build
 import androidx.compose.animation.core.CubicBezierEasing
 import androidx.compose.animation.core.Easing
 import androidx.compose.foundation.isSystemInDarkTheme
@@ -8,10 +9,13 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Shapes
 import androidx.compose.material3.Typography
 import androidx.compose.material3.darkColorScheme
+import androidx.compose.material3.dynamicDarkColorScheme
+import androidx.compose.material3.dynamicLightColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.ReadOnlyComposable
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
@@ -229,9 +233,19 @@ fun infoSeverityColor(kind: Int): Color {
 fun CalcUTheme(
     theme: String = "system",
     dark: Boolean = isSystemInDarkTheme(),
+    dynamic: Boolean = true,
     content: @Composable () -> Unit
 ) {
-    val scheme = when (theme) {
+    val context = LocalContext.current
+    val scheme = if (dynamic && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+        when (theme) {
+            "light" -> dynamicLightColorScheme(context)
+            "dark" -> dynamicDarkColorScheme(context)
+            "amoled" -> FluentAmoled
+            "contrast" -> FluentContrast
+            else -> if (dark) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context)
+        }
+    } else when (theme) {
         "light" -> FluentLight
         "dark" -> FluentDark
         "amoled" -> FluentAmoled

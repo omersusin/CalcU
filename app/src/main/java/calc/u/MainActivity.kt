@@ -3,6 +3,7 @@ package calc.u
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -92,6 +93,7 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        enableEdgeToEdge()
         setContent {
             val theme by settingsRepo.theme.collectAsStateWithLifecycle(initialValue = "system")
             CalcUTheme(theme = theme) {
@@ -99,7 +101,8 @@ class MainActivity : ComponentActivity() {
                     val nav = rememberNavController()
                     val drawer = rememberDrawerState(DrawerValue.Closed)
                     val scope = rememberCoroutineScope()
-                    var route by remember { mutableStateOf("calc") }
+                    val startRoute = if (intent?.getStringExtra("dest") == "graph") "graph" else "calc"
+                    var route by remember { mutableStateOf(startRoute) }
                     fun go(r: String) {
                         route = r
                         nav.navigate(r) { launchSingleTop = true; popUpTo("calc") }
@@ -186,7 +189,7 @@ class MainActivity : ComponentActivity() {
                                     }
                                     NavHost(
                                         navController = nav,
-                                        startDestination = "calc",
+                                        startDestination = startRoute,
                                         modifier = Modifier.weight(1f).widthIn(max = 840.dp)
                                     ) {
                                         composable("calc") { Centered { CalculatorScreen() } }

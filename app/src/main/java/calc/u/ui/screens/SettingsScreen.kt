@@ -1,5 +1,6 @@
 package calc.u.ui.screens
 
+import android.os.Build
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -42,6 +43,12 @@ class SettingsViewModel @Inject constructor(
         repo.theme.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), "system")
     val vibration: StateFlow<Boolean> =
         repo.vibration.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), true)
+    val dynamicColor: StateFlow<Boolean> =
+        repo.dynamicColor.stateIn(
+            viewModelScope,
+            SharingStarted.WhileSubscribed(5000),
+            Build.VERSION.SDK_INT >= 31
+        )
 
     fun setTheme(value: String) {
         viewModelScope.launch { repo.setTheme(value) }
@@ -50,12 +57,17 @@ class SettingsViewModel @Inject constructor(
     fun setVibration(value: Boolean) {
         viewModelScope.launch { repo.setVibration(value) }
     }
+
+    fun setDynamicColor(value: Boolean) {
+        viewModelScope.launch { repo.setDynamicColor(value) }
+    }
 }
 
 @Composable
 fun SettingsScreen(vm: SettingsViewModel = hiltViewModel()) {
     val theme by vm.theme.collectAsStateWithLifecycle()
     val vibration by vm.vibration.collectAsStateWithLifecycle()
+    val dynamicColor by vm.dynamicColor.collectAsStateWithLifecycle()
     val options = listOf(
         "system" to "System",
         "light" to "Light",
@@ -88,6 +100,22 @@ fun SettingsScreen(vm: SettingsViewModel = hiltViewModel()) {
                                 label,
                                 style = MaterialTheme.typography.bodyLarge,
                                 modifier = Modifier.padding(start = 8.dp)
+                            )
+                        }
+                    }
+                    if (Build.VERSION.SDK_INT >= 31) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                "Dynamic color",
+                                style = MaterialTheme.typography.bodyLarge,
+                                modifier = Modifier.weight(1f)
+                            )
+                            ToggleSwitch(
+                                onValueChange = { vm.setDynamicColor(it) },
+                                checkedState = dynamicColor
                             )
                         }
                     }

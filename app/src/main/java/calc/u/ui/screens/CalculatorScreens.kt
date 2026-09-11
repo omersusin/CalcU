@@ -98,7 +98,25 @@ import calc.u.ui.tintExpression
 import com.microsoft.fluentui.tokenized.bottomsheet.BottomSheet
 import com.microsoft.fluentui.tokenized.bottomsheet.BottomSheetValue
 import com.microsoft.fluentui.tokenized.bottomsheet.rememberBottomSheetState
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import android.content.Intent
+import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.gestures.detectTransformGestures
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material.icons.filled.MyLocation
+import androidx.compose.material.icons.filled.Share
+import androidx.compose.material.icons.filled.ZoomIn
+import androidx.compose.material.icons.filled.ZoomOut
+import androidx.compose.material3.Checkbox
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.unit.IntSize
+import kotlin.math.floor
+import kotlin.math.log10
+import kotlin.math.pow
 
 private val XSubst = Regex("(?<![A-Za-z])x(?![A-Za-z])")
 
@@ -562,96 +580,259 @@ private fun Keypad(
     }
 }
 
+private data class GraphView(val centerX: Double = 0.0, val centerY: Double = 0.0, val scale: Float = 40f)
+
+private fun niceGraphStep(pxPerUnit: Float): Double {
+    val raw = 80.0 / pxPerUnit.coerceAtLeast(1f).toDouble()
+    val mag = 10.0.pow(floor(log10(raw.coerceAtLeast(1e-9))))
+    val n = raw / mag
+    val nice = when {
+        n < 1.5 -> 1.0
+        n < 3.5 -> 2.0
+        n < 7.5 -> 5.0
+        else -> 10.0
+    }
+    return nice * mag
+}
+
+private fun evalGraphAt(expr: String, x: Double): Double {
+    if (expr.isBlank()) return Double.NaN
+    return try {
+        Engine.eval(XSubst.replace(expr, "($x)"), true).getOrNull()?.toDouble() ?: Double.NaN
+    } catch (e: Exception) {
+        Double.NaN
+    }
+}
+
 @Composable
 fun GraphScreen() {
-    var expr by remember { mutableStateOf("sin(x)") }
-    var range by remember { mutableStateOf(10) }
-    val grid = MaterialTheme.colorScheme.outlineVariant
-    val axes = MaterialTheme.colorScheme.outline
-    val line = MaterialTheme.colorScheme.primary
-    val step = range / 100.0
-    val ys = remember(expr, range) {
-        var x = -range.toDouble()
-        buildList {
-            while (x <= range.toDouble()) {
-                val y = try {
-                    Engine.eval(XSubst.replace(expr, "($x)"), true).getOrNull()?.toDouble() ?: Double.NaN
-                } catch (e: Exception) {
-                    Double.NaN
-                }
-                add(y)
-                x += step
-            }
+    var fExpr by remember { mutableStateOf("sin(x)") }
+    var gExpr by remember { mutableStateOf("x^2/10-2") }
+    var fOn by remember { mutableStateOf(true) }
+    var gOn by remember { mutableStateOf(true) }
+    val defaultScale = 40f
+    var view by remember { mutableStateOf(GraphView(scale = defaultScale)) }
+    var canvasPx by remember { mutableStateOf(IntSize.Zero) }
+    var readout by remember { mutableStateOf<String?>(null) }
+    LaunchedEffect(readout) {
+        if (readout != null) {
+            delay(3000)
+            readout = null
         }
     }
-    val allFailed = ys.all { !it.isFinite() }
+    val context = LocalContext.current
+    val grid = MaterialTheme.colorScheme.outlineVariant
+    val axes = MaterialTheme.colorScheme.outline
+    val fColor = MaterialTheme.colorScheme.primary
+    val gColor = MaterialTheme.colorScheme.tertiary
+    val span = 400.0 / view.scale.coerceAtLeast(1f).toDouble()
+    fun hasValid(expr: String, enabled: Boolean): Boolean {
+        if (!enabled) return false
+        var i = 0
+        while (i <= 120) {
+            val x = view.centerX - span + 2 * span * i / 120.0
+            if (evalGraphAt(expr, x).isFinite()) return true
+            i++
+        }
+        return false
+    }
+    val fValid = remember(fExpr, fOn, view) { hasValid(fExpr, fOn) }
+    val gValid = remember(gExpr, gOn, view) { hasValid(gExpr, gOn) }
+    val noneValid = (fOn || gOn) && !fValid && !gValid
     LazyColumn(
         Modifier.fillMaxSize().padding(vertical = 16.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
         item {
-            SectionCard("Function") {
-                OutlinedTextField(
-                    value = expr,
-                    onValueChange = { expr = it },
-                    label = { Text("f(x), e.g. sin(x)") },
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth()
-                )
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    listOf(5, 10, 20, 50).forEach { r ->
-                        FilterChip(
-                            selected = range == r,
-                            onClick = { range = r },
-                            label = { Text(r.toString()) }
-                        )
-                    }
+            SectionCard("Functions") {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Box(Modifier.size(12.dp).background(fColor, CircleShape))
+                    OutlinedTextField(
+                        value = fExpr,
+                        onValueChange = { fExpr = it },
+                        label = { Text("f(x)") },
+                        singleLine = true,
+                        modifier = Modifier.weight(1f)
+                    )
+                    Checkbox(checked = fOn, onCheckedChange = { fOn = it })
                 }
-                Text(
-                    "Plots x in [-$range, $range] with the same EvalEx engine as the calculator.",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Box(Modifier.size(12.dp).background(gColor, CircleShape))
+                    OutlinedTextField(
+                        value = gExpr,
+                        onValueChange = { gExpr = it },
+                        label = { Text("g(x)") },
+                        singleLine = true,
+                        modifier = Modifier.weight(1f)
+                    )
+                    Checkbox(checked = gOn, onCheckedChange = { gOn = it })
+                }
             }
         }
         item {
             ElevatedCard {
-                Canvas(Modifier.fillMaxWidth().height(300.dp).padding(8.dp)) {
-                    val w = size.width
-                    val h = size.height
-                    var gx = 0f
-                    while (gx <= w) {
-                        drawLine(grid, Offset(gx, 0f), Offset(gx, h))
-                        gx += w / 20
-                    }
-                    var gy = 0f
-                    while (gy <= h) {
-                        drawLine(grid, Offset(0f, gy), Offset(w, gy))
-                        gy += h / 12
-                    }
-                    drawLine(axes, Offset(0f, h / 2), Offset(w, h / 2), strokeWidth = 3f)
-                    drawLine(axes, Offset(w / 2, 0f), Offset(w / 2, h), strokeWidth = 3f)
-                    var prev: Offset? = null
-                    ys.forEachIndexed { i, y ->
-                        val x = -range.toDouble() + i * step
-                        if (y.isFinite()) {
-                            val px = (w / 2 + x / range * w / 2).toFloat()
-                            val py = (h / 2 - y / range * h / 2).toFloat()
-                            val p = Offset(px, py)
-                            prev?.let { drawLine(line, it, p, strokeWidth = 5f) }
-                            prev = p
-                        } else {
-                            prev = null
+                Column(Modifier.padding(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Box {
+                        Canvas(
+                            Modifier.fillMaxWidth().height(300.dp)
+                                .pointerInput(Unit) {
+                                    detectTapGestures(
+                                        onTap = { off ->
+                                            val w = canvasPx.width
+                                            val h = canvasPx.height
+                                            if (w > 0 && h > 0) {
+                                                val mx = view.centerX + (off.x - w / 2.0) / view.scale
+                                                val my = view.centerY - (off.y - h / 2.0) / view.scale
+                                                fun fmt(v: Double) = if (v.isFinite()) "%.2f".format(v) else "—"
+                                                val parts = buildList {
+                                                    add("x=" + fmt(mx))
+                                                    if (fOn) add("f=" + fmt(evalGraphAt(fExpr, mx)))
+                                                    if (gOn) add("g=" + fmt(evalGraphAt(gExpr, mx)))
+                                                }
+                                                readout = parts.joinToString(", ") + "  y=" + fmt(my)
+                                            }
+                                        },
+                                        onDoubleTap = { view = GraphView(scale = defaultScale) }
+                                    )
+                                }
+                                .pointerInput(Unit) {
+                                    detectTransformGestures { _, pan, zoom, _ ->
+                                        val s = (view.scale * zoom).coerceIn(5f, 500f)
+                                        view = view.copy(
+                                            centerX = view.centerX - pan.x / view.scale,
+                                            centerY = view.centerY + pan.y / view.scale,
+                                            scale = s
+                                        )
+                                    }
+                                }
+                                .onSizeChanged { canvasPx = it }
+                        ) {
+                            val w = size.width
+                            val h = size.height
+                            if (w > 0f && h > 0f) {
+                                val ppu = view.scale.coerceAtLeast(1f)
+                                val step = niceGraphStep(ppu)
+                                val xMin = view.centerX - (w / 2) / ppu.toDouble()
+                                val xMax = view.centerX + (w / 2) / ppu.toDouble()
+                                val yMin = view.centerY - (h / 2) / ppu.toDouble()
+                                val yMax = view.centerY + (h / 2) / ppu.toDouble()
+                                var gx = floor(xMin / step) * step
+                                while (gx <= xMax) {
+                                    val px = (w / 2 + (gx - view.centerX) * ppu).toFloat()
+                                    drawLine(grid, Offset(px, 0f), Offset(px, h))
+                                    gx += step
+                                    if (gx > xMin + 1000 * step) break
+                                }
+                                var gy = floor(yMin / step) * step
+                                while (gy <= yMax) {
+                                    val py = (h / 2 - (gy - view.centerY) * ppu).toFloat()
+                                    drawLine(grid, Offset(0f, py), Offset(w, py))
+                                    gy += step
+                                    if (gy > yMin + 1000 * step) break
+                                }
+                                if (xMin <= 0.0 && 0.0 <= xMax) {
+                                    val px = (w / 2 + (0.0 - view.centerX) * ppu).toFloat()
+                                    drawLine(axes, Offset(px, 0f), Offset(px, h), strokeWidth = 3f)
+                                }
+                                if (yMin <= 0.0 && 0.0 <= yMax) {
+                                    val py = (h / 2 - (0.0 - view.centerY) * ppu).toFloat()
+                                    drawLine(axes, Offset(0f, py), Offset(w, py), strokeWidth = 3f)
+                                }
+                                fun plot(expr: String, enabled: Boolean, color: Color) {
+                                    if (!enabled) return
+                                    var prev: Offset? = null
+                                    var px = 0f
+                                    while (px <= w) {
+                                        val mx = view.centerX + (px - w / 2) / ppu
+                                        val y = evalGraphAt(expr, mx)
+                                        if (y.isFinite()) {
+                                            val py = (h / 2 - (y - view.centerY) * ppu).toFloat()
+                                            val p = Offset(px, py)
+                                            if (prev != null) drawLine(color, prev, p, strokeWidth = 5f)
+                                            prev = p
+                                        } else {
+                                            prev = null
+                                        }
+                                        px += 2f
+                                    }
+                                }
+                                plot(fExpr, fOn, fColor)
+                                plot(gExpr, gOn, gColor)
+                            }
+                        }
+                        val chip = readout
+                        if (chip != null) {
+                            Card(
+                                colors = CardDefaults.cardColors(
+                                    containerColor = MaterialTheme.colorScheme.surfaceContainerHigh
+                                ),
+                                modifier = Modifier.align(Alignment.TopCenter).padding(8.dp)
+                            ) {
+                                Text(
+                                    chip,
+                                    style = MaterialTheme.typography.bodySmall,
+                                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)
+                                )
+                            }
                         }
                     }
-                }
-                if (allFailed) {
-                    FluentInfoBar(
-                        severity = WARNING,
-                        title = "Cannot plot",
-                        message = "No valid points for this expression in range.",
-                        modifier = Modifier.padding(16.dp)
-                    )
+                    Row(
+                        Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        IconButton(
+                            onClick = { view = view.copy(scale = (view.scale * 1.25f).coerceIn(5f, 500f)) },
+                            modifier = Modifier.size(48.dp)
+                        ) {
+                            Icon(Icons.Filled.ZoomIn, contentDescription = "Zoom in")
+                        }
+                        IconButton(
+                            onClick = { view = view.copy(scale = (view.scale / 1.25f).coerceIn(5f, 500f)) },
+                            modifier = Modifier.size(48.dp)
+                        ) {
+                            Icon(Icons.Filled.ZoomOut, contentDescription = "Zoom out")
+                        }
+                        IconButton(
+                            onClick = { view = GraphView(scale = defaultScale) },
+                            modifier = Modifier.size(48.dp)
+                        ) {
+                            Icon(Icons.Filled.MyLocation, contentDescription = "Reset view")
+                        }
+                        IconButton(
+                            onClick = {
+                                val text = buildString {
+                                    if (fOn) append("f(x)=" + fExpr)
+                                    if (fOn && gOn) append("; ")
+                                    if (gOn) append("g(x)=" + gExpr)
+                                }
+                                context.startActivity(
+                                    Intent.createChooser(
+                                        Intent(Intent.ACTION_SEND).setType("text/plain")
+                                            .putExtra(Intent.EXTRA_TEXT, text.ifBlank { "f(x)=" + fExpr }),
+                                        null
+                                    )
+                                )
+                            },
+                            modifier = Modifier.size(48.dp)
+                        ) {
+                            Icon(Icons.Filled.Share, contentDescription = "Share expressions")
+                        }
+                    }
+                    if (noneValid) {
+                        FluentInfoBar(
+                            severity = WARNING,
+                            title = "Cannot plot",
+                            message = "No valid points for the enabled functions in this view.",
+                            modifier = Modifier.padding(horizontal = 8.dp)
+                        )
+                    }
                 }
             }
         }

@@ -11,12 +11,13 @@ android {
     namespace = "calc.u"
     compileSdk = 34
 
+    val runNumber = System.getenv("GITHUB_RUN_NUMBER")?.toIntOrNull() ?: 1
     defaultConfig {
         applicationId = "calc.u"
         minSdk = 24
         targetSdk = 34
-        versionCode = 1
-        versionName = "1.0.0"
+        versionCode = runNumber
+        versionName = "1.0.$runNumber"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
