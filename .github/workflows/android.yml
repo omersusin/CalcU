@@ -24,6 +24,12 @@ jobs:
       - run: gradle :app:assembleDebug --stacktrace
       - name: Prove APK was created
         run: ls -lh app/build/outputs/apk/debug/ && du -h app/build/outputs/apk/debug/*.apk
+      - name: Upload debug APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: calcu-debug
+          path: app/build/outputs/apk/debug/*.apk
+          if-no-files-found: error
       - name: Attach APK to rolling latest release
         if: github.event_name == 'push'
         env:
