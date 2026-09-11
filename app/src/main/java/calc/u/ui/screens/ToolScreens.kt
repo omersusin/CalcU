@@ -87,6 +87,12 @@ private fun mapFor(cat: String): Map<String, Units.UnitDef> = when (cat) {
     "shoe" -> Units.shoe
     "ring" -> Units.ring
     "historic" -> Units.historic
+    "angle" -> Units.angle
+    "force" -> Units.force
+    "torque" -> Units.torque
+    "acceleration" -> Units.acceleration
+    "flow" -> Units.flow
+    "datarate" -> Units.datarate
     else -> emptyMap()
 }
 
@@ -265,7 +271,8 @@ fun ConvertersScreen() {
     val cats = listOf(
         "length", "mass", "volume", "temp", "area", "speed",
         "pressure", "energy", "power", "data", "fuel",
-        "cooking", "shoe", "ring", "historic"
+        "cooking", "shoe", "ring", "historic",
+        "angle", "force", "torque", "acceleration", "flow", "datarate"
     )
     val v = num(input)
     val units: List<String> = if (cat == "temp") Units.temperature else mapFor(cat).keys.toList()
@@ -767,6 +774,9 @@ private fun NumbersContent() {
                 ResultLine("Reduced", frac)
             }
         }
+        item {
+            ProgrammerScreen()
+        }
     }
 }
 
@@ -1188,6 +1198,87 @@ fun StepsScreen() {
                         }
                     }
                 }
+            }
+        }
+    }
+}
+
+@Composable
+fun ProgrammerScreen() {
+    var aStr by remember { mutableStateOf("12") }
+    var bStr by remember { mutableStateOf("5") }
+    var base by remember { mutableStateOf(10) }
+    var minStr by remember { mutableStateOf("1") }
+    var maxStr by remember { mutableStateOf("100") }
+    var rolls by remember { mutableStateOf(listOf<Int>()) }
+    fun parse(s: String): Long? {
+        val t = s.trim()
+        if (t.isEmpty()) return null
+        val neg = t.startsWith("-")
+        var body = if (neg || t.startsWith("+")) t.drop(1) else t
+        if (base == 16 && body.startsWith("0x", ignoreCase = true)) body = body.drop(2)
+        if (base == 2 && body.startsWith("0b", ignoreCase = true)) body = body.drop(2)
+        if (base == 8 && body.startsWith("0o", ignoreCase = true)) body = body.drop(2)
+        if (body.isEmpty()) return null
+        val v = body.toLongOrNull(base) ?: return null
+        return if (neg) -v else v
+    }
+    fun show(v: Long): String = when (base) {
+        16 -> v.toString(16).uppercase()
+        8 -> v.toString(8)
+        2 -> v.toString(2)
+        else -> v.toString()
+    }
+    val av = parse(aStr)
+    val bv = parse(bStr)
+    val bases = listOf(10 to "dec", 16 to "hex", 8 to "oct", 2 to "bin")
+    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        SectionCard("Programmer & random") {
+            LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                items(bases) { (b, label) ->
+                    FilterChip(selected = base == b, onClick = { base = b }, label = { Text(label) })
+                }
+            }
+            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                Box(Modifier.weight(1f)) {
+                    OutlinedTextField(value = aStr, onValueChange = { aStr = it }, label = { Text("a") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+                }
+                Box(Modifier.weight(1f)) {
+                    OutlinedTextField(value = bStr, onValueChange = { bStr = it }, label = { Text("b (shift)") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+                }
+            }
+            HorizontalDivider()
+            if (av == null || bv == null) {
+                ResultLine("Result", "—")
+            } else {
+                ResultLine("AND", show(Engine.bitwiseAnd(av, bv)))
+                ResultLine("OR", show(Engine.bitwiseOr(av, bv)))
+                ResultLine("XOR", show(Engine.bitwiseXor(av, bv)))
+                ResultLine("NOT a", show(Engine.bitwiseNot(av)))
+                ResultLine("a shl b", show(Engine.shl(av, bv.toInt())))
+                ResultLine("a shr b", show(Engine.shr(av, bv.toInt())))
+            }
+            HorizontalDivider()
+            ResultLine("a dec", av?.toString() ?: "—")
+            ResultLine("a hex", av?.toString(16)?.uppercase() ?: "—")
+            ResultLine("a oct", av?.toString(8) ?: "—")
+            ResultLine("a bin", av?.toString(2) ?: "—")
+        }
+        SectionCard("RNG") {
+            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                Box(Modifier.weight(1f)) { NumField(minStr, { minStr = it }, "Min", integer = true) }
+                Box(Modifier.weight(1f)) { NumField(maxStr, { maxStr = it }, "Max", integer = true) }
+            }
+            Button(onClick = {
+                val lo = minStr.toIntOrNull() ?: 0
+                val hi = maxStr.toIntOrNull() ?: 0
+                rolls = (listOf(Engine.randomInt(lo, hi)) + rolls).take(5)
+            }) { Text("Generate") }
+            HorizontalDivider()
+            if (rolls.isEmpty()) {
+                ResultLine("Last roll", "—")
+            } else {
+                rolls.forEachIndexed { i, r -> ResultLine(if (i == 0) "Last roll" else "Roll ${i + 1}", "$r") }
             }
         }
     }

@@ -1,11 +1,17 @@
 package calc.u.ui
 
+import android.appwidget.AppWidgetManager
+import android.content.ComponentName
+import android.content.Context
+import android.content.Intent
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import calc.u.core.Engine
 import calc.u.data.HistoryRepository
 import calc.u.data.SettingsRepository
+import calc.u.widget.CalcUWidget
 import dagger.hilt.android.lifecycle.HiltViewModel
+import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -37,7 +43,8 @@ sealed interface CalcEffect {
 @HiltViewModel
 class CalcViewModel @Inject constructor(
     private val historyRepo: HistoryRepository,
-    private val settingsRepo: SettingsRepository
+    private val settingsRepo: SettingsRepository,
+    @ApplicationContext private val appContext: Context
 ) : ViewModel() {
     private val _uiState = MutableStateFlow(CalcUiState())
     val uiState: StateFlow<CalcUiState> = _uiState.asStateFlow()
@@ -73,9 +80,25 @@ class CalcViewModel @Inject constructor(
         Engine.eval(st.input, st.angleDeg).onSuccess {
             val r = Engine.format(it)
             _uiState.update { s -> s.copy(result = r) }
-            viewModelScope.launch { historyRepo.push(st.input, r) }
+            viewModelScope.launch {
+                historyRepo.push(st.input, r)
+                refreshWidget()
+            }
         }.onFailure {
             _uiState.update { s -> s.copy(result = "Error") }
+        }
+    }
+
+    private fun refreshWidget() {
+        try {
+            val mgr = AppWidgetManager.getInstance(appContext)
+            val ids = mgr.getAppWidgetIds(ComponentName(appContext, CalcUWidget::class.java))
+            if (ids.isNotEmpty()) {
+                appContext.sendBroadcast(
+                    Intent(AppWidgetManager.ACTION_APPWIDGET_UPDATE).putExtra(AppWidgetManager.EXTRA_APPWIDGET_IDS, ids)
+                )
+            }
+        } catch (_: Exception) {
         }
     }
 

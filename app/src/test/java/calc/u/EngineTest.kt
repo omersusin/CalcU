@@ -132,4 +132,24 @@ class EngineTest {
         val eu = Units.convert(10.0, Units.ring["US"]!!, Units.ring["EU"]!!)
         assertEquals(10.0, Units.convert(eu, Units.ring["EU"]!!, Units.ring["US"]!!), 1e-9)
     }
+    @Test fun angleDegToRad() {
+        assertEquals(2 * Math.PI, Units.convert(360.0, Units.angle["deg"]!!, Units.angle["rad"]!!), 1e-9)
+    }
+    @Test fun angleTurnToDeg() {
+        assertEquals(360.0, Units.convert(1.0, Units.angle["turn"]!!, Units.angle["deg"]!!), 1e-9)
+    }
+    @Test fun forceLbfToNewton() {
+        assertEquals(4.44822, Units.convert(1.0, Units.force["lbf"]!!, Units.force["N"]!!), 1e-5)
+    }
+    @Test fun accelerationGToBase() {
+        assertEquals(9.80665, Units.convert(1.0, Units.acceleration["g"]!!, Units.acceleration["m/s²"]!!), 1e-9)
+    }
+    @Test fun torqueFlowDatarateRoundTrip() {
+        val base = Units.convert(1.0, Units.torque["lbf·ft"]!!, Units.torque["N·m"]!!)
+        assertEquals(1.0, Units.convert(base, Units.torque["N·m"]!!, Units.torque["lbf·ft"]!!), 1e-9)
+        val si = Units.convert(1.0, Units.flow["L/min"]!!, Units.flow["m³/s"]!!)
+        assertEquals(1.0, Units.convert(si, Units.flow["m³/s"]!!, Units.flow["L/min"]!!), 1e-9)
+        val bps = Units.convert(1.0, Units.datarate["MBps"]!!, Units.datarate["bps"]!!)
+        assertEquals(1.0, Units.convert(bps, Units.datarate["bps"]!!, Units.datarate["MBps"]!!), 1e-9)
+    }
 }

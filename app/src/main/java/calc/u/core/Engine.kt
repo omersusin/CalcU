@@ -4,6 +4,7 @@ import com.ezylang.evalex.Expression
 import java.math.BigDecimal
 import java.math.BigInteger
 import java.math.RoundingMode
+import java.security.SecureRandom
 import kotlin.math.abs
 import kotlin.math.exp
 import kotlin.math.floor
@@ -178,4 +179,26 @@ object Engine {
         val s = BigDecimal.valueOf(d).stripTrailingZeros().toPlainString()
         return if (s == "-0") "0" else s
     }
+
+    fun bitwiseAnd(a: Long, b: Long): Long = a and b
+    fun bitwiseOr(a: Long, b: Long): Long = a or b
+    fun bitwiseXor(a: Long, b: Long): Long = a xor b
+    fun bitwiseNot(a: Long): Long = a.inv()
+    fun shl(a: Long, bits: Int): Long = a shl bits
+    fun shr(a: Long, bits: Int): Long = a shr bits
+
+    fun randomInt(min: Int, max: Int, rng: SecureRandom = SecureRandom()): Int {
+        val lo = minOf(min, max)
+        val hi = maxOf(min, max)
+        if (lo == hi) return lo
+        val bound = hi.toLong() - lo + 1L
+        if (bound <= Int.MAX_VALUE) return lo + rng.nextInt(bound.toInt())
+        var r: Long
+        do {
+            r = rng.nextLong() ushr 1
+        } while (r >= Long.MAX_VALUE - Long.MAX_VALUE % bound)
+        return (lo + r % bound).toInt()
+    }
+
+    fun randomDecimal(): Double = SecureRandom().nextDouble()
 }

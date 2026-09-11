@@ -95,6 +95,38 @@ object Units {
         "stone" to UnitDef("stone", 6.35029318),
         "grain" to UnitDef("grain", 6.479891E-5)
     )
+    val angle = mapOf(
+        "deg" to UnitDef("deg", 0.017453292519943295),
+        "rad" to UnitDef("rad", 1.0),
+        "grad" to UnitDef("grad", 0.015707963267948967),
+        "arcmin" to UnitDef("arcmin", 2.908882086657216E-4),
+        "arcsec" to UnitDef("arcsec", 4.84813681109536E-6),
+        "turn" to UnitDef("turn", 6.283185307179586)
+    )
+    val force = mapOf(
+        "N" to UnitDef("N", 1.0), "kN" to UnitDef("kN", 1000.0),
+        "lbf" to UnitDef("lbf", 4.4482216152605), "dyn" to UnitDef("dyn", 1.0E-5),
+        "kgf" to UnitDef("kgf", 9.80665)
+    )
+    val torque = mapOf(
+        "N·m" to UnitDef("N·m", 1.0), "lbf·ft" to UnitDef("lbf·ft", 1.3558179483314004),
+        "lbf·in" to UnitDef("lbf·in", 0.1129848290276167), "kgf·m" to UnitDef("kgf·m", 9.80665)
+    )
+    val acceleration = mapOf(
+        "m/s²" to UnitDef("m/s²", 1.0), "g" to UnitDef("g", 9.80665),
+        "ft/s²" to UnitDef("ft/s²", 0.3048), "Gal" to UnitDef("Gal", 0.01)
+    )
+    val flow = mapOf(
+        "L/s" to UnitDef("L/s", 0.001), "L/min" to UnitDef("L/min", 1.6666666666666667E-5),
+        "m³/s" to UnitDef("m³/s", 1.0), "m³/h" to UnitDef("m³/h", 2.7777777777777776E-4),
+        "gpm" to UnitDef("gpm", 6.30901964E-5), "cfm" to UnitDef("cfm", 4.719474432E-4)
+    )
+    val datarate = mapOf(
+        "bps" to UnitDef("bps", 1.0), "kbps" to UnitDef("kbps", 1000.0),
+        "Mbps" to UnitDef("Mbps", 1000000.0), "Gbps" to UnitDef("Gbps", 1000000000.0),
+        "Bps" to UnitDef("Bps", 8.0), "KBps" to UnitDef("KBps", 8000.0),
+        "MBps" to UnitDef("MBps", 8000000.0)
+    )
 
     private val fuelIds = fuel.keys
     private const val MPG_US_CONST = 235.214583
