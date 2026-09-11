@@ -118,7 +118,7 @@ object Engine {
         for (i in 1L..rr) {
             res = res.multiply(BigInteger.valueOf(n - rr + i)).divide(BigInteger.valueOf(i))
         }
-        return res.longValueExact()
+        return exactLong(res)
     }
 
     fun nPr(n: Long, r: Long): Long {
@@ -127,7 +127,14 @@ object Engine {
         for (i in 0L until r) {
             res = res.multiply(BigInteger.valueOf(n - i))
         }
-        return res.longValueExact()
+        return exactLong(res)
+    }
+
+    private fun exactLong(v: BigInteger): Long {
+        if (v < BigInteger.valueOf(Long.MIN_VALUE) || v > BigInteger.valueOf(Long.MAX_VALUE)) {
+            throw ArithmeticException("Long overflow")
+        }
+        return v.toLong()
     }
 
     fun solveQuadratic(a: Double, b: Double, c: Double): List<String> {
