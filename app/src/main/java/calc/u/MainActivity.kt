@@ -59,6 +59,7 @@ import calc.u.ui.screens.MathScreen
 import calc.u.ui.screens.SettingsScreen
 import calc.u.ui.screens.StepsScreen
 import calc.u.ui.theme.CalcUTheme
+import com.microsoft.fluentui.theme.FluentTheme
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.launch
 import javax.inject.Inject
@@ -84,7 +85,8 @@ class MainActivity : ComponentActivity() {
         setContent {
             val theme by settingsRepo.theme.collectAsStateWithLifecycle(initialValue = "system")
             CalcUTheme(theme = theme) {
-                val nav = rememberNavController()
+                FluentTheme {
+                    val nav = rememberNavController()
                 val drawer = rememberDrawerState(DrawerValue.Closed)
                 val scope = rememberCoroutineScope()
                 var route by remember { mutableStateOf("calc") }
@@ -174,6 +176,7 @@ class MainActivity : ComponentActivity() {
                             }
                         }
                     }
+                }
                 }
             }
         }

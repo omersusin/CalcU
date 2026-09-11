@@ -118,4 +118,18 @@ class EngineTest {
         assertEquals(50.0, Currency.convert(100.0, 2.0, 1.0), 1e-9)
         assertEquals(184.0, Currency.convert(100.0, 0.5, 0.92), 1e-9)
     }
+    @Test fun cookingRoundTrip() {
+        val ml = Units.convert(2.0, Units.cooking["cup"]!!, Units.cooking["ml"]!!)
+        assertEquals(2.0, Units.convert(ml, Units.cooking["ml"]!!, Units.cooking["cup"]!!), 1e-9)
+        val l = Units.convert(1.0, Units.cooking["gallon_us"]!!, Units.cooking["l"]!!)
+        assertEquals(1.0, Units.convert(l, Units.cooking["l"]!!, Units.cooking["gallon_us"]!!), 1e-9)
+    }
+    @Test fun shoeRoundTrip() {
+        val cm = Units.convert(9.0, Units.shoe["US_M"]!!, Units.shoe["CM"]!!)
+        assertEquals(9.0, Units.convert(cm, Units.shoe["CM"]!!, Units.shoe["US_M"]!!), 1e-9)
+    }
+    @Test fun ringRoundTrip() {
+        val eu = Units.convert(10.0, Units.ring["US"]!!, Units.ring["EU"]!!)
+        assertEquals(10.0, Units.convert(eu, Units.ring["EU"]!!, Units.ring["US"]!!), 1e-9)
+    }
 }

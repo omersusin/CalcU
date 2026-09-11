@@ -1,16 +1,23 @@
 package calc.u.ui.screens
 
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Star
+import androidx.compose.material.icons.filled.StarBorder
+import androidx.compose.material.icons.filled.SwapVert
 import androidx.compose.material3.Button
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -18,6 +25,8 @@ import androidx.compose.material3.ExposedDropdownMenuBox
 import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Slider
@@ -33,6 +42,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
@@ -43,6 +53,10 @@ import calc.u.core.Geometry
 import calc.u.core.HealthDate
 import calc.u.core.Units
 import calc.u.data.CurrencyRepository
+import calc.u.data.UnitPrefsRepository
+import com.microsoft.fluentui.tokenized.bottomsheet.BottomSheet
+import com.microsoft.fluentui.tokenized.bottomsheet.BottomSheetValue
+import com.microsoft.fluentui.tokenized.bottomsheet.rememberBottomSheetState
 import calc.u.ui.CalcUNumberBox
 import calc.u.ui.ResultLine
 import calc.u.ui.SectionCard
@@ -268,6 +282,90 @@ fun ConvertersScreen() {
         }
     }.getOrDefault("—")
     val baseLong = baseInput.toLongOrNull()
+    val appCtx = LocalContext.current.applicationContext
+    val prefs = remember { UnitPrefsRepository(appCtx) }
+    val scope = rememberCoroutineScope()
+    val sheetState = rememberBottomSheetState(BottomSheetValue.Hidden)
+    var sheetTarget by remember { mutableStateOf<String?>(null) }
+    var query by remember { mutableStateOf("") }
+    var swapped by remember { mutableStateOf(false) }
+    val rotation by animateFloatAsState(if (swapped) 180f else 0f, label = "swap")
+    val favorites by prefs.favoritesFlow(cat).collectAsState(initial = emptySet())
+    LaunchedEffect(cat) {
+        val (savedFrom, savedTo) = prefs.getPair(cat)
+        if (savedFrom != null && savedFrom in units) from = savedFrom
+        if (savedTo != null && savedTo in units) to = savedTo
+    }
+    LaunchedEffect(cat, from, to) {
+        if (from in units && to in units) prefs.savePair(cat, from, to)
+    }
+    fun previewFor(candidate: String): String = runCatching {
+        if (cat == "temp") {
+            if (sheetTarget == "from") fmt(Units.convertTemp(v, candidate, safeTo))
+            else fmt(Units.convertTemp(v, safeFrom, candidate))
+        } else if (cat == "fuel") {
+            if (sheetTarget == "from") fmt(convertFuel(v, candidate, safeTo))
+            else fmt(convertFuel(v, safeFrom, candidate))
+        } else {
+            val map = mapFor(cat)
+            val anchor = map[if (sheetTarget == "from") safeTo else safeFrom]
+            val cand = map[candidate]
+            if (anchor == null || cand == null) "—"
+            else if (sheetTarget == "from") fmt(Units.convert(v, cand, anchor))
+            else fmt(Units.convert(v, anchor, cand))
+        }
+    }.getOrDefault("—")
+    fun openPicker(target: String) {
+        sheetTarget = target
+        query = ""
+        scope.launch { sheetState.show() }
+    }
+    fun pick(unit: String) {
+        if (sheetTarget == "from") from = unit else to = unit
+        scope.launch { sheetState.hide() }
+        sheetTarget = null
+        query = ""
+    }
+    val visible = units
+        .filter { query.isBlank() || it.contains(query, ignoreCase = true) }
+        .sortedWith(compareBy({ it !in favorites }, { it }))
+    BottomSheet(
+        sheetContent = {
+            Column(Modifier.fillMaxWidth().padding(16.dp)) {
+                OutlinedTextField(
+                    value = query,
+                    onValueChange = { query = it },
+                    label = { Text("Search units") },
+                    modifier = Modifier.fillMaxWidth()
+                )
+                LazyColumn(Modifier.fillMaxWidth().height(360.dp)) {
+                    items(visible) { u ->
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.fillMaxWidth().clickable { pick(u) }.padding(vertical = 4.dp)
+                        ) {
+                            Column(Modifier.weight(1f)) {
+                                Text(u, style = MaterialTheme.typography.bodyLarge)
+                                Text(previewFor(u), style = MaterialTheme.typography.bodySmall)
+                            }
+                            IconButton(onClick = { scope.launch { prefs.toggleFavorite(cat, u) } }) {
+                                Icon(
+                                    if (u in favorites) Icons.Filled.Star else Icons.Filled.StarBorder,
+                                    contentDescription = if (u in favorites) "Unfavorite $u" else "Favorite $u"
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        sheetState = sheetState,
+        expandable = true,
+        peekHeight = 420.dp,
+        scrimVisible = true,
+        enableSwipeDismiss = true,
+        onDismiss = { sheetTarget = null; query = "" }
+    ) {
     LazyColumn(
         Modifier.fillMaxSize().padding(vertical = 16.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)
@@ -280,12 +378,39 @@ fun ConvertersScreen() {
                         FilterChip(selected = c == cat, onClick = { cat = c }, label = { Text(c) })
                     }
                 }
-                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    Box(Modifier.weight(1f)) {
-                        UnitDropdown(safeFrom, units, { from = it }, "From")
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Box(Modifier.weight(1f).clickable { openPicker("from") }) {
+                        OutlinedTextField(
+                            value = safeFrom,
+                            onValueChange = {},
+                            enabled = false,
+                            label = { Text("From") },
+                            modifier = Modifier.fillMaxWidth()
+                        )
                     }
-                    Box(Modifier.weight(1f)) {
-                        UnitDropdown(safeTo, units, { to = it }, "To")
+                    IconButton(onClick = {
+                        val f = from
+                        from = to
+                        to = f
+                        swapped = !swapped
+                    }) {
+                        Icon(
+                            Icons.Filled.SwapVert,
+                            contentDescription = "Swap units",
+                            modifier = Modifier.graphicsLayer { rotationZ = rotation }
+                        )
+                    }
+                    Box(Modifier.weight(1f).clickable { openPicker("to") }) {
+                        OutlinedTextField(
+                            value = safeTo,
+                            onValueChange = {},
+                            enabled = false,
+                            label = { Text("To") },
+                            modifier = Modifier.fillMaxWidth()
+                        )
                     }
                 }
                 HorizontalDivider()
@@ -344,6 +469,7 @@ fun ConvertersScreen() {
                 else runCatching { Units.toRoman(baseLong.toInt()) }.getOrDefault("—").ifEmpty { "—" }
                 ResultLine("Roman", roman)
             }
+        }
         }
     }
 }

@@ -11,7 +11,6 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -26,6 +25,8 @@ import androidx.lifecycle.viewModelScope
 import calc.u.data.SettingsRepository
 import calc.u.ui.FluentExpander
 import calc.u.ui.SectionCard
+import com.microsoft.fluentui.tokenized.controls.RadioButton
+import com.microsoft.fluentui.tokenized.controls.ToggleSwitch
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import kotlinx.coroutines.flow.SharingStarted
@@ -39,15 +40,22 @@ class SettingsViewModel @Inject constructor(
 ) : ViewModel() {
     val theme: StateFlow<String> =
         repo.theme.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), "system")
+    val vibration: StateFlow<Boolean> =
+        repo.vibration.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), true)
 
     fun setTheme(value: String) {
         viewModelScope.launch { repo.setTheme(value) }
+    }
+
+    fun setVibration(value: Boolean) {
+        viewModelScope.launch { repo.setVibration(value) }
     }
 }
 
 @Composable
 fun SettingsScreen(vm: SettingsViewModel = hiltViewModel()) {
     val theme by vm.theme.collectAsStateWithLifecycle()
+    val vibration by vm.vibration.collectAsStateWithLifecycle()
     val options = listOf(
         "system" to "System",
         "light" to "Light",
@@ -72,7 +80,10 @@ fun SettingsScreen(vm: SettingsViewModel = hiltViewModel()) {
                                 ),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            RadioButton(selected = theme == id, onClick = null)
+                            RadioButton(
+                                onClick = { vm.setTheme(id) },
+                                selected = theme == id
+                            )
                             Text(
                                 label,
                                 style = MaterialTheme.typography.bodyLarge,
@@ -80,6 +91,24 @@ fun SettingsScreen(vm: SettingsViewModel = hiltViewModel()) {
                             )
                         }
                     }
+                }
+            }
+        }
+        item {
+            SectionCard("Haptics") {
+                Row(
+                    modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        "Vibration",
+                        style = MaterialTheme.typography.bodyLarge,
+                        modifier = Modifier.weight(1f)
+                    )
+                    ToggleSwitch(
+                        onValueChange = { vm.setVibration(it) },
+                        checkedState = vibration
+                    )
                 }
             }
         }

@@ -15,6 +15,9 @@ serialization = "1.7.3"
 datastore = "1.1.1"
 hiltNavCompose = "1.2.0"
 evalex = "3.3.0"
+fluentuiCore = "0.3.11"
+fluentuiControls = "0.3.3"
+fluentuiDrawer = "0.3.10"
 coil = "2.6.0"
 junit = "4.13.2"
 
@@ -44,6 +47,9 @@ kotlinx-coroutines-android = { group = "org.jetbrains.kotlinx", name = "kotlinx-
 kotlinx-serialization-json = { group = "org.jetbrains.kotlinx", name = "kotlinx-serialization-json", version.ref = "serialization" }
 datastore-preferences = { group = "androidx.datastore", name = "datastore-preferences", version.ref = "datastore" }
 evalex = { group = "com.ezylang", name = "EvalEx", version.ref = "evalex" }
+fluentui-core = { group = "com.microsoft.fluentui", name = "fluentui_core", version.ref = "fluentuiCore" }
+fluentui-controls = { group = "com.microsoft.fluentui", name = "fluentui_controls", version.ref = "fluentuiControls" }
+fluentui-drawer = { group = "com.microsoft.fluentui", name = "fluentui_drawer", version.ref = "fluentuiDrawer" }
 coil-compose = { group = "io.coil-kt", name = "coil-compose", version.ref = "coil" }
 junit = { group = "junit", name = "junit", version.ref = "junit" }
 

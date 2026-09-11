@@ -30,4 +30,12 @@ class SettingsRepository @Inject constructor(@ApplicationContext private val ctx
     suspend fun setGraphTipSeen() {
         ctx.settingsDataStore.edit { it[tipKey] = true }
     }
+
+    private val vibrationKey = booleanPreferencesKey("vibration")
+
+    val vibration: Flow<Boolean> = ctx.settingsDataStore.data.map { it[vibrationKey] ?: true }
+
+    suspend fun setVibration(value: Boolean) {
+        ctx.settingsDataStore.edit { it[vibrationKey] = value }
+    }
 }

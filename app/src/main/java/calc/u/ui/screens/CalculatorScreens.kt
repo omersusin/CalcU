@@ -2,6 +2,9 @@ package calc.u.ui.screens
 
 import androidx.compose.animation.animateContentSize
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.border
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -21,6 +24,7 @@ import androidx.compose.material.icons.filled.NoteAdd
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ElevatedCard
@@ -43,8 +47,11 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.AnnotatedString
@@ -73,6 +80,11 @@ private fun historyNote(entry: String): String =
 @Composable
 fun CalculatorScreen(vm: CalcViewModel = hiltViewModel()) {
     val st by vm.uiState.collectAsStateWithLifecycle()
+    val vibration by vm.vibration.collectAsStateWithLifecycle()
+    val haptics = LocalHapticFeedback.current
+    fun tapFeedback() {
+        if (vibration) haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+    }
     val clipboard = LocalClipboardManager.current
     val snackbar = remember { SnackbarHostState() }
     LaunchedEffect(Unit) {
@@ -147,9 +159,13 @@ fun CalculatorScreen(vm: CalcViewModel = hiltViewModel()) {
             }
             item {
                 Keypad(
-                    onKey = { k -> if (k == "=") vm.onEquals() else vm.onInput(k) },
-                    onClear = { vm.onClear() },
-                    onBack = { vm.onBackspace() }
+                    onKey = { k -> tapFeedback(); if (k == "=") vm.onEquals() else vm.onInput(k) },
+                    onClear = { tapFeedback(); vm.onClear() },
+                    onBack = { tapFeedback(); vm.onBackspace() },
+                    onBackLong = {
+                        if (vibration) haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+                        vm.onClear()
+                    }
                 )
             }
             item {
@@ -193,6 +209,7 @@ fun CalculatorScreen(vm: CalcViewModel = hiltViewModel()) {
                 items(indexed) { (realIndex, h) ->
                     val note = historyNote(h)
                     Card(
+                        onClick = { vm.onHistoryTap(h) },
                         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow)
                     ) {
                         Row(
@@ -264,8 +281,14 @@ fun CalculatorScreen(vm: CalcViewModel = hiltViewModel()) {
     }
 }
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
-private fun Keypad(onKey: (String) -> Unit, onClear: () -> Unit, onBack: () -> Unit) {
+private fun Keypad(
+    onKey: (String) -> Unit,
+    onClear: () -> Unit,
+    onBack: () -> Unit,
+    onBackLong: () -> Unit
+) {
     val digitRows = listOf(
         listOf("7", "8", "9", "÷"),
         listOf("4", "5", "6", "×"),
@@ -312,8 +335,14 @@ private fun Keypad(onKey: (String) -> Unit, onClear: () -> Unit, onBack: () -> U
             OutlinedButton(onClick = onClear, modifier = Modifier.weight(1f).height(48.dp)) {
                 Text("C", style = MaterialTheme.typography.titleSmall)
             }
-            OutlinedButton(onClick = onBack, modifier = Modifier.weight(1f).height(48.dp)) {
-                Icon(Icons.Filled.Backspace, contentDescription = "Backspace")
+            Box(
+                modifier = Modifier.weight(1f).height(48.dp)
+                    .clip(ButtonDefaults.outlinedShape)
+                    .border(1.dp, MaterialTheme.colorScheme.outline, ButtonDefaults.outlinedShape)
+                    .combinedClickable(onClick = onBack, onLongClick = onBackLong),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(Icons.Filled.Backspace, contentDescription = "Backspace, long-press to clear")
             }
         }
     }

@@ -8,9 +8,11 @@ import calc.u.data.SettingsRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.receiveAsFlow
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import java.math.BigDecimal
@@ -41,6 +43,8 @@ class CalcViewModel @Inject constructor(
     val uiState: StateFlow<CalcUiState> = _uiState.asStateFlow()
     private val _effects = Channel<CalcEffect>(Channel.BUFFERED)
     val effects = _effects.receiveAsFlow()
+    val vibration: StateFlow<Boolean> =
+        settingsRepo.vibration.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), true)
 
     init {
         viewModelScope.launch {
@@ -96,6 +100,15 @@ class CalcViewModel @Inject constructor(
     fun onMemRecall() { _uiState.update { it.copy(input = it.input + Engine.format(BigDecimal.valueOf(it.memory))) }; evaluate() }
     fun onMemClear() { _uiState.update { it.copy(memory = 0.0) } }
     fun onClearHistory() { viewModelScope.launch { historyRepo.clear() } }
+    fun onHistoryTap(entry: String) {
+        val body = entry.substringAfter("|", entry).let {
+            if (entry.count { c -> c == '|' } >= 2) it.substringBeforeLast("|") else it
+        }
+        val expr = if ("=" in body) body.substringBeforeLast("=") else body
+        if (expr.isBlank()) return
+        _uiState.update { it.copy(input = expr) }
+        evaluate()
+    }
     fun onDeleteHistoryAt(index: Int) { viewModelScope.launch { historyRepo.deleteAt(index) } }
     fun onSetHistoryNote(index: Int, note: String) { viewModelScope.launch { historyRepo.setNote(index, note) } }
     fun onDismissGraphTip() {

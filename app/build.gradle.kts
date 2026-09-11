@@ -68,6 +68,9 @@ dependencies {
     implementation(libs.kotlinx.serialization.json)
     implementation(libs.datastore.preferences)
     implementation(libs.evalex)
+    implementation(libs.fluentui.core)
+    implementation(libs.fluentui.controls)
+    implementation(libs.fluentui.drawer)
     implementation(libs.coil.compose)
     testImplementation(libs.junit)
 }

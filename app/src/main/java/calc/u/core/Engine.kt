@@ -21,11 +21,16 @@ object Engine {
         expr = expr.replace(Regex("√\\s*([0-9]+(?:\\.[0-9]+)?)"), "SQRT($1)")
         expr = expr.replace(Regex("√\\s*(PI\\b)"), "SQRT($1)")
         expr = expr.replace(Regex("√\\s*([A-Za-z_][A-Za-z0-9_.]*)"), "SQRT($1)")
+        while (expr.isNotEmpty() && expr.last() in "+-*/^%×÷−") {
+            expr = expr.dropLast(1).trimEnd()
+        }
         if (!angleDeg) {
             expr = expr.replace(Regex("\\bSIN\\s*\\(", RegexOption.IGNORE_CASE), "SINR(")
             expr = expr.replace(Regex("\\bCOS\\s*\\(", RegexOption.IGNORE_CASE), "COSR(")
             expr = expr.replace(Regex("\\bTAN\\s*\\(", RegexOption.IGNORE_CASE), "TANR(")
         }
+        val unclosed = expr.count { it == '(' } - expr.count { it == ')' }
+        if (unclosed > 0) expr += ")".repeat(unclosed)
         Expression(expr).evaluate().numberValue
     }
 
