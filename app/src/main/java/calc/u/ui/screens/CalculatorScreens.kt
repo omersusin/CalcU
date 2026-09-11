@@ -19,7 +19,9 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Backspace
 import androidx.compose.material.icons.filled.ContentCopy
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.NoteAdd
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.AssistChip
@@ -44,6 +46,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -66,6 +69,10 @@ import calc.u.ui.FluentInfoBar
 import calc.u.ui.FluentTeachingTip
 import calc.u.ui.SectionCard
 import calc.u.ui.WARNING
+import com.microsoft.fluentui.tokenized.bottomsheet.BottomSheet
+import com.microsoft.fluentui.tokenized.bottomsheet.BottomSheetValue
+import com.microsoft.fluentui.tokenized.bottomsheet.rememberBottomSheetState
+import kotlinx.coroutines.launch
 
 private val XSubst = Regex("(?<![A-Za-z])x(?![A-Za-z])")
 
@@ -97,12 +104,29 @@ fun CalculatorScreen(vm: CalcViewModel = hiltViewModel()) {
             }
         }
     }
-    val filtered = if (st.query.isBlank()) st.history else st.history.filter { it.contains(st.query, ignoreCase = true) }
-    val indexed = st.history.mapIndexed { i, h -> i to h }.filter { (_, h) ->
-        st.query.isBlank() || h.contains(st.query, ignoreCase = true)
-    }.take(30)
     var noteIndex by remember { mutableStateOf<Int?>(null) }
     var noteDraft by remember { mutableStateOf("") }
+    val scope = rememberCoroutineScope()
+    val historySheet = rememberBottomSheetState(BottomSheetValue.Hidden)
+    BottomSheet(
+        sheetContent = {
+            HistorySheetContent(
+                history = st.history,
+                query = st.query,
+                onQuery = { vm.onQueryChange(it) },
+                onClear = { vm.onClearHistory() },
+                onTap = { h -> vm.onHistoryTap(h); scope.launch { historySheet.hide() } },
+                onNote = { i, n -> noteIndex = i; noteDraft = n },
+                onDelete = { vm.onDeleteHistoryAt(it) }
+            )
+        },
+        sheetState = historySheet,
+        expandable = true,
+        peekHeight = 480.dp,
+        scrimVisible = true,
+        enableSwipeDismiss = true,
+        onDismiss = {}
+    ) {
     Box(Modifier.fillMaxSize()) {
         LazyColumn(
             Modifier.fillMaxSize().padding(vertical = 16.dp),
@@ -135,6 +159,9 @@ fun CalculatorScreen(vm: CalcViewModel = hiltViewModel()) {
                                 overflow = TextOverflow.Ellipsis,
                                 modifier = Modifier.weight(1f)
                             )
+                            IconButton(onClick = { scope.launch { historySheet.show() } }) {
+                                Icon(Icons.Filled.History, contentDescription = "Open history")
+                            }
                             if (st.result.isNotBlank()) {
                                 IconButton(onClick = { vm.onCopyResult() }) {
                                     Icon(Icons.Filled.ContentCopy, contentDescription = "Copy result")
@@ -167,82 +194,6 @@ fun CalculatorScreen(vm: CalcViewModel = hiltViewModel()) {
                         vm.onClear()
                     }
                 )
-            }
-            item {
-                Row(
-                    Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text("History", style = MaterialTheme.typography.titleMedium, modifier = Modifier.semantics { heading() })
-                    if (st.history.isNotEmpty()) {
-                        TextButton(onClick = { vm.onClearHistory() }) { Text("Clear") }
-                    }
-                }
-            }
-            item {
-                OutlinedTextField(
-                    value = st.query,
-                    onValueChange = { vm.onQueryChange(it) },
-                    label = { Text("Search history") },
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth()
-                )
-            }
-            if (st.history.isEmpty()) {
-                item {
-                    Text(
-                        "No history yet",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-            } else if (filtered.isEmpty()) {
-                item {
-                    Text(
-                        "No matches.",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-            } else {
-                items(indexed) { (realIndex, h) ->
-                    val note = historyNote(h)
-                    Card(
-                        onClick = { vm.onHistoryTap(h) },
-                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow)
-                    ) {
-                        Row(
-                            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Column(Modifier.weight(1f)) {
-                                Text(
-                                    historyBody(h),
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    modifier = Modifier.padding(vertical = 8.dp)
-                                )
-                                if (note.isNotBlank()) {
-                                    Text(
-                                        note,
-                                        style = MaterialTheme.typography.bodySmall,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                        modifier = Modifier.padding(bottom = 8.dp)
-                                    )
-                                }
-                            }
-                            IconButton(
-                                onClick = { noteIndex = realIndex; noteDraft = note },
-                                modifier = Modifier.size(48.dp)
-                            ) {
-                                Icon(
-                                    if (note.isBlank()) Icons.Filled.NoteAdd else Icons.Filled.Edit,
-                                    contentDescription = if (note.isBlank()) "Add note" else "Edit note"
-                                )
-                            }
-                        }
-                    }
-                }
             }
         }
         val editIndex = noteIndex
@@ -278,6 +229,104 @@ fun CalculatorScreen(vm: CalcViewModel = hiltViewModel()) {
             )
         }
         SnackbarHost(hostState = snackbar, modifier = Modifier.align(Alignment.BottomCenter))
+    }
+    }
+}
+
+@Composable
+private fun HistorySheetContent(
+    history: List<String>,
+    query: String,
+    onQuery: (String) -> Unit,
+    onClear: () -> Unit,
+    onTap: (String) -> Unit,
+    onNote: (Int, String) -> Unit,
+    onDelete: (Int) -> Unit
+) {
+    val indexed = history.mapIndexed { i, h -> i to h }.filter { (_, h) ->
+        query.isBlank() || h.contains(query, ignoreCase = true)
+    }.take(50)
+    Column(Modifier.fillMaxWidth().padding(16.dp)) {
+        Row(
+            Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text("History", style = MaterialTheme.typography.titleMedium, modifier = Modifier.semantics { heading() })
+            if (history.isNotEmpty()) {
+                TextButton(onClick = onClear) { Text("Clear") }
+            }
+        }
+        OutlinedTextField(
+            value = query,
+            onValueChange = onQuery,
+            label = { Text("Search history") },
+            singleLine = true,
+            modifier = Modifier.fillMaxWidth()
+        )
+        LazyColumn(Modifier.fillMaxWidth().height(360.dp)) {
+            if (history.isEmpty()) {
+                item {
+                    Text(
+                        "No history yet",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            } else if (indexed.isEmpty()) {
+                item {
+                    Text(
+                        "No matches.",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            } else {
+                items(indexed) { (realIndex, h) ->
+                    val note = historyNote(h)
+                    Card(
+                        onClick = { onTap(h) },
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow)
+                    ) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Column(Modifier.weight(1f)) {
+                                Text(
+                                    historyBody(h),
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    modifier = Modifier.padding(vertical = 8.dp)
+                                )
+                                if (note.isNotBlank()) {
+                                    Text(
+                                        note,
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        modifier = Modifier.padding(bottom = 8.dp)
+                                    )
+                                }
+                            }
+                            IconButton(
+                                onClick = { onNote(realIndex, note) },
+                                modifier = Modifier.size(48.dp)
+                            ) {
+                                Icon(
+                                    if (note.isBlank()) Icons.Filled.NoteAdd else Icons.Filled.Edit,
+                                    contentDescription = if (note.isBlank()) "Add note" else "Edit note"
+                                )
+                            }
+                            IconButton(
+                                onClick = { onDelete(realIndex) },
+                                modifier = Modifier.size(48.dp)
+                            ) {
+                                Icon(Icons.Filled.Delete, contentDescription = "Delete entry")
+                            }
+                        }
+                    }
+                }
+            }
+        }
     }
 }
 

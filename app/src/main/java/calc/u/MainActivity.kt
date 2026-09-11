@@ -4,6 +4,9 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.widthIn
@@ -18,17 +21,18 @@ import androidx.compose.material.icons.filled.SwapHoriz
 import androidx.compose.material.icons.filled.Timeline
 import androidx.compose.material3.DrawerValue
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalDrawerSheet
 import androidx.compose.material3.ModalNavigationDrawer
-import androidx.compose.material3.NavigationBar
-import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.NavigationDrawerItem
 import androidx.compose.material3.NavigationDrawerItemDefaults
 import androidx.compose.material3.NavigationRail
 import androidx.compose.material3.NavigationRailItem
+import androidx.compose.material3.PermanentDrawerSheet
+import androidx.compose.material3.PermanentNavigationDrawer
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
@@ -66,15 +70,21 @@ import javax.inject.Inject
 
 data class Dest(val route: String, val label: String, val icon: ImageVector)
 
-private val Dests = listOf(
+private val MainDests = listOf(
     Dest("calc", "Calculator", Icons.Filled.Calculate),
-    Dest("graph", "Graph", Icons.Filled.ShowChart),
+    Dest("graph", "Graph", Icons.Filled.ShowChart)
+)
+
+private val ToolDests = listOf(
     Dest("convert", "Convert", Icons.Filled.SwapHoriz),
     Dest("finance", "Finance", Icons.Filled.AttachMoney),
     Dest("math", "Math", Icons.Filled.GridOn),
-    Dest("steps", "Steps", Icons.Filled.Timeline),
-    Dest("settings", "Settings", Icons.Filled.Settings)
+    Dest("steps", "Steps", Icons.Filled.Timeline)
 )
+
+private val SettingsDest = Dest("settings", "Settings", Icons.Filled.Settings)
+
+private val AllDests = MainDests + ToolDests + SettingsDest
 
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
@@ -87,96 +97,122 @@ class MainActivity : ComponentActivity() {
             CalcUTheme(theme = theme) {
                 FluentTheme {
                     val nav = rememberNavController()
-                val drawer = rememberDrawerState(DrawerValue.Closed)
-                val scope = rememberCoroutineScope()
-                var route by remember { mutableStateOf("calc") }
-                fun go(r: String) {
-                    route = r
-                    nav.navigate(r) { launchSingleTop = true; popUpTo("calc") }
-                }
-                ModalNavigationDrawer(
-                    drawerState = drawer,
-                    drawerContent = {
-                        ModalDrawerSheet {
-                            Text(
-                                "CalcU",
-                                style = MaterialTheme.typography.headlineSmall,
-                                modifier = Modifier.padding(all = 16.dp).semantics { heading() }
-                            )
-                            Dests.forEach { d ->
+                    val drawer = rememberDrawerState(DrawerValue.Closed)
+                    val scope = rememberCoroutineScope()
+                    var route by remember { mutableStateOf("calc") }
+                    fun go(r: String) {
+                        route = r
+                        nav.navigate(r) { launchSingleTop = true; popUpTo("calc") }
+                    }
+                    BoxWithConstraints(Modifier.fillMaxSize()) {
+                        val expanded = maxWidth >= 1008.dp
+                        val rail = maxWidth >= 600.dp && !expanded
+                        val pane: @Composable () -> Unit = {
+                            Column(Modifier.fillMaxSize().padding(vertical = 12.dp)) {
+                                Text(
+                                    "CalcU",
+                                    style = MaterialTheme.typography.headlineSmall,
+                                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
+                                        .semantics { heading() }
+                                )
+                                (MainDests).forEach { d ->
+                                    NavigationDrawerItem(
+                                        label = { Text(d.label) },
+                                        icon = { Icon(d.icon, contentDescription = null) },
+                                        selected = route == d.route,
+                                        onClick = { go(d.route); scope.launch { drawer.close() } },
+                                        modifier = Modifier.padding(NavigationDrawerItemDefaults.ItemPadding)
+                                    )
+                                }
+                                HorizontalDivider(Modifier.padding(vertical = 8.dp))
+                                ToolDests.forEach { d ->
+                                    NavigationDrawerItem(
+                                        label = { Text(d.label) },
+                                        icon = { Icon(d.icon, contentDescription = null) },
+                                        selected = route == d.route,
+                                        onClick = { go(d.route); scope.launch { drawer.close() } },
+                                        modifier = Modifier.padding(NavigationDrawerItemDefaults.ItemPadding)
+                                    )
+                                }
+                                Spacer(Modifier.weight(1f))
+                                HorizontalDivider(Modifier.padding(vertical = 8.dp))
                                 NavigationDrawerItem(
-                                    label = { Text(d.label) },
-                                    icon = { Icon(d.icon, contentDescription = null) },
-                                    selected = route == d.route,
-                                    onClick = { go(d.route); scope.launch { drawer.close() } },
+                                    label = { Text(SettingsDest.label) },
+                                    icon = { Icon(SettingsDest.icon, contentDescription = null) },
+                                    selected = route == SettingsDest.route,
+                                    onClick = { go(SettingsDest.route); scope.launch { drawer.close() } },
                                     modifier = Modifier.padding(NavigationDrawerItemDefaults.ItemPadding)
                                 )
                             }
                         }
-                    }
-                ) {
-                    BoxWithConstraints(Modifier.fillMaxSize()) {
-                        val wide = maxWidth >= 840.dp
-                        Scaffold(
-                            topBar = {
-                                @OptIn(ExperimentalMaterial3Api::class)
-                                TopAppBar(
-                                    title = { Text("CalcU") },
-                                    navigationIcon = {
-                                        IconButton(
-                                            onClick = { scope.launch { drawer.open() } }
-                                        ) { Icon(Icons.Filled.Menu, contentDescription = "Open navigation") }
-                                    },
-                                    colors = TopAppBarDefaults.topAppBarColors(
-                                        containerColor = MaterialTheme.colorScheme.surfaceContainer
+                        val content: @Composable () -> Unit = {
+                            Scaffold(
+                                topBar = {
+                                    @OptIn(ExperimentalMaterial3Api::class)
+                                    TopAppBar(
+                                        title = { Text(AllDests.firstOrNull { it.route == route }?.label ?: "CalcU") },
+                                        navigationIcon = {
+                                            if (!expanded) {
+                                                IconButton(
+                                                    onClick = { scope.launch { drawer.open() } }
+                                                ) { Icon(Icons.Filled.Menu, contentDescription = "Open navigation") }
+                                            }
+                                        },
+                                        colors = TopAppBarDefaults.topAppBarColors(
+                                            containerColor = MaterialTheme.colorScheme.surfaceContainer
+                                        )
                                     )
-                                )
-                            },
-                            bottomBar = {
-                                if (!wide) {
-                                    NavigationBar {
-                                        Dests.forEach { d ->
-                                            NavigationBarItem(
-                                                selected = route == d.route,
-                                                onClick = { go(d.route) },
-                                                icon = { Icon(d.icon, contentDescription = null) },
-                                                label = { Text(d.label) }
-                                            )
-                                        }
-                                    }
                                 }
-                            }
-                        ) { pad ->
-                            androidx.compose.foundation.layout.Row(Modifier.padding(pad).fillMaxSize()) {
-                                if (wide) {
-                                    NavigationRail {
-                                        Dests.forEach { d ->
+                            ) { pad ->
+                                Row(Modifier.padding(pad).fillMaxSize()) {
+                                    if (rail) {
+                                        NavigationRail {
+                                            (MainDests + ToolDests).forEach { d ->
+                                                NavigationRailItem(
+                                                    selected = route == d.route,
+                                                    onClick = { go(d.route) },
+                                                    icon = { Icon(d.icon, contentDescription = null) },
+                                                    label = { Text(d.label) }
+                                                )
+                                            }
+                                            Spacer(Modifier.weight(1f))
                                             NavigationRailItem(
-                                                selected = route == d.route,
-                                                onClick = { go(d.route) },
-                                                icon = { Icon(d.icon, contentDescription = null) },
-                                                label = { Text(d.label) }
+                                                selected = route == SettingsDest.route,
+                                                onClick = { go(SettingsDest.route) },
+                                                icon = { Icon(SettingsDest.icon, contentDescription = null) },
+                                                label = { Text(SettingsDest.label) }
                                             )
                                         }
                                     }
-                                }
-                                NavHost(
-                                    navController = nav,
-                                    startDestination = "calc",
-                                    modifier = Modifier.weight(1f).widthIn(max = 840.dp)
-                                ) {
-                                    composable("calc") { Centered { CalculatorScreen() } }
-                                    composable("graph") { Centered { GraphScreen() } }
-                                    composable("convert") { Centered { ConvertersScreen() } }
-                                    composable("finance") { Centered { FinanceScreen() } }
-                                    composable("math") { Centered { MathScreen() } }
-                                    composable("steps") { Centered { StepsScreen() } }
-                                    composable("settings") { Centered { SettingsScreen() } }
+                                    NavHost(
+                                        navController = nav,
+                                        startDestination = "calc",
+                                        modifier = Modifier.weight(1f).widthIn(max = 840.dp)
+                                    ) {
+                                        composable("calc") { Centered { CalculatorScreen() } }
+                                        composable("graph") { Centered { GraphScreen() } }
+                                        composable("convert") { Centered { ConvertersScreen() } }
+                                        composable("finance") { Centered { FinanceScreen() } }
+                                        composable("math") { Centered { MathScreen() } }
+                                        composable("steps") { Centered { StepsScreen() } }
+                                        composable("settings") { Centered { SettingsScreen() } }
+                                    }
                                 }
                             }
                         }
+                        if (expanded) {
+                            PermanentNavigationDrawer(
+                                drawerContent = { PermanentDrawerSheet { pane() } },
+                                content = content
+                            )
+                        } else {
+                            ModalNavigationDrawer(
+                                drawerState = drawer,
+                                drawerContent = { ModalDrawerSheet { pane() } },
+                                content = content
+                            )
+                        }
                     }
-                }
                 }
             }
         }
