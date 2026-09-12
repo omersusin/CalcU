@@ -1,6 +1,5 @@
 package calc.u.ui.screens
 
-import android.graphics.Paint
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -22,6 +21,10 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.drawText
+import androidx.compose.ui.text.rememberTextMeasurer
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import calc.u.ui.SectionCard
@@ -35,9 +38,13 @@ fun RulerScreen() {
     var metric by remember { mutableStateOf(true) }
     val tickColor = MaterialTheme.colorScheme.onSurfaceVariant
     val textColor = MaterialTheme.colorScheme.onSurface
-    val paint = remember {
-        Paint().apply { textAlign = Paint.Align.CENTER; isAntiAlias = true }
-    }
+    val measurer = rememberTextMeasurer()
+    val labelStyle = TextStyle(
+        fontSize = 12.sp,
+        color = textColor,
+        textAlign = TextAlign.Center
+    )
+    fun labelLayout(text: String) = measurer.measure(text, labelStyle)
     Column(Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(16.dp)) {
         SectionCard("Ruler") {
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -56,8 +63,6 @@ fun RulerScreen() {
                 val density = LocalDensity.current
                 val widthPx = with(density) { maxWidth.toPx() }
                 Canvas(Modifier.fillMaxWidth().height(140.dp)) {
-                    paint.color = textColor.toArgb()
-                    paint.textSize = 12.sp.toPx()
                     drawLine(tickColor, Offset(0f, 0f), Offset(size.width, 0f), strokeWidth = 4f)
                     if (metric) {
                         val totalMm = floor(widthPx / pxPerMm).toInt()
@@ -71,8 +76,10 @@ fun RulerScreen() {
                             val wide = if (mm % 5 == 0) 3f else 2f
                             drawLine(tickColor, Offset(x, 0f), Offset(x, len), strokeWidth = wide)
                             if (mm % 10 == 0 && mm > 0) {
-                                drawContext.canvas.nativeCanvas.drawText(
-                                    "${mm / 10}", x, len + 36f, paint
+                                val layout = labelLayout("${mm / 10}")
+                                drawText(
+                                    layout,
+                                    topLeft = Offset(x - layout.size.width / 2f, len + 8f)
                                 )
                             }
                         }
@@ -91,8 +98,10 @@ fun RulerScreen() {
                             val wide = if (s % 2 == 0) 3f else 2f
                             drawLine(tickColor, Offset(x, 0f), Offset(x, len), strokeWidth = wide)
                             if (s % 16 == 0 && s > 0) {
-                                drawContext.canvas.nativeCanvas.drawText(
-                                    "${s / 16}", x, len + 36f, paint
+                                val layout = labelLayout("${s / 16}")
+                                drawText(
+                                    layout,
+                                    topLeft = Offset(x - layout.size.width / 2f, len + 8f)
                                 )
                             }
                         }

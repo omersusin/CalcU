@@ -153,7 +153,7 @@ private fun InlineTape(
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 maxLines = 1,
-                overflow = TextOverflow.StartEllipsis,
+                overflow = TextOverflow.Ellipsis,
                 textAlign = TextAlign.End,
                 modifier = Modifier.fillMaxWidth()
                     .clickable { onRecall(e.result) }
