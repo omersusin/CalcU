@@ -1071,6 +1071,59 @@ fun FinanceScreen() {
                 ResultLine("Margin", margin?.let { fmt(it, 2) + " %" } ?: "—")
             }
         }
+        item {
+            val appCtx = LocalContext.current.applicationContext
+            val repo = remember { calc.u.data.CryptoRepository(appCtx) }
+            val prices by repo.prices.collectAsState(initial = emptyMap())
+            val stale by repo.isStale.collectAsState(initial = true)
+            val source by repo.source.collectAsState()
+            var cryptoAmt by remember { mutableStateOf("100") }
+            val scope = rememberCoroutineScope()
+            LaunchedEffect(Unit) { repo.refresh() }
+            val coins = listOf("bitcoin", "ethereum", "solana", "bnb", "xrp", "cardano", "dogecoin")
+            val amt = num(cryptoAmt)
+            SectionCard("Crypto") {
+                NumField(cryptoAmt, { cryptoAmt = it }, "USD amount")
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text(
+                        "CoinGecko · " + if (stale && source.label == "live") "live · stale" else source.label,
+                        style = MaterialTheme.typography.labelLarge
+                    )
+                    Button(onClick = { scope.launch { repo.refresh() } }) { Text("Refresh") }
+                }
+                HorizontalDivider()
+                coins.forEach { id ->
+                    val coin = prices[id]
+                    if (coin == null) {
+                        ResultLine(id, "—")
+                    } else {
+                        val change = coin.usd_24h_change
+                        val changeTxt = if (change == null) "n/a" else fmt(change, 2) + " %"
+                        val qty = if (coin.usd > 0) amt / coin.usd else Double.NaN
+                        ResultLine(id, fmt(coin.usd, 2) + " USD (" + changeTxt + ") → " + fmt(qty, 6))
+                    }
+                }
+            }
+        }
+        item {
+            var zakAssets by remember { mutableStateOf("10000") }
+            var zakDebts by remember { mutableStateOf("1000") }
+            var zakNisab by remember { mutableStateOf("0") }
+            val due = runCatching { Finance.zakat(num(zakAssets), num(zakDebts), num(zakNisab)) }.getOrNull()
+            SectionCard("Zakat") {
+                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Box(Modifier.weight(1f)) { NumField(zakAssets, { zakAssets = it }, "Assets") }
+                    Box(Modifier.weight(1f)) { NumField(zakDebts, { zakDebts = it }, "Debts") }
+                }
+                NumField(zakNisab, { zakNisab = it }, "Nisab")
+                HorizontalDivider()
+                ResultLine("Zakat due", due?.let { fmt(it, 2) } ?: "—")
+            }
+        }
     }
 }
 

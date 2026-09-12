@@ -16,6 +16,7 @@ import androidx.compose.material.icons.filled.Apps
 import androidx.compose.material.icons.filled.AttachMoney
 import androidx.compose.material.icons.filled.Build
 import androidx.compose.material.icons.filled.Calculate
+import androidx.compose.material.icons.filled.Explore
 import androidx.compose.material.icons.filled.GridOn
 import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.Settings
@@ -71,6 +72,7 @@ import calc.u.ui.screens.TextDataScreen
 import calc.u.ui.screens.TimeLabScreen
 import calc.u.ui.screens.ElectroScreen
 import calc.u.ui.screens.EverydayScreen
+import calc.u.ui.screens.SensorScreen
 import calc.u.ui.screens.ToolsHub
 import calc.u.ui.theme.CalcUTheme
 import dagger.hilt.android.AndroidEntryPoint
@@ -93,6 +95,7 @@ private val ToolDests = listOf(
     Dest("electro", "Electro", Icons.Filled.Build),
     Dest("textdata", "Text+Data", Icons.Filled.ShortText),
     Dest("everyday", "Everyday", Icons.Filled.Apps),
+    Dest("sensors", "Sensors", Icons.Filled.Explore),
     Dest("tools", "Tools", Icons.Filled.Apps)
 )
 
@@ -114,7 +117,7 @@ class MainActivity : ComponentActivity() {
                     val drawer = rememberDrawerState(DrawerValue.Closed)
                     val scope = rememberCoroutineScope()
                     val startRoute = intent?.getStringExtra("dest")?.takeIf {
-                        it in setOf("graph", "time", "electro", "textdata", "everyday", "tools")
+                        it in setOf("graph", "time", "electro", "textdata", "everyday", "sensors", "tools")
                     } ?: "calc"
                     var route by remember { mutableStateOf(startRoute) }
                     fun go(r: String) {
@@ -216,6 +219,7 @@ class MainActivity : ComponentActivity() {
                                         composable("electro") { Centered { ElectroScreen() } }
                                         composable("textdata") { Centered { TextDataScreen() } }
                                         composable("everyday") { Centered { EverydayScreen() } }
+                                        composable("sensors") { Centered { SensorScreen() } }
                                         composable("tools") { Centered { ToolsHub(onOpen = { go(it) }) } }
                                         composable("settings") { Centered { SettingsScreen() } }
                                     }

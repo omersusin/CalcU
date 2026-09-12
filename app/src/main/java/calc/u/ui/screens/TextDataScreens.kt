@@ -51,7 +51,9 @@ fun TextDataScreen() {
                     "binary" to "Binary",
                     "json" to "JSON",
                     "regex" to "Regex",
-                    "unix" to "Unix"
+                    "unix" to "Unix",
+                    "totp" to "TOTP",
+                    "cipher" to "Cipher"
                 )
             ) { (id, label) ->
                 FilterChip(selected = tab == id, onClick = { tab = id }, label = { Text(label) })
@@ -70,6 +72,8 @@ fun TextDataScreen() {
                 "json" -> JsonFormatterCard()
                 "regex" -> RegexTesterCard()
                 "unix" -> UnixTimeCard()
+                "totp" -> TotpCard()
+                "cipher" -> CipherCard()
                 else -> HashScreen()
             }
         }
@@ -416,5 +420,102 @@ fun UnixTimeCard() {
             modifier = Modifier.fillMaxWidth()
         )
         ResultLine("Date", converted)
+    }
+}
+
+@Composable
+fun TotpCard() {
+    var secret by remember { mutableStateOf("") }
+    var nowSec by remember { mutableStateOf(System.currentTimeMillis() / 1000L) }
+    androidx.compose.runtime.LaunchedEffect(Unit) {
+        while (true) {
+            kotlinx.coroutines.delay(1000L)
+            nowSec = System.currentTimeMillis() / 1000L
+        }
+    }
+    val period = 30L
+    val code = remember(secret, nowSec) {
+        if (secret.isBlank()) "—"
+        else runCatching { calc.u.core.Totp.totp(secret, nowSec, period) }.getOrDefault("—")
+    }
+    val remaining = remember(nowSec) { calc.u.core.Totp.secondsRemaining(nowSec, period) }
+    val clipboard = LocalClipboardManager.current
+    SectionCard("Authenticator (TOTP)") {
+        OutlinedTextField(
+            value = secret,
+            onValueChange = { secret = it },
+            label = { Text("Base32 secret") },
+            modifier = Modifier.fillMaxWidth()
+        )
+        HorizontalDivider()
+        ResultLine("Code", code)
+        ResultLine("Expires in", "$remaining s")
+        androidx.compose.material3.LinearProgressIndicator(
+            progress = { remaining / period.toFloat() },
+            modifier = Modifier.fillMaxWidth()
+        )
+        Button(onClick = { clipboard.setText(AnnotatedString(code)) }) { Text("Copy code") }
+    }
+}
+
+@Composable
+fun CipherCard() {
+    var input by remember { mutableStateOf("") }
+    var mode by remember { mutableStateOf("caesar") }
+    var encrypt by remember { mutableStateOf(true) }
+    var shift by remember { mutableStateOf("3") }
+    var key by remember { mutableStateOf("") }
+    val clipboard = LocalClipboardManager.current
+    val output = remember(input, mode, encrypt, shift, key) {
+        runCatching {
+            if (mode == "caesar") {
+                TextData.caesar(input, shift.trim().toIntOrNull() ?: 0, encrypt)
+            } else if (encrypt) {
+                TextData.xorHex(input, key)
+            } else {
+                val clean = input.trim()
+                require(clean.length % 2 == 0) { "Hex length must be even" }
+                val kb = key.toByteArray(Charsets.UTF_8)
+                require(kb.isNotEmpty()) { "Key must not be empty" }
+                val bytes = clean.chunked(2).map { it.toInt(16).toByte() }.toByteArray()
+                bytes.mapIndexed { i, b -> (b.toInt() xor kb[i % kb.size].toInt()).toByte() }
+                    .toByteArray().toString(Charsets.UTF_8)
+            }
+        }.getOrDefault("—")
+    }
+    SectionCard("Cipher") {
+        LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            item { FilterChip(selected = mode == "caesar", onClick = { mode = "caesar" }, label = { Text("Caesar") }) }
+            item { FilterChip(selected = mode == "xor", onClick = { mode = "xor" }, label = { Text("XOR") }) }
+        }
+        LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            item { FilterChip(selected = encrypt, onClick = { encrypt = true }, label = { Text("Encrypt") }) }
+            item { FilterChip(selected = !encrypt, onClick = { encrypt = false }, label = { Text("Decrypt") }) }
+        }
+        OutlinedTextField(
+            value = input,
+            onValueChange = { input = it },
+            label = { Text(if (mode == "xor" && !encrypt) "Hex input" else "Text") },
+            modifier = Modifier.fillMaxWidth(),
+            minLines = 2
+        )
+        if (mode == "caesar") {
+            OutlinedTextField(
+                value = shift,
+                onValueChange = { shift = it },
+                label = { Text("Shift") },
+                modifier = Modifier.fillMaxWidth()
+            )
+        } else {
+            OutlinedTextField(
+                value = key,
+                onValueChange = { key = it },
+                label = { Text("Key") },
+                modifier = Modifier.fillMaxWidth()
+            )
+        }
+        HorizontalDivider()
+        ResultLine("Result", output)
+        Button(onClick = { clipboard.setText(AnnotatedString(output)) }) { Text("Copy") }
     }
 }

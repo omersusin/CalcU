@@ -103,4 +103,12 @@ class FinanceTest {
     @Test fun profitMarginHalf() {
         assertEquals(50.0, Finance.profitMargin(50.0, 100.0), 1e-9)
     }
+
+    @Test fun zakatBasic() {
+        assertEquals(225.0, Finance.zakat(10000.0, 1000.0), 1e-9)
+    }
+
+    @Test fun zakatBelowNisab() {
+        assertEquals(0.0, Finance.zakat(1000.0, 0.0, 5000.0), 1e-9)
+    }
 }

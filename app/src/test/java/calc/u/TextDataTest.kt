@@ -66,4 +66,30 @@ class TextDataTest {
         assertEquals(original, TextData.urlDecode(TextData.urlEncode(original)))
         assertTrue(TextData.urlEncode("a b").contains("%20"))
     }
+
+    @Test fun caesarKnownAndRoundTrip() {
+        assertEquals("Khoor, Zruog! abc ABC", TextData.caesar("Hello, World! xyz XYZ", 3, true))
+        val original = "Hello, World! xyz XYZ 123"
+        assertEquals(original, TextData.caesar(TextData.caesar(original, 5, true), 5, false))
+    }
+
+    @Test fun xorRoundTrip() {
+        val text = "hello, CalcU!"
+        val key = "s3cret"
+        val hex = TextData.xorHex(text, key)
+        val bytes = hex.chunked(2).map { it.toInt(16).toByte() }.toByteArray()
+        val kb = key.toByteArray(Charsets.UTF_8)
+        val back = bytes.mapIndexed { i, b -> (b.toInt() xor kb[i % kb.size].toInt()).toByte() }
+            .toByteArray().toString(Charsets.UTF_8)
+        assertEquals(text, back)
+    }
+
+    @Test fun xorEmptyKeyRejected() {
+        try {
+            TextData.xorHex("abc", "")
+            fail("expected IllegalArgumentException")
+        } catch (e: IllegalArgumentException) {
+            // expected
+        }
+    }
 }

@@ -95,7 +95,11 @@ fun SettingsScreen(vm: SettingsViewModel = hiltViewModel()) {
         "light" to "Light",
         "dark" to "Dark",
         "amoled" to "AMOLED",
-        "contrast" to "High contrast"
+        "contrast" to "High contrast",
+        "ocean" to "Ocean",
+        "forest" to "Forest",
+        "sunset" to "Sunset",
+        "grape" to "Grape"
     )
     LazyColumn(
         Modifier.fillMaxSize().padding(vertical = 16.dp),

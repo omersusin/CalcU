@@ -88,4 +88,5 @@ dependencies {
     coreLibraryDesugaring(libs.desugar.jdk.libs)
     testImplementation(libs.junit)
     implementation(libs.zxing.core)
+    implementation(libs.material.color.utilities)
 }

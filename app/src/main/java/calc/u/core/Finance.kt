@@ -256,4 +256,10 @@ object Finance {
         if (price == 0.0) return 0.0
         return (price - cost) / price * 100
     }
+
+    fun zakat(cashGoldSilver: Double, debts: Double, nisabThreshold: Double = 0.0): Double {
+        val net = (cashGoldSilver - debts).coerceAtLeast(0.0)
+        if (net < nisabThreshold) return 0.0
+        return net * 2.5 / 100
+    }
 }

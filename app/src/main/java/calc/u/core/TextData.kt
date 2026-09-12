@@ -184,4 +184,24 @@ object TextData {
         val dt = java.time.LocalDateTime.ofInstant(instant, zone)
         return dt.format(java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"))
     }
+
+    fun caesar(text: String, shift: Int, encrypt: Boolean): String {
+        val s = ((if (encrypt) shift else -shift) % 26 + 26) % 26
+        return text.map { c ->
+            when (c) {
+                in 'A'..'Z' -> 'A' + (c - 'A' + s) % 26
+                in 'a'..'z' -> 'a' + (c - 'a' + s) % 26
+                else -> c
+            }
+        }.joinToString("")
+    }
+
+    fun xorHex(text: String, key: String): String {
+        require(key.isNotEmpty()) { "Key must not be empty" }
+        val t = text.toByteArray(Charsets.UTF_8)
+        val k = key.toByteArray(Charsets.UTF_8)
+        return t.mapIndexed { i, b ->
+            "%02x".format((b.toInt() xor k[i % k.size].toInt()) and 0xFF)
+        }.joinToString("")
+    }
 }

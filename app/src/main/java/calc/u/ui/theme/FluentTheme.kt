@@ -6,6 +6,7 @@ import androidx.compose.animation.core.Easing
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ColorScheme
 import androidx.compose.material3.Shapes
 import androidx.compose.material3.Typography
 import androidx.compose.material3.darkColorScheme
@@ -21,6 +22,8 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.google.android.material.color.utilities.Hct
+import com.google.android.material.color.utilities.SchemeTonalSpot
 
 object FluentAccent {
     val LightDefault = Color(0xFF005FB8)
@@ -250,6 +253,72 @@ fun infoSeverityColor(kind: Int): Color {
 }
 
 @Composable
+fun seedScheme(seedArgb: Int, dark: Boolean): ColorScheme {
+    val s = SchemeTonalSpot(Hct.fromInt(seedArgb), dark, 0.0)
+    return if (dark) {
+        darkColorScheme(
+            primary = Color(s.primary),
+            onPrimary = Color(s.onPrimary),
+            primaryContainer = Color(s.primaryContainer),
+            onPrimaryContainer = Color(s.onPrimaryContainer),
+            secondary = Color(s.secondary),
+            onSecondary = Color(s.onSecondary),
+            secondaryContainer = Color(s.secondaryContainer),
+            onSecondaryContainer = Color(s.onSecondaryContainer),
+            tertiary = Color(s.tertiary),
+            onTertiary = Color(s.onTertiary),
+            tertiaryContainer = Color(s.tertiaryContainer),
+            onTertiaryContainer = Color(s.onTertiaryContainer),
+            error = Color(s.error),
+            onError = Color(s.onError),
+            background = Color(s.background),
+            onBackground = Color(s.onBackground),
+            surface = Color(s.surface),
+            onSurface = Color(s.onSurface),
+            surfaceVariant = Color(s.surfaceVariant),
+            onSurfaceVariant = Color(s.onSurfaceVariant),
+            surfaceContainerLowest = Color(s.surfaceContainerLowest),
+            surfaceContainerLow = Color(s.surfaceContainerLow),
+            surfaceContainer = Color(s.surfaceContainer),
+            surfaceContainerHigh = Color(s.surfaceContainerHigh),
+            surfaceContainerHighest = Color(s.surfaceContainerHighest),
+            outline = Color(s.outline),
+            outlineVariant = Color(s.outlineVariant)
+        )
+    } else {
+        lightColorScheme(
+            primary = Color(s.primary),
+            onPrimary = Color(s.onPrimary),
+            primaryContainer = Color(s.primaryContainer),
+            onPrimaryContainer = Color(s.onPrimaryContainer),
+            secondary = Color(s.secondary),
+            onSecondary = Color(s.onSecondary),
+            secondaryContainer = Color(s.secondaryContainer),
+            onSecondaryContainer = Color(s.onSecondaryContainer),
+            tertiary = Color(s.tertiary),
+            onTertiary = Color(s.onTertiary),
+            tertiaryContainer = Color(s.tertiaryContainer),
+            onTertiaryContainer = Color(s.onTertiaryContainer),
+            error = Color(s.error),
+            onError = Color(s.onError),
+            background = Color(s.background),
+            onBackground = Color(s.onBackground),
+            surface = Color(s.surface),
+            onSurface = Color(s.onSurface),
+            surfaceVariant = Color(s.surfaceVariant),
+            onSurfaceVariant = Color(s.onSurfaceVariant),
+            surfaceContainerLowest = Color(s.surfaceContainerLowest),
+            surfaceContainerLow = Color(s.surfaceContainerLow),
+            surfaceContainer = Color(s.surfaceContainer),
+            surfaceContainerHigh = Color(s.surfaceContainerHigh),
+            surfaceContainerHighest = Color(s.surfaceContainerHighest),
+            outline = Color(s.outline),
+            outlineVariant = Color(s.outlineVariant)
+        )
+    }
+}
+
+@Composable
 fun CalcUTheme(
     theme: String = "system",
     dark: Boolean = isSystemInDarkTheme(),
@@ -263,6 +332,10 @@ fun CalcUTheme(
             "dark" -> dynamicDarkColorScheme(context)
             "amoled" -> FluentAmoled
             "contrast" -> FluentContrast
+            "ocean" -> seedScheme(0xFF0061A4.toInt(), dark)
+            "forest" -> seedScheme(0xFF1B6B4A.toInt(), dark)
+            "sunset" -> seedScheme(0xFFB23C17.toInt(), dark)
+            "grape" -> seedScheme(0xFF6B4DAB.toInt(), dark)
             else -> if (dark) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context)
         }
     } else when (theme) {
@@ -270,6 +343,10 @@ fun CalcUTheme(
         "dark" -> FluentDark
         "amoled" -> FluentAmoled
         "contrast" -> FluentContrast
+        "ocean" -> seedScheme(0xFF0061A4.toInt(), dark)
+        "forest" -> seedScheme(0xFF1B6B4A.toInt(), dark)
+        "sunset" -> seedScheme(0xFFB23C17.toInt(), dark)
+        "grape" -> seedScheme(0xFF6B4DAB.toInt(), dark)
         else -> if (dark) FluentDark else FluentLight
     }
     MaterialTheme(colorScheme = scheme, shapes = FluentShapes, typography = fluentType(), content = content)

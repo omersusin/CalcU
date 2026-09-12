@@ -42,7 +42,20 @@ private val HubTools = listOf(
     ToolEntry("Base64", "Text+Data", "textdata"),
     ToolEntry("Text stats", "Text+Data", "textdata"),
     ToolEntry("QR", "Text+Data", "textdata"),
-    ToolEntry("UUID", "Text+Data", "textdata")
+    ToolEntry("UUID", "Text+Data", "textdata"),
+    ToolEntry("Case / URL / Morse", "Text+Data", "textdata"),
+    ToolEntry("Binary / JSON / Regex", "Text+Data", "textdata"),
+    ToolEntry("Unix time", "Text+Data", "textdata"),
+    ToolEntry("TOTP codes", "Text+Data", "textdata"),
+    ToolEntry("Cipher", "Text+Data", "textdata"),
+    ToolEntry("Tally", "Everyday", "everyday"),
+    ToolEntry("Dice & coin", "Everyday", "everyday"),
+    ToolEntry("Number words", "Everyday", "everyday"),
+    ToolEntry("Paint & tiles", "Everyday", "everyday"),
+    ToolEntry("Ideal weight", "Everyday", "everyday"),
+    ToolEntry("Metronome", "Everyday", "everyday"),
+    ToolEntry("Compass", "Sensors", "sensors"),
+    ToolEntry("Spirit level", "Sensors", "sensors")
 )
 
 @Composable

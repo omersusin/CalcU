@@ -1,14 +1,17 @@
 package calc.u.ui.screens
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.Button
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -19,8 +22,10 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Slider
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
@@ -29,6 +34,9 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.hapticfeedback.LocalHapticFeedback
 import androidx.compose.ui.unit.dp
 import calc.u.core.Engine
 import calc.u.core.IdealWeight
@@ -36,6 +44,7 @@ import calc.u.core.PaintKit
 import calc.u.ui.CalcUNumberBox
 import calc.u.ui.ResultLine
 import calc.u.ui.SectionCard
+import kotlinx.coroutines.delay
 
 @Composable
 fun EverydayScreen() {
@@ -48,7 +57,8 @@ fun EverydayScreen() {
                     "dice" to "Dice & Coin",
                     "words" to "Words",
                     "paint" to "Paint",
-                    "weight" to "Weight"
+                    "weight" to "Weight",
+                    "metro" to "Metro"
                 )
             ) { (id, label) ->
                 FilterChip(selected = tab == id, onClick = { tab = id }, label = { Text(label) })
@@ -60,6 +70,7 @@ fun EverydayScreen() {
                 "words" -> WordsSection()
                 "paint" -> PaintSection()
                 "weight" -> WeightSection()
+                "metro" -> MetronomeSection()
                 else -> TallySection()
             }
         }
@@ -318,6 +329,64 @@ private fun WeightSection() {
                 HorizontalDivider()
                 ResultLine("Devine", if (devine == null) "—" else "${fmt(devine)} kg")
                 ResultLine("Robinson", if (robinson == null) "—" else "${fmt(robinson)} kg")
+            }
+        }
+    }
+}
+
+@Composable
+private fun MetronomeSection() {
+    var bpm by rememberSaveable { mutableStateOf(120f) }
+    var beats by rememberSaveable { mutableStateOf(4) }
+    var running by rememberSaveable { mutableStateOf(false) }
+    var beat by remember { mutableStateOf(0) }
+    val haptics = LocalHapticFeedback.current
+    LaunchedEffect(running, bpm, beats) {
+        if (!running) return@LaunchedEffect
+        beat = 0
+        while (true) {
+            haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+            delay((60000f / bpm).toLong())
+            beat = (beat + 1) % beats
+        }
+    }
+    LazyColumn(Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+        item {
+            SectionCard("Metronome") {
+                Text("${bpm.toInt()} BPM", style = MaterialTheme.typography.displaySmall)
+                Slider(value = bpm, onValueChange = { bpm = it }, valueRange = 30f..240f)
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    listOf(2, 3, 4, 6).forEach { b ->
+                        FilterChip(
+                            selected = beats == b,
+                            onClick = { beats = b; beat = 0 },
+                            label = { Text("$b/4") }
+                        )
+                    }
+                }
+                Button(onClick = { running = !running }, modifier = Modifier.fillMaxWidth()) {
+                    Text(if (running) "Stop" else "Start")
+                }
+                Row(
+                    Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp, Alignment.CenterHorizontally),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    repeat(beats) { i ->
+                        Box(
+                            Modifier.size(20.dp).clip(CircleShape).background(
+                                MaterialTheme.colorScheme.primary.copy(
+                                    alpha = if (running && i == beat) 1f else 0.2f
+                                )
+                            )
+                        )
+                    }
+                }
+                Text(
+                    if (running) "Beat ${beat + 1} of $beats" else "Paused",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
             }
         }
     }
