@@ -174,7 +174,7 @@ fun SettingsScreen(vm: SettingsViewModel = hiltViewModel()) {
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
         item {
-            SectionCard("Appearance") {
+            SectionCard("General") {
                 Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                     Row(
                         modifier = Modifier.fillMaxWidth()
@@ -229,48 +229,6 @@ fun SettingsScreen(vm: SettingsViewModel = hiltViewModel()) {
                         }
                     }
                     }
-                }
-            }
-        }
-        item {
-            SectionCard("Haptics") {
-                Row(
-                    modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(
-                        "Vibration",
-                        style = MaterialTheme.typography.bodyLarge,
-                        modifier = Modifier.weight(1f)
-                    )
-                    Switch(
-                        checked = vibration,
-                        onCheckedChange = { vm.setVibration(it) }
-                    )
-                }
-            }
-        }
-        item {
-            SectionCard("History") {
-                Text(
-                    "Keep last $historyCap entries",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    listOf(50, 100, 200, 500, 1000).forEach { cap ->
-                        FilterChip(
-                            selected = historyCap == cap,
-                            onClick = { vm.setHistoryCap(cap) },
-                            label = { Text("$cap") }
-                        )
-                    }
-                }
-            }
-        }
-        item {
-            SectionCard("Numbers") {
-                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                     Column(Modifier.selectableGroup()) {
                         listOf(
                             "locale" to "System locale",
@@ -331,6 +289,40 @@ fun SettingsScreen(vm: SettingsViewModel = hiltViewModel()) {
                         valueRange = 0f..16f,
                         steps = 15
                     )
+                    Text(
+                        "Keep last $historyCap entries",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        listOf(50, 100, 200, 500, 1000).forEach { cap ->
+                            FilterChip(
+                                selected = historyCap == cap,
+                                onClick = { vm.setHistoryCap(cap) },
+                                label = { Text("$cap") }
+                            )
+                        }
+                    }
+                }
+            }
+        }
+        item {
+            SectionCard("Calculator") {
+                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            "Vibration",
+                            style = MaterialTheme.typography.bodyLarge,
+                            modifier = Modifier.weight(1f)
+                        )
+                        Switch(
+                            checked = vibration,
+                            onCheckedChange = { vm.setVibration(it) }
+                        )
+                    }
                     Row(
                         modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp),
                         verticalAlignment = Alignment.CenterVertically
@@ -345,12 +337,6 @@ fun SettingsScreen(vm: SettingsViewModel = hiltViewModel()) {
                             onCheckedChange = { vm.setEngineering(it) }
                         )
                     }
-                }
-            }
-        }
-        item {
-            SectionCard("Calculator") {
-                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                     Row(
                         modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp),
                         verticalAlignment = Alignment.CenterVertically
@@ -397,11 +383,100 @@ fun SettingsScreen(vm: SettingsViewModel = hiltViewModel()) {
             }
         }
         item {
-            SectionCard("About") {
-                Text(
-                    "CalcU is a fast offline-first calculator with unit conversion, finance, math, geometry and health tools.",
-                    style = MaterialTheme.typography.bodyMedium
-                )
+            val context = LocalContext.current
+            var feedbackError by remember { mutableStateOf<String?>(null) }
+            SectionCard("Feedback") {
+                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                        Button(onClick = {
+                            feedbackError = null
+                            try {
+                                context.startActivity(
+                                    android.content.Intent(
+                                        android.content.Intent.ACTION_VIEW,
+                                        android.net.Uri.parse("market://details?id=" + context.packageName)
+                                    )
+                                )
+                            } catch (e: Exception) {
+                                try {
+                                    context.startActivity(
+                                        android.content.Intent(
+                                            android.content.Intent.ACTION_VIEW,
+                                            android.net.Uri.parse("https://play.google.com/store/apps/details?id=" + context.packageName)
+                                        )
+                                    )
+                                } catch (e2: Exception) {
+                                    feedbackError = "Cannot open store"
+                                }
+                            }
+                        }) {
+                            Text("Rate app")
+                        }
+                        Button(onClick = {
+                            feedbackError = null
+                            try {
+                                val send = android.content.Intent(android.content.Intent.ACTION_SEND).apply {
+                                    type = "message/rfc822"
+                                    data = android.net.Uri.parse("mailto:")
+                                    putExtra(android.content.Intent.EXTRA_SUBJECT, "CalcU issue")
+                                }
+                                context.startActivity(android.content.Intent.createChooser(send, "Report issue"))
+                            } catch (e: Exception) {
+                                feedbackError = "No email app found"
+                            }
+                        }) {
+                            Text("Report issue")
+                        }
+                    }
+                    feedbackError?.let {
+                        Text(
+                            it,
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.error
+                        )
+                    }
+                }
+            }
+        }
+        item {
+            val context = LocalContext.current
+            var languageError by remember { mutableStateOf<String?>(null) }
+            SectionCard("Other") {
+                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Button(onClick = {
+                        languageError = null
+                        try {
+                            if (Build.VERSION.SDK_INT >= 33) {
+                                context.startActivity(
+                                    android.content.Intent(
+                                        android.provider.Settings.ACTION_APP_LOCALE_SETTINGS
+                                    ).apply {
+                                        data = android.net.Uri.parse("package:" + context.packageName)
+                                    }
+                                )
+                            } else {
+                                context.startActivity(
+                                    android.content.Intent(android.provider.Settings.ACTION_LOCALE_SETTINGS)
+                                )
+                            }
+                        } catch (e: Exception) {
+                            languageError = "Cannot open language settings"
+                        }
+                    }) {
+                        Text("Language")
+                    }
+                    languageError?.let {
+                        Text(
+                            it,
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.error
+                        )
+                    }
+                    Text(
+                        "CalcU is a fast offline-first calculator with unit conversion, finance, math, geometry and health tools.",
+                        style = MaterialTheme.typography.bodyMedium
+                    )
+                }
             }
         }
         item {

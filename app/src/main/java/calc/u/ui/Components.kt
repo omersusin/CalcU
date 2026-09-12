@@ -164,8 +164,8 @@ fun FluentCalcKey(
     )
     val pressModifier = modifier.graphicsLayer(scaleX = scale, scaleY = scale)
     val circle = CircleShape
-    // Teardown C is pale blue-gray: map to tertiaryContainer (dynamic-safe, never hardcoded).
-    if (kind == FluentKeyKind.Sci && label == "C") {
+    // Simple-style AC: pale tint, always circular (dynamic-safe, never hardcoded).
+    if (kind == FluentKeyKind.Sci && (label == "AC" || label == "C")) {
         Button(
             onClick = onClick,
             modifier = pressModifier.height(keyHeight),
@@ -183,16 +183,17 @@ fun FluentCalcKey(
         return
     }
     when (kind) {
+        // Simple-style equals: dark primary circle, largest key on the pad.
         FluentKeyKind.Equals -> Button(
             onClick = onClick,
-            modifier = modifier.graphicsLayer(scaleX = equalsScale, scaleY = equalsScale).height(keyHeight * 1.15f),
+            modifier = modifier.graphicsLayer(scaleX = equalsScale, scaleY = equalsScale).height(keyHeight * 1.3f),
             interactionSource = interactions,
-            shape = RoundedCornerShape(equalsCorner),
+            shape = circle,
             elevation = ButtonDefaults.buttonElevation(
                 defaultElevation = FluentElevation.AccentKey,
                 pressedElevation = FluentElevation.KeyPressed
             )
-        ) { Text(label, style = MaterialTheme.typography.titleLarge) }
+        ) { Text(label, style = MaterialTheme.typography.headlineSmall) }
         FluentKeyKind.Operator -> FilledTonalButton(
             onClick = onClick,
             modifier = pressModifier.height(keyHeight),

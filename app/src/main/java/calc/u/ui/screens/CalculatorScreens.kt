@@ -278,7 +278,7 @@ private fun CalculatorDisplayCard(
     Column(modifier, verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Card(
             colors = CardDefaults.cardColors(
-                containerColor = MaterialTheme.colorScheme.surfaceContainerHighest
+                containerColor = MaterialTheme.colorScheme.surfaceContainerLow
             ),
             shape = MaterialTheme.shapes.extraLarge,
             modifier = Modifier.clip(MaterialTheme.shapes.extraLarge)
@@ -335,7 +335,7 @@ private fun CalculatorDisplayCard(
                         text = AnnotatedString(formatResult(target)),
                         style = if (compact) MaterialTheme.typography.displayMedium.copy(fontFeatureSettings = "tnum")
                         else MaterialTheme.typography.displayLarge.copy(fontFeatureSettings = "tnum"),
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        color = MaterialTheme.colorScheme.onSurface,
                         maxLines = 2,
                         modifier = Modifier.fillMaxWidth()
                     )
@@ -1126,24 +1126,111 @@ private fun SciRowsGrid(
     staggerBase: Int = 0,
     compact: Boolean = false
 ) {
+    // Scientific dark-slate function block (dynamic-safe, never hardcoded).
     val sciRows = sciRowsFor(inverse)
     val gap = if (compact) 6.dp else 8.dp
-    Column(verticalArrangement = Arrangement.spacedBy(gap)) {
-        sciRows.forEachIndexed { i, row ->
-            AnimatedVisibility(visible = true, enter = keypadRowEnter((i + staggerBase) * 32)) {
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(gap)) {
-                    row.forEach { k ->
-                        val alt = InverseLongPress[k]
-                        SciKey(
-                            label = k,
-                            onClick = { onKey(if (k == "x²") "^2" else k) },
-                            onLongClick = alt?.let { a -> { onKey(if (a == "x²") "^2" else a) } },
-                            modifier = Modifier.weight(1f),
-                            compact = compact
-                        )
+    Card(
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surfaceContainerHighest
+        ),
+        shape = MaterialTheme.shapes.large
+    ) {
+        Column(
+            modifier = Modifier.fillMaxWidth().padding(if (compact) 8.dp else 10.dp),
+            verticalArrangement = Arrangement.spacedBy(gap)
+        ) {
+            sciRows.forEachIndexed { i, row ->
+                AnimatedVisibility(visible = true, enter = keypadRowEnter((i + staggerBase) * 32)) {
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(gap)) {
+                        row.forEach { k ->
+                            val alt = InverseLongPress[k]
+                            SciKey(
+                                label = k,
+                                onClick = { onKey(if (k == "x²") "^2" else k) },
+                                onLongClick = alt?.let { a -> { onKey(if (a == "x²") "^2" else a) } },
+                                modifier = Modifier.weight(1f),
+                                compact = compact
+                            )
+                        }
                     }
                 }
             }
+        }
+    }
+}
+
+@Composable
+private fun FnThinRow(
+    onKey: (String) -> Unit,
+    staggerDelay: Int = 0,
+    compact: Boolean = false,
+    trailingAns: Boolean = false
+) {
+    // Thin √ π ^ ! function row above the keypad; reuses existing sci callbacks.
+    val gap = if (compact) 6.dp else 8.dp
+    val keys = if (trailingAns) listOf("√", "π", "^", "!", "ANS") else listOf("√", "π", "^", "!")
+    AnimatedVisibility(visible = true, enter = keypadRowEnter(staggerDelay)) {
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(gap)) {
+            keys.forEach { k ->
+                FluentCalcKey(
+                    label = k,
+                    onClick = { onKey(k) },
+                    modifier = Modifier.weight(1f),
+                    kind = FluentKeyKind.Sci,
+                    keyHeight = if (compact) 28.dp else 32.dp
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun ParenPercentDivideRow(
+    onKey: (String) -> Unit,
+    onClear: () -> Unit,
+    staggerDelay: Int = 32,
+    compact: Boolean = false
+) {
+    // () % ÷ row with pale-tint AC; all circular.
+    val gap = if (compact) 6.dp else 8.dp
+    val keyHeight = if (compact) 38.dp else 48.dp
+    AnimatedVisibility(visible = true, enter = keypadRowEnter(staggerDelay)) {
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(gap)) {
+            FluentCalcKey(
+                label = "AC",
+                onClick = onClear,
+                modifier = Modifier.weight(1f),
+                kind = FluentKeyKind.Sci,
+                keyHeight = keyHeight
+            )
+            FluentCalcKey(
+                label = "(",
+                onClick = { onKey("(") },
+                modifier = Modifier.weight(1f),
+                kind = FluentKeyKind.Sci,
+                keyHeight = keyHeight
+            )
+            FluentCalcKey(
+                label = ")",
+                onClick = { onKey(")") },
+                modifier = Modifier.weight(1f),
+                kind = FluentKeyKind.Sci,
+                keyHeight = keyHeight
+            )
+            FluentCalcKey(
+                label = "%",
+                onClick = { onKey("%") },
+                modifier = Modifier.weight(1f),
+                kind = FluentKeyKind.Sci,
+                keyHeight = keyHeight
+            )
+            FluentCalcKey(
+                label = "÷",
+                onClick = { onKey("÷") },
+                modifier = Modifier.weight(1f),
+                kind = FluentKeyKind.Operator,
+                keyHeight = keyHeight
+            )
         }
     }
 }
@@ -1154,26 +1241,29 @@ private fun DigitRowsGrid(
     staggerBase: Int = 3,
     compact: Boolean = false
 ) {
+    // All-circular digit rows with tonal operators; bottom action row lives in
+    // ClearBackRow so = stays the largest dark-primary circle beside ⌫.
     val gap = if (compact) 6.dp else 8.dp
+    val keyHeight = if (compact) 38.dp else 48.dp
+    val rows = listOf(
+        listOf("7", "8", "9", "×"),
+        listOf("4", "5", "6", "−"),
+        listOf("1", "2", "3", "+")
+    )
     Column(verticalArrangement = Arrangement.spacedBy(gap)) {
-        DigitRows.forEachIndexed { j, row ->
+        rows.forEachIndexed { j, row ->
             AnimatedVisibility(visible = true, enter = keypadRowEnter((j + staggerBase) * 32)) {
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(gap)) {
                     row.forEach { k ->
                         if (k.length == 1 && k[0] in '0'..'9') {
                             DigitKey(label = k, onKey = onKey, modifier = Modifier.weight(1f), compact = compact)
                         } else {
-                            val isOp = k in setOf("÷", "×", "−", "+")
                             FluentCalcKey(
                                 label = k,
                                 onClick = { onKey(k) },
                                 modifier = Modifier.weight(1f),
-                                kind = when {
-                                    k == "=" -> FluentKeyKind.Equals
-                                    isOp -> FluentKeyKind.Operator
-                                    else -> FluentKeyKind.Digit
-                                },
-                                keyHeight = if (compact) 38.dp else 48.dp
+                                kind = FluentKeyKind.Operator,
+                                keyHeight = keyHeight
                             )
                         }
                     }
@@ -1189,19 +1279,30 @@ private fun ClearBackRow(
     onBack: () -> Unit,
     onBackLong: () -> Unit,
     staggerDelay: Int = 224,
-    compact: Boolean = false
+    compact: Boolean = false,
+    onKey: (String) -> Unit = {}
 ) {
+    // Bottom action row: 0 . ⌫ (dark rounded-square) = (dark primary, largest).
     val gap = if (compact) 6.dp else 8.dp
+    val keyHeight = if (compact) 38.dp else 48.dp
     AnimatedVisibility(visible = true, enter = keypadRowEnter(staggerDelay)) {
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(gap)) {
+            DigitKey(label = "0", onKey = onKey, modifier = Modifier.weight(1f), compact = compact)
             FluentCalcKey(
-                label = "C",
-                onClick = onClear,
+                label = ".",
+                onClick = { onKey(".") },
                 modifier = Modifier.weight(1f),
-                kind = FluentKeyKind.Sci,
-                keyHeight = if (compact) 32.dp else 40.dp
+                kind = FluentKeyKind.Digit,
+                keyHeight = keyHeight
             )
             BackKey(onBack = onBack, onBackLong = onBackLong, modifier = Modifier.weight(1f), compact = compact)
+            FluentCalcKey(
+                label = "=",
+                onClick = { onKey("=") },
+                modifier = Modifier.weight(1f),
+                kind = FluentKeyKind.Equals,
+                keyHeight = keyHeight
+            )
         }
     }
 }
@@ -1216,9 +1317,17 @@ private fun SimpleKeypad(
     compact: Boolean = false
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(if (compact) 6.dp else 8.dp)) {
-        SciRowsGrid(onKey = onKey, inverse = inverse, staggerBase = 0, compact = compact)
-        DigitRowsGrid(onKey = onKey, staggerBase = 3, compact = compact)
-        ClearBackRow(onClear = onClear, onBack = onBack, onBackLong = onBackLong, compact = compact)
+        FnThinRow(onKey = onKey, staggerDelay = 0, compact = compact)
+        ParenPercentDivideRow(onKey = onKey, onClear = onClear, staggerDelay = 32, compact = compact)
+        DigitRowsGrid(onKey = onKey, staggerBase = 2, compact = compact)
+        ClearBackRow(
+            onClear = onClear,
+            onBack = onBack,
+            onBackLong = onBackLong,
+            onKey = onKey,
+            staggerDelay = 192,
+            compact = compact
+        )
     }
 }
 
@@ -1250,12 +1359,15 @@ private fun ClassicKeypad(
         ) {
             SciRowsGrid(onKey = onKey, inverse = inverse, staggerBase = 0, compact = compact)
         }
-        DigitRowsGrid(onKey = onKey, staggerBase = 0, compact = compact)
+        FnThinRow(onKey = onKey, staggerDelay = 32, compact = compact, trailingAns = true)
+        ParenPercentDivideRow(onKey = onKey, onClear = onClear, staggerDelay = 64, compact = compact)
+        DigitRowsGrid(onKey = onKey, staggerBase = 3, compact = compact)
         ClearBackRow(
             onClear = onClear,
             onBack = onBack,
             onBackLong = onBackLong,
-            staggerDelay = 128,
+            onKey = onKey,
+            staggerDelay = 224,
             compact = compact
         )
     }
@@ -1271,78 +1383,22 @@ private fun ModernKeypad(
     inverse: Boolean,
     compact: Boolean = false
 ) {
-    val mergedRows = listOf(
-        listOf("7", "8", "9", "(", "÷"),
-        listOf("4", "5", "6", ")", "×"),
-        listOf("1", "2", "3", "^", "−"),
-        listOf("0", ".", "ANS", "π", "+")
-    )
-    val gap = if (compact) 6.dp else 8.dp
-    val digitHeight = if (compact) 38.dp else 48.dp
-    val sciHeight = if (compact) 32.dp else 40.dp
-    Column(verticalArrangement = Arrangement.spacedBy(gap)) {
+    // Scientific variant: dark-slate function block on top, thin √ π ^ ! row
+    // (with ANS, reusing the existing onKey("ANS") path), () % ÷ row, then
+    // all-circular digits with a tall dark-primary = beside rounded-square ⌫.
+    Column(verticalArrangement = Arrangement.spacedBy(if (compact) 6.dp else 8.dp)) {
         SciRowsGrid(onKey = onKey, inverse = inverse, staggerBase = 0, compact = compact)
-        mergedRows.forEachIndexed { j, row ->
-            AnimatedVisibility(visible = true, enter = keypadRowEnter((j + 3) * 32)) {
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(gap)) {
-                    row.forEach { k ->
-                        when {
-                            k == "." || (k.length == 1 && k[0] in '0'..'9') ->
-                                DigitKey(label = k, onKey = onKey, modifier = Modifier.weight(1f), compact = compact)
-                            k in setOf("÷", "×", "−", "+") ->
-                                FluentCalcKey(
-                                    label = k,
-                                    onClick = { onKey(k) },
-                                    modifier = Modifier.weight(1f),
-                                    kind = FluentKeyKind.Operator,
-                                    keyHeight = digitHeight
-                                )
-                            else ->
-                                FluentCalcKey(
-                                    label = k,
-                                    onClick = { onKey(k) },
-                                    modifier = Modifier.weight(1f),
-                                    kind = FluentKeyKind.Sci,
-                                    keyHeight = sciHeight
-                                )
-                        }
-                    }
-                }
-            }
-        }
-        AnimatedVisibility(visible = true, enter = keypadRowEnter(7 * 32)) {
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(gap)) {
-                FluentCalcKey(
-                    label = "C",
-                    onClick = onClear,
-                    modifier = Modifier.weight(1f),
-                    kind = FluentKeyKind.Sci,
-                    keyHeight = sciHeight
-                )
-                BackKey(onBack = onBack, onBackLong = onBackLong, modifier = Modifier.weight(1f), tall = true, compact = compact)
-                FluentCalcKey(
-                    label = "x²",
-                    onClick = { onKey("^2") },
-                    modifier = Modifier.weight(1f),
-                    kind = FluentKeyKind.Sci,
-                    keyHeight = sciHeight
-                )
-                FluentCalcKey(
-                    label = "√",
-                    onClick = { onKey("√") },
-                    modifier = Modifier.weight(1f),
-                    kind = FluentKeyKind.Sci,
-                    keyHeight = sciHeight
-                )
-                FluentCalcKey(
-                    label = "=",
-                    onClick = { onKey("=") },
-                    modifier = Modifier.weight(1f),
-                    kind = FluentKeyKind.Equals,
-                    keyHeight = digitHeight
-                )
-            }
-        }
+        FnThinRow(onKey = onKey, staggerDelay = 96, compact = compact, trailingAns = true)
+        ParenPercentDivideRow(onKey = onKey, onClear = onClear, staggerDelay = 128, compact = compact)
+        DigitRowsGrid(onKey = onKey, staggerBase = 5, compact = compact)
+        ClearBackRow(
+            onClear = onClear,
+            onBack = onBack,
+            onBackLong = onBackLong,
+            onKey = onKey,
+            staggerDelay = 256,
+            compact = compact
+        )
     }
 }
 

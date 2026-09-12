@@ -246,9 +246,9 @@ class MainActivity : ComponentActivity() {
                                         composable("calc") { Centered { CalculatorScreen() } }
                                         composable("graph") { Centered { GraphScreen() } }
                                         composable("convert") { Centered { ConvertersScreen() } }
-                                        composable("finance") { Centered { FinanceScreen() } }
-                                        composable("math") { Centered { MathScreen() } }
-                                        composable("steps") { Centered { StepsScreen() } }
+                                        composable("finance") { Centered { FinanceScreen(onNavigate = { if (it == "back") nav.popBackStack() else go(it) }) } }
+                                        composable("math") { Centered { MathScreen(onNavigate = { if (it == "back") nav.popBackStack() else go(it) }) } }
+                                        composable("steps") { Centered { StepsScreen(onNavigate = { if (it == "back") nav.popBackStack() else go(it) }) } }
                                         composable("time") { Centered { TimeLabScreen() } }
                                         composable("electro") { Centered { ElectroScreen() } }
                                         composable("textdata") { Centered { TextDataScreen() } }

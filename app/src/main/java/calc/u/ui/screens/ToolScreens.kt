@@ -97,8 +97,10 @@ import calc.u.core.Units
 import calc.u.core.VectorKit
 import calc.u.data.CurrencyRepository
 import calc.u.data.UnitPrefsRepository
+import calc.u.ui.BottomBackChevron
 import calc.u.ui.CalcUNumberBox
 import calc.u.ui.FluentStagger
+import calc.u.ui.JumpToCalcFab
 import calc.u.ui.ResultLine
 import calc.u.ui.SectionCard
 import calc.u.ui.theme.FluentMotion
@@ -342,6 +344,61 @@ private fun ToolResultRow(
             maxLines = 1,
             overflow = TextOverflow.Ellipsis
         )
+    }
+}
+
+@Composable
+private fun HelperCaption(text: String, modifier: Modifier = Modifier) {
+    Text(
+        text,
+        style = MaterialTheme.typography.labelSmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        modifier = modifier.padding(horizontal = 4.dp)
+    )
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun MethodDropdown(
+    selected: String,
+    options: List<Pair<String, String>>,
+    onSelect: (String) -> Unit,
+    label: String,
+    modifier: Modifier = Modifier
+) {
+    var expanded by remember { mutableStateOf(false) }
+    val current = options.firstOrNull { it.first == selected } ?: options.firstOrNull()
+    ExposedDropdownMenuBox(
+        expanded = expanded,
+        onExpandedChange = { expanded = it },
+        modifier = modifier
+    ) {
+        OutlinedTextField(
+            value = current?.first ?: selected,
+            onValueChange = {},
+            readOnly = true,
+            label = { Text(label) },
+            supportingText = { current?.second?.let { Text(it) } },
+            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
+            modifier = Modifier.menuAnchor().fillMaxWidth()
+        )
+        ExposedDropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+            options.forEach { (name, formula) ->
+                DropdownMenuItem(
+                    text = {
+                        Column {
+                            Text(name)
+                            Text(
+                                formula,
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    },
+                    onClick = { onSelect(name); expanded = false }
+                )
+            }
+        }
     }
 }
 
@@ -921,6 +978,11 @@ fun ConvertersScreen() {
                 }
                 TextButton(onClick = { openPicker("add") }) { Text("+ Add unit") }
                 Text(
+                    "Use ↑ ↓ to reorder • X to remove a row • + to add more units.",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Text(
                     "Editing any value recomputes all others via ${safeFrom.ifBlank { "source" }}.",
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
@@ -1053,7 +1115,7 @@ fun ConvertersScreen() {
 }
 
 @Composable
-fun FinanceScreen() {
+fun FinanceScreen(onNavigate: (String) -> Unit = {}) {
     var bill by remember { mutableStateOf("100") }
     var tipPct by remember { mutableFloatStateOf(15f) }
     var split by remember { mutableStateOf("2") }
@@ -1092,6 +1154,7 @@ fun FinanceScreen() {
         unitB < unitA -> "B is the better buy"
         else -> "Tie"
     }
+    Box(Modifier.fillMaxSize()) {
     LazyColumn(
         Modifier.fillMaxSize().padding(vertical = 16.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp)
@@ -1114,11 +1177,16 @@ fun FinanceScreen() {
             else if (pctMode == 0) fmt(pctValue, 2)
             else fmt(pctValue, 2) + " %"
             SectionCard("Percent") {
-                LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    items(pctModes.size) { i ->
-                        FilterChip(selected = pctMode == i, onClick = { pctMode = i }, label = { Text(pctModes[i]) })
-                    }
-                }
+                MethodDropdown(
+                    selected = pctModes[pctMode],
+                    options = listOf(
+                        "X% of Y" to "x · y / 100",
+                        "X is what % of Y" to "x / y · 100",
+                        "% difference" to "|x − y| / avg · 100"
+                    ),
+                    onSelect = { pctMode = pctModes.indexOf(it).coerceAtLeast(0) },
+                    label = "Method"
+                )
                 Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                     Box(Modifier.weight(1f)) {
                         NumField(pctX, { pctX = it }, if (pctMode == 2) "A" else "X")
@@ -1127,6 +1195,7 @@ fun FinanceScreen() {
                         NumField(pctY, { pctY = it }, if (pctMode == 2) "B" else "Y")
                     }
                 }
+                HelperCaption(if (pctMode == 2) "Symmetric difference of A and B." else "X is the percent value, Y is the base.")
                 HorizontalDivider()
                 ToolResultRow(Icons.Filled.Percent, "Result", pctOut)
             }
@@ -1137,6 +1206,7 @@ fun FinanceScreen() {
                 Text("Tip: ${tipPct.toInt()}%", style = MaterialTheme.typography.labelLarge)
                 Slider(value = tipPct, onValueChange = { tipPct = it }, valueRange = 0f..30f)
                 NumField(split, { split = it }, "Split between", integer = true)
+                HelperCaption("Total is split equally across people.")
                 HorizontalDivider()
                 ToolResultRow(Icons.Filled.AttachMoney, "Tip", fmt(tipAmt, 2))
                 ToolResultRow(Icons.Filled.AttachMoney, "Total", fmt(grand, 2))
@@ -1152,6 +1222,7 @@ fun FinanceScreen() {
                     style = MaterialTheme.typography.labelLarge
                 )
                 Slider(value = monthsF, onValueChange = { monthsF = it }, valueRange = 6f..360f)
+                HelperCaption("First 3 months plus the final balance are previewed.")
                 HorizontalDivider()
                 ToolResultRow(Icons.Filled.AttachMoney, "Monthly EMI", fmt(emi, 2))
                 ToolResultRow(Icons.Filled.AttachMoney, "Total interest", fmt(totalInt, 2))
@@ -1164,6 +1235,7 @@ fun FinanceScreen() {
         item {
             SectionCard("Interest over time") {
                 NumField(years, { years = it }, "Years")
+                HelperCaption("Simple interest uses principal only; compound reinvests yearly.")
                 HorizontalDivider()
                 ToolResultRow(Icons.Filled.AttachMoney, "Simple interest", fmt(si, 2))
                 ToolResultRow(Icons.Filled.AttachMoney, "Simple total", fmt(siTotal, 2))
@@ -1708,15 +1780,22 @@ fun FinanceScreen() {
                 )
             }
         }
+        item {
+            Box(Modifier.height(72.dp))
+        }
+    }
+        BottomBackChevron(onBack = { onNavigate("tools") }, modifier = Modifier.align(Alignment.BottomStart).padding(8.dp))
+        JumpToCalcFab(onJump = { onNavigate("calc") }, modifier = Modifier.align(Alignment.BottomEnd).padding(16.dp))
     }
 }
 
 @Composable
-fun MathScreen() {
+fun MathScreen(onNavigate: (String) -> Unit = {}) {
+    Box(Modifier.fillMaxSize()) {
     var tab by remember { mutableStateOf("numbers") }
     val tabs = listOf("numbers" to "Numbers", "geometry" to "Geometry", "health" to "Health")
     Column(
-        Modifier.fillMaxSize().padding(vertical = 16.dp),
+        Modifier.fillMaxSize().padding(vertical = 16.dp).padding(bottom = 72.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
         LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -1728,9 +1807,12 @@ fun MathScreen() {
             when (tab) {
                 "numbers" -> NumbersContent()
                 "geometry" -> GeometryScreen()
-                "health" -> HealthScreen()
+                "health" -> HealthScreen(onNavigate = onNavigate)
             }
         }
+    }
+        BottomBackChevron(onBack = { onNavigate("tools") }, modifier = Modifier.align(Alignment.BottomStart).padding(8.dp))
+        JumpToCalcFab(onJump = { onNavigate("calc") }, modifier = Modifier.align(Alignment.BottomEnd).padding(16.dp))
     }
 }
 
@@ -1836,20 +1918,33 @@ private fun NumbersContent() {
                     Box(Modifier.weight(1f)) { NumField(pctP, { pctP = it }, "%") }
                     Box(Modifier.weight(1f)) { NumField(pctX, { pctX = it }, "of value") }
                 }
+                HelperCaption("Result = of value · % / 100.")
                 ToolResultRow(Icons.Filled.Percent, "Result", fmt(num(pctX) * num(pctP) / 100))
                 HorizontalDivider()
+                var discMode by remember { mutableStateOf("Discount") }
+                MethodDropdown(
+                    selected = discMode,
+                    options = listOf(
+                        "Discount" to "final = price − save",
+                        "Increase" to "final = price + extra"
+                    ),
+                    onSelect = { discMode = it },
+                    label = "Method"
+                )
                 Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                     Box(Modifier.weight(1f)) { NumField(discPrice, { discPrice = it }, "Price") }
-                    Box(Modifier.weight(1f)) { NumField(discPct, { discPct = it }, "Off %") }
+                    Box(Modifier.weight(1f)) { NumField(discPct, { discPct = it }, if (discMode == "Discount") "Off %" else "Add %") }
                 }
+                HelperCaption(if (discMode == "Discount") "Save = price · % / 100." else "Extra = price · % / 100.")
                 val save = num(discPrice) * num(discPct) / 100
-                ToolResultRow(Icons.Filled.AttachMoney, "You save", fmt(save, 2))
-                ToolResultRow(Icons.Filled.AttachMoney, "Final price", fmt(num(discPrice) - save, 2))
+                ToolResultRow(Icons.Filled.AttachMoney, if (discMode == "Discount") "You save" else "Extra", fmt(save, 2))
+                ToolResultRow(Icons.Filled.AttachMoney, "Final price", fmt(if (discMode == "Discount") num(discPrice) - save else num(discPrice) + save, 2))
             }
         }
         item {
             SectionCard("Statistics") {
                 NumField(listInput, { listInput = it }, "Values, comma separated")
+                HelperCaption("Separate values with commas, spaces, or new lines.")
                 LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     items(listOf("Mean", "Median", "Min", "Max", "Sum", "Count")) { s ->
                         FilterChip(selected = stat == s, onClick = { stat = s }, label = { Text(s) })
@@ -2437,7 +2532,7 @@ fun GeometryScreen() {
 }
 
 @Composable
-fun HealthScreen() {
+fun HealthScreen(onNavigate: (String) -> Unit = {}) {
     var weight by remember { mutableStateOf("70") }
     var height by remember { mutableStateOf("175") }
     var male by remember { mutableStateOf(true) }
@@ -2467,7 +2562,7 @@ fun HealthScreen() {
         1.725 to "Active",
         1.9 to "Athlete"
     )
-    LazyColumn(Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+    LazyColumn(Modifier.fillMaxSize().padding(bottom = 72.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
         item {
             SectionCard("BMI") {
                 LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -2504,6 +2599,7 @@ fun HealthScreen() {
                 ToolResultRow(Icons.Filled.Person, "BMI", fmt(bmiV, 1))
                 ToolResultRow(Icons.Filled.Favorite, "Category", bmiCatV)
                 BmiBar(bmiV)
+                HelperCaption("BMI = weight kg / (height m)². Ranges: 18.5 / 25 / 30.")
                 Text(
                     bmiPlainLabel(bmiCatV, bmiV),
                     style = MaterialTheme.typography.bodyMedium,
@@ -2669,7 +2765,7 @@ fun HealthScreen() {
 }
 
 @Composable
-fun StepsScreen() {
+fun StepsScreen(onNavigate: (String) -> Unit = {}) {
     var tab by remember { mutableStateOf("quad") }
     var qa by remember { mutableStateOf("1") }
     var qb by remember { mutableStateOf("-3") }
@@ -2683,8 +2779,9 @@ fun StepsScreen() {
     var cf by remember { mutableStateOf("km") }
     var ct by remember { mutableStateOf("m") }
     val tabs = listOf("quad" to "Quadratic", "emi" to "EMI", "gcd" to "GCD", "units" to "Units")
+    Box(Modifier.fillMaxSize()) {
     Column(
-        Modifier.fillMaxSize().padding(vertical = 16.dp),
+        Modifier.fillMaxSize().padding(vertical = 16.dp).padding(bottom = 72.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
         LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -2883,6 +2980,9 @@ fun StepsScreen() {
                 }
             }
         }
+    }
+        BottomBackChevron(onBack = { onNavigate("tools") }, modifier = Modifier.align(Alignment.BottomStart).padding(8.dp))
+        JumpToCalcFab(onJump = { onNavigate("calc") }, modifier = Modifier.align(Alignment.BottomEnd).padding(16.dp))
     }
 }
 

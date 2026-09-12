@@ -7,8 +7,10 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
@@ -25,12 +27,14 @@ import androidx.compose.material.icons.filled.AttachMoney
 import androidx.compose.material.icons.filled.BarChart
 import androidx.compose.material.icons.filled.Build
 import androidx.compose.material.icons.filled.Calculate
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Done
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Explore
 import androidx.compose.material.icons.filled.ExpandLess
 import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material.icons.filled.GridOn
+import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.QrCode
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.ShortText
@@ -43,11 +47,14 @@ import androidx.compose.material.icons.filled.Timeline
 import androidx.compose.material.icons.filled.Timer
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -57,6 +64,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
@@ -236,6 +245,7 @@ fun ToolsHub(onOpen: (String) -> Unit, vm: ToolsHubViewModel = hiltViewModel()) 
     var editMode by rememberSaveable { mutableStateOf(false) }
     var collapsedList by rememberSaveable { mutableStateOf(emptyList<String>()) }
     val collapsed = remember(collapsedList) { collapsedList.toSet() }
+    val searchFocus = remember { FocusRequester() }
     fun open(route: String) {
         vm.record(route)
         onOpen(route)
@@ -263,182 +273,178 @@ fun ToolsHub(onOpen: (String) -> Unit, vm: ToolsHubViewModel = hiltViewModel()) 
     val favEntries = remember(favs) { HubTools.filter { favs.contains(it.route) }.distinctBy { it.name } }
     val recentRoutes = remember(recents) { recents.distinct() }
 
-    LazyColumn(
+    Scaffold(
         modifier = Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 12.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp)
-    ) {
-        item {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically
+        floatingActionButton = {
+            FloatingActionButton(
+                onClick = { open("calc") },
+                containerColor = MaterialTheme.colorScheme.inverseSurface,
+                contentColor = MaterialTheme.colorScheme.inverseOnSurface
             ) {
-                Column(
-                    verticalArrangement = Arrangement.spacedBy(4.dp),
-                    modifier = Modifier.weight(1f)
+                Icon(Icons.Filled.Calculate, contentDescription = "Open calculator")
+            }
+        }
+    ) { inner ->
+        LazyColumn(
+            modifier = Modifier.fillMaxSize().padding(inner),
+            contentPadding = PaddingValues(horizontal = 20.dp, vertical = 16.dp),
+            verticalArrangement = Arrangement.spacedBy(20.dp)
+        ) {
+            item {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
+                    Box(
+                        contentAlignment = Alignment.Center,
+                        modifier = Modifier
+                            .size(44.dp)
+                            .clip(CircleShape)
+                            .background(MaterialTheme.colorScheme.primaryContainer)
+                    ) {
+                        Icon(
+                            Icons.Filled.Person,
+                            contentDescription = "Profile",
+                            tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                            modifier = Modifier.size(24.dp)
+                        )
+                    }
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            "Welcome",
+                            style = MaterialTheme.typography.headlineSmall,
+                            modifier = Modifier.semantics { heading() }
+                        )
+                        Text(
+                            "What do you need today?",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                    IconButton(onClick = { searchFocus.requestFocus() }) {
+                        Icon(Icons.Filled.Search, contentDescription = "Search tools")
+                    }
+                    IconButton(onClick = { editMode = !editMode }) {
+                        Icon(
+                            if (editMode) Icons.Filled.Done else Icons.Filled.Edit,
+                            contentDescription = if (editMode) "Done editing" else "Edit order"
+                        )
+                    }
+                }
+            }
+            item {
+                OutlinedTextField(
+                    value = query,
+                    onValueChange = { query = it },
+                    label = { Text(stringResource(R.string.hub_search)) },
+                    leadingIcon = { Icon(Icons.Filled.Search, contentDescription = null) },
+                    trailingIcon = {
+                        if (query.isNotEmpty()) {
+                            IconButton(onClick = { query = "" }) {
+                                Icon(Icons.Filled.Close, contentDescription = "Clear search")
+                            }
+                        }
+                    },
+                    singleLine = true,
+                    shape = RoundedCornerShape(28.dp),
+                    modifier = Modifier.fillMaxWidth().focusRequester(searchFocus)
+                )
+            }
+            if (query.isBlank() && favEntries.isNotEmpty()) {
+                item {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            "Favourites",
+                            style = MaterialTheme.typography.titleMedium,
+                            modifier = Modifier.weight(1f).semantics { heading() }
+                        )
+                        TextButton(onClick = { editMode = !editMode }) {
+                            Text(if (editMode) "Done" else "Edit")
+                        }
+                    }
+                }
+                item {
+                    LazyRow(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(20.dp)
+                    ) {
+                        items(favEntries, key = { it.name }) { tool ->
+                            Column(
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                                verticalArrangement = Arrangement.spacedBy(8.dp),
+                                modifier = Modifier
+                                    .widthIn(max = 76.dp)
+                                    .clickable { open(tool.route) }
+                            ) {
+                                Box(
+                                    modifier = Modifier.size(72.dp),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Box(
+                                        contentAlignment = Alignment.Center,
+                                        modifier = Modifier
+                                            .size(68.dp)
+                                            .clip(CircleShape)
+                                            .background(categoryContainer(tool.category))
+                                    ) {
+                                        Icon(
+                                            toolIcon(tool),
+                                            contentDescription = null,
+                                            tint = categoryOnContainer(tool.category),
+                                            modifier = Modifier.size(30.dp)
+                                        )
+                                    }
+                                    if (editMode) {
+                                        Box(
+                                            contentAlignment = Alignment.Center,
+                                            modifier = Modifier
+                                                .align(Alignment.TopEnd)
+                                                .size(24.dp)
+                                                .clip(CircleShape)
+                                                .background(MaterialTheme.colorScheme.inverseSurface)
+                                                .clickable { vm.toggleFav(tool.route) }
+                                        ) {
+                                            Icon(
+                                                Icons.Filled.Star,
+                                                contentDescription = "Unstar ${tool.name}",
+                                                tint = MaterialTheme.colorScheme.inverseOnSurface,
+                                                modifier = Modifier.size(14.dp)
+                                            )
+                                        }
+                                    }
+                                }
+                                Text(
+                                    tool.name,
+                                    style = MaterialTheme.typography.labelSmall,
+                                    textAlign = TextAlign.Center,
+                                    maxLines = 2,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+            if (query.isBlank() && recentRoutes.isNotEmpty()) {
+                item {
                     Text(
-                        "Welcome",
-                        style = MaterialTheme.typography.labelLarge,
-                        color = MaterialTheme.colorScheme.primary
-                    )
-                    Text(
-                        "What do you need today?",
-                        style = MaterialTheme.typography.headlineSmall,
+                        "Recent",
+                        style = MaterialTheme.typography.titleMedium,
                         modifier = Modifier.semantics { heading() }
                     )
                 }
-                IconButton(onClick = { editMode = !editMode }) {
-                    Icon(
-                        if (editMode) Icons.Filled.Done else Icons.Filled.Edit,
-                        contentDescription = if (editMode) "Done editing" else "Edit order"
-                    )
-                }
-            }
-        }
-        item {
-            OutlinedTextField(
-                value = query,
-                onValueChange = { query = it },
-                label = { Text(stringResource(R.string.hub_search)) },
-                leadingIcon = { Icon(Icons.Filled.Search, contentDescription = null) },
-                singleLine = true,
-                modifier = Modifier.fillMaxWidth()
-            )
-        }
-        if (query.isBlank() && favEntries.isNotEmpty()) {
-            item {
-                Text(
-                    "Favourites",
-                    style = MaterialTheme.typography.titleMedium,
-                    modifier = Modifier.semantics { heading() }
-                )
-            }
-            item {
-                LazyRow(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-                    items(favEntries, key = { it.name }) { tool ->
-                        Column(
-                            horizontalAlignment = Alignment.CenterHorizontally,
-                            verticalArrangement = Arrangement.spacedBy(6.dp),
-                            modifier = Modifier
-                                .widthIn(max = 72.dp)
-                                .clickable { open(tool.route) }
-                        ) {
-                            Box(
-                                contentAlignment = Alignment.Center,
-                                modifier = Modifier
-                                    .size(52.dp)
-                                    .clip(CircleShape)
-                                    .background(categoryContainer(tool.category))
-                            ) {
-                                Icon(
-                                    toolIcon(tool),
-                                    contentDescription = null,
-                                    tint = categoryOnContainer(tool.category),
-                                    modifier = Modifier.size(26.dp)
-                                )
-                            }
-                            Text(
-                                tool.name,
-                                style = MaterialTheme.typography.labelSmall,
-                                textAlign = TextAlign.Center,
-                                maxLines = 2,
-                                overflow = TextOverflow.Ellipsis
-                            )
-                        }
-                    }
-                }
-            }
-        }
-        if (query.isBlank() && recentRoutes.isNotEmpty()) {
-            item {
-                Text(
-                    "Recent",
-                    style = MaterialTheme.typography.titleMedium,
-                    modifier = Modifier.semantics { heading() }
-                )
-            }
-            items(recentRoutes, key = { "recent-$it" }) { route ->
-                val rep = HubTools.firstOrNull { it.route == route }
-                val label = RouteLabels[route] ?: rep?.name ?: route
-                val category = rep?.category ?: "Everyday"
-                val iconEntry = rep ?: ToolEntry(label, category, route)
-                Card(
-                    modifier = Modifier.fillMaxWidth().clickable { open(route) },
-                    colors = CardDefaults.cardColors(
-                        containerColor = MaterialTheme.colorScheme.surfaceContainerLow
-                    )
-                ) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth().padding(12.dp),
-                        horizontalArrangement = Arrangement.spacedBy(12.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Box(
-                            contentAlignment = Alignment.Center,
-                            modifier = Modifier
-                                .size(44.dp)
-                                .clip(RoundedCornerShape(14.dp))
-                                .background(categoryContainer(category))
-                        ) {
-                            Icon(
-                                toolIcon(iconEntry),
-                                contentDescription = null,
-                                tint = categoryOnContainer(category),
-                                modifier = Modifier.size(24.dp)
-                            )
-                        }
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text(label, style = MaterialTheme.typography.titleMedium)
-                            Text(
-                                categoryLabel(category),
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
-                    }
-                }
-            }
-        }
-        orderedGroups.forEach { (category, tools) ->
-            val expanded = searching || !collapsed.contains(category)
-            item(key = "h-$category") {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clip(RoundedCornerShape(12.dp))
-                        .clickable {
-                            collapsedList =
-                                if (collapsed.contains(category)) collapsedList - category
-                                else collapsedList + category
-                        }
-                        .padding(vertical = 4.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    Text(
-                        categoryLabel(category),
-                        style = MaterialTheme.typography.titleMedium,
-                        modifier = Modifier
-                            .weight(1f)
-                            .semantics { heading() }
-                    )
-                    Text(
-                        "${tools.size}",
-                        style = MaterialTheme.typography.labelMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                    Icon(
-                        if (expanded) Icons.Filled.ExpandLess else Icons.Filled.ExpandMore,
-                        contentDescription = if (expanded) "Collapse $category" else "Expand $category"
-                    )
-                }
-            }
-            if (expanded) {
-                items(tools, key = { it.name }) { tool ->
-                    val starred = favs.contains(tool.route)
+                items(recentRoutes, key = { "recent-$it" }) { route ->
+                    val rep = HubTools.firstOrNull { it.route == route }
+                    val label = RouteLabels[route] ?: rep?.name ?: route
+                    val category = rep?.category ?: "Everyday"
+                    val iconEntry = rep ?: ToolEntry(label, category, route)
                     Card(
-                        modifier = Modifier.fillMaxWidth().clickable { open(tool.route) },
+                        modifier = Modifier.fillMaxWidth().clickable { open(route) },
+                        shape = RoundedCornerShape(20.dp),
                         colors = CardDefaults.cardColors(
                             containerColor = MaterialTheme.colorScheme.surfaceContainerLow
                         )
@@ -451,54 +457,131 @@ fun ToolsHub(onOpen: (String) -> Unit, vm: ToolsHubViewModel = hiltViewModel()) 
                             Box(
                                 contentAlignment = Alignment.Center,
                                 modifier = Modifier
-                                    .size(44.dp)
-                                    .clip(RoundedCornerShape(14.dp))
-                                    .background(categoryContainer(tool.category))
+                                    .size(48.dp)
+                                    .clip(RoundedCornerShape(16.dp))
+                                    .background(categoryContainer(category))
                             ) {
                                 Icon(
-                                    toolIcon(tool),
+                                    toolIcon(iconEntry),
                                     contentDescription = null,
-                                    tint = categoryOnContainer(tool.category),
+                                    tint = categoryOnContainer(category),
                                     modifier = Modifier.size(24.dp)
                                 )
                             }
                             Column(modifier = Modifier.weight(1f)) {
-                                Text(tool.name, style = MaterialTheme.typography.titleMedium)
+                                Text(label, style = MaterialTheme.typography.titleMedium)
                                 Text(
-                                    categoryLabel(tool.category),
+                                    categoryLabel(category),
                                     style = MaterialTheme.typography.bodySmall,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                            }
-                            if (editMode) {
-                                IconButton(onClick = { vm.move(tool.route, -1) }) {
-                                    Icon(
-                                        Icons.Filled.ArrowUpward,
-                                        contentDescription = "Move ${tool.name} up"
-                                    )
-                                }
-                                IconButton(onClick = { vm.move(tool.route, 1) }) {
-                                    Icon(
-                                        Icons.Filled.ArrowDownward,
-                                        contentDescription = "Move ${tool.name} down"
-                                    )
-                                }
-                            }
-                            IconButton(onClick = { vm.toggleFav(tool.route) }) {
-                                Icon(
-                                    if (starred) Icons.Filled.Star else Icons.Filled.StarBorder,
-                                    contentDescription = if (starred) "Unstar ${tool.name}" else "Star ${tool.name}",
-                                    tint = if (starred) MaterialTheme.colorScheme.primary
-                                    else MaterialTheme.colorScheme.onSurfaceVariant
                                 )
                             }
                         }
                     }
                 }
             }
-        }
-        if (filtered.isEmpty()) {
-            item { Text(stringResource(R.string.hub_empty), style = MaterialTheme.typography.bodyMedium) }
+            orderedGroups.forEach { (category, tools) ->
+                val expanded = searching || !collapsed.contains(category)
+                item(key = "h-$category") {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(12.dp))
+                            .clickable {
+                                collapsedList =
+                                    if (collapsed.contains(category)) collapsedList - category
+                                    else collapsedList + category
+                            }
+                            .padding(vertical = 4.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Text(
+                            categoryLabel(category),
+                            style = MaterialTheme.typography.titleMedium,
+                            modifier = Modifier
+                                .weight(1f)
+                                .semantics { heading() }
+                        )
+                        Text(
+                            "${tools.size}",
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Icon(
+                            if (expanded) Icons.Filled.ExpandLess else Icons.Filled.ExpandMore,
+                            contentDescription = if (expanded) "Collapse $category" else "Expand $category"
+                        )
+                    }
+                }
+                if (expanded) {
+                    items(tools, key = { it.name }) { tool ->
+                        val starred = favs.contains(tool.route)
+                        Card(
+                            modifier = Modifier.fillMaxWidth().clickable { open(tool.route) },
+                            shape = RoundedCornerShape(20.dp),
+                            colors = CardDefaults.cardColors(
+                                containerColor = MaterialTheme.colorScheme.surfaceContainerLow
+                            )
+                        ) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth().padding(12.dp),
+                                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Box(
+                                    contentAlignment = Alignment.Center,
+                                    modifier = Modifier
+                                        .size(48.dp)
+                                        .clip(RoundedCornerShape(16.dp))
+                                        .background(categoryContainer(tool.category))
+                                ) {
+                                    Icon(
+                                        toolIcon(tool),
+                                        contentDescription = null,
+                                        tint = categoryOnContainer(tool.category),
+                                        modifier = Modifier.size(24.dp)
+                                    )
+                                }
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text(tool.name, style = MaterialTheme.typography.titleMedium)
+                                    Text(
+                                        categoryLabel(tool.category),
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
+                                if (editMode) {
+                                    IconButton(onClick = { vm.move(tool.route, -1) }) {
+                                        Icon(
+                                            Icons.Filled.ArrowUpward,
+                                            contentDescription = "Move ${tool.name} up"
+                                        )
+                                    }
+                                    IconButton(onClick = { vm.move(tool.route, 1) }) {
+                                        Icon(
+                                            Icons.Filled.ArrowDownward,
+                                            contentDescription = "Move ${tool.name} down"
+                                        )
+                                    }
+                                }
+                                IconButton(onClick = { vm.toggleFav(tool.route) }) {
+                                    Icon(
+                                        if (starred) Icons.Filled.Star else Icons.Filled.StarBorder,
+                                        contentDescription = if (starred) "Unstar ${tool.name}" else "Star ${tool.name}",
+                                        tint = if (starred) MaterialTheme.colorScheme.primary
+                                        else MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            if (filtered.isEmpty()) {
+                item { Text(stringResource(R.string.hub_empty), style = MaterialTheme.typography.bodyMedium) }
+            }
+            item { Spacer(Modifier.height(72.dp)) }
         }
     }
 }
