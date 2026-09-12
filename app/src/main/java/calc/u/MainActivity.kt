@@ -12,14 +12,18 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Apps
 import androidx.compose.material.icons.filled.AttachMoney
+import androidx.compose.material.icons.filled.Build
 import androidx.compose.material.icons.filled.Calculate
 import androidx.compose.material.icons.filled.GridOn
 import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.ShortText
 import androidx.compose.material.icons.filled.ShowChart
 import androidx.compose.material.icons.filled.SwapHoriz
 import androidx.compose.material.icons.filled.Timeline
+import androidx.compose.material.icons.filled.Timer
 import androidx.compose.material3.DrawerValue
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
@@ -63,6 +67,10 @@ import calc.u.ui.screens.GraphScreen
 import calc.u.ui.screens.MathScreen
 import calc.u.ui.screens.SettingsScreen
 import calc.u.ui.screens.StepsScreen
+import calc.u.ui.screens.TextDataScreen
+import calc.u.ui.screens.TimeLabScreen
+import calc.u.ui.screens.ElectroScreen
+import calc.u.ui.screens.ToolsHub
 import calc.u.ui.theme.CalcUTheme
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.launch
@@ -79,7 +87,11 @@ private val ToolDests = listOf(
     Dest("convert", "Convert", Icons.Filled.SwapHoriz),
     Dest("finance", "Finance", Icons.Filled.AttachMoney),
     Dest("math", "Math", Icons.Filled.GridOn),
-    Dest("steps", "Steps", Icons.Filled.Timeline)
+    Dest("steps", "Steps", Icons.Filled.Timeline),
+    Dest("time", "Time Lab", Icons.Filled.Timer),
+    Dest("electro", "Electro", Icons.Filled.Build),
+    Dest("textdata", "Text+Data", Icons.Filled.ShortText),
+    Dest("tools", "Tools", Icons.Filled.Apps)
 )
 
 private val SettingsDest = Dest("settings", "Settings", Icons.Filled.Settings)
@@ -99,7 +111,9 @@ class MainActivity : ComponentActivity() {
                 val nav = rememberNavController()
                     val drawer = rememberDrawerState(DrawerValue.Closed)
                     val scope = rememberCoroutineScope()
-                    val startRoute = if (intent?.getStringExtra("dest") == "graph") "graph" else "calc"
+                    val startRoute = intent?.getStringExtra("dest")?.takeIf {
+                        it in setOf("graph", "time", "electro", "textdata", "tools")
+                    } ?: "calc"
                     var route by remember { mutableStateOf(startRoute) }
                     fun go(r: String) {
                         route = r
@@ -196,6 +210,10 @@ class MainActivity : ComponentActivity() {
                                         composable("finance") { Centered { FinanceScreen() } }
                                         composable("math") { Centered { MathScreen() } }
                                         composable("steps") { Centered { StepsScreen() } }
+                                        composable("time") { Centered { TimeLabScreen() } }
+                                        composable("electro") { Centered { ElectroScreen() } }
+                                        composable("textdata") { Centered { TextDataScreen() } }
+                                        composable("tools") { Centered { ToolsHub(onOpen = { go(it) }) } }
                                         composable("settings") { Centered { SettingsScreen() } }
                                     }
                                 }

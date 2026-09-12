@@ -194,3 +194,25 @@ fun FluentCalcKey(
         ) { Text(label, style = MaterialTheme.typography.titleSmall) }
     }
 }
+
+@Composable
+fun Modifier.pressScale(pressed: Boolean, pressedScale: Float = 0.96f): Modifier {
+    val scale by animateFloatAsState(
+        targetValue = if (pressed) pressedScale else 1f,
+        animationSpec = tween(FluentMotion.Short, easing = FluentMotion.Standard),
+        label = "press-scale"
+    )
+    return this.graphicsLayer(scaleX = scale, scaleY = scale)
+}
+
+@Composable
+fun AnimatedSection(
+    title: String,
+    modifier: Modifier = Modifier,
+    index: Int = 0,
+    content: @Composable () -> Unit
+) {
+    FluentStagger(index = index) {
+        SectionCard(title = title, modifier = modifier, content = content)
+    }
+}

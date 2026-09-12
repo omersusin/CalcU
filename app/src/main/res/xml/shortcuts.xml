@@ -26,4 +26,34 @@
                 android:value="graph" />
         </intent>
     </shortcut>
+    <shortcut
+        android:enabled="true"
+        android:icon="@android:drawable/ic_dialog_time"
+        android:shortcutId="time"
+        android:shortcutLongLabel="@string/shortcut_time"
+        android:shortcutShortLabel="@string/shortcut_time">
+        <intent
+            android:action="calc.u.action.TIME"
+            android:targetClass="calc.u.MainActivity"
+            android:targetPackage="calc.u">
+            <extra
+                android:name="dest"
+                android:value="time" />
+        </intent>
+    </shortcut>
+    <shortcut
+        android:enabled="true"
+        android:icon="@android:drawable/ic_menu_preferences"
+        android:shortcutId="tools"
+        android:shortcutLongLabel="@string/shortcut_tools"
+        android:shortcutShortLabel="@string/shortcut_tools">
+        <intent
+            android:action="calc.u.action.TOOLS"
+            android:targetClass="calc.u.MainActivity"
+            android:targetPackage="calc.u">
+            <extra
+                android:name="dest"
+                android:value="tools" />
+        </intent>
+    </shortcut>
 </shortcuts>

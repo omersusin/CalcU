@@ -52,4 +52,16 @@ class HistoryRepository @Inject constructor(@ApplicationContext private val ctx:
         }
     }
     suspend fun clear() { ctx.dataStore.edit { it.remove(key) } }
+    fun activityLast14Days(): Flow<Map<Long, Int>> = history.map { list ->
+        val today = System.currentTimeMillis() / 86400000L
+        val counts = mutableMapOf<Long, Int>()
+        for (e in list) {
+            val ts = e.substringBefore("|").toLongOrNull() ?: continue
+            val day = ts / 86400000L
+            if (day in (today - 13)..today) {
+                counts[day] = (counts[day] ?: 0) + 1
+            }
+        }
+        counts.toMap()
+    }
 }

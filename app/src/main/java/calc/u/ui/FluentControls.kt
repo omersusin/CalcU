@@ -13,8 +13,10 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
@@ -25,6 +27,7 @@ import androidx.compose.material.icons.filled.Error
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
@@ -37,6 +40,7 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.SegmentedButton
 import androidx.compose.material3.SegmentedButtonDefaults
 import androidx.compose.material3.SingleChoiceSegmentedButtonRow
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -50,6 +54,7 @@ import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import calc.u.ui.theme.FluentMotion
 import calc.u.ui.theme.FluentSpace
@@ -346,6 +351,53 @@ fun FluentSegmented(
                 shape = SegmentedButtonDefaults.itemShape(i, options.size),
                 label = { Text(label) }
             )
+        }
+    }
+}
+
+@Composable
+fun FluentSearchPill(
+    query: String,
+    onQuery: (String) -> Unit,
+    hint: String,
+    modifier: Modifier = Modifier
+) {
+    OutlinedTextField(
+        value = query,
+        onValueChange = onQuery,
+        modifier = modifier.fillMaxWidth().height(52.dp),
+        placeholder = { Text(hint) },
+        leadingIcon = { Icon(Icons.Filled.Search, contentDescription = null) },
+        trailingIcon = {
+            if (query.isNotEmpty()) {
+                IconButton(onClick = { onQuery("") }) {
+                    Icon(Icons.Filled.Close, contentDescription = "Clear search")
+                }
+            }
+        },
+        singleLine = true,
+        shape = CircleShape,
+        keyboardOptions = KeyboardOptions(
+            keyboardType = KeyboardType.Text,
+            imeAction = ImeAction.Search
+        ),
+        keyboardActions = KeyboardActions.Default
+    )
+}
+
+@Composable
+fun CountPill(text: String, modifier: Modifier = Modifier) {
+    Surface(
+        modifier = modifier.height(50.dp),
+        shape = CircleShape,
+        color = MaterialTheme.colorScheme.surfaceContainerHigh,
+        contentColor = MaterialTheme.colorScheme.primary
+    ) {
+        Box(
+            modifier = Modifier.padding(horizontal = 16.dp),
+            contentAlignment = Alignment.Center
+        ) {
+            Text(text, style = MaterialTheme.typography.labelLarge, maxLines = 1)
         }
     }
 }

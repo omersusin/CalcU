@@ -1,16 +1,25 @@
 package calc.u.ui.screens
 
 import android.os.Build
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.selection.selectableGroup
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Switch
@@ -19,7 +28,11 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.ViewModel
@@ -81,8 +94,23 @@ fun SettingsScreen(vm: SettingsViewModel = hiltViewModel()) {
     ) {
         item {
             SectionCard("Appearance") {
-                Column(Modifier.selectableGroup()) {
-                    options.forEach { (id, label) ->
+                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth()
+                            .horizontalScroll(rememberScrollState())
+                            .selectableGroup(),
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        themeShowcases.forEach { showcase ->
+                            ThemePreviewCard(
+                                showcase = showcase,
+                                selected = theme == showcase.id,
+                                onClick = { vm.setTheme(showcase.id) }
+                            )
+                        }
+                    }
+                    Column(Modifier.selectableGroup()) {
+                        options.forEach { (id, label) ->
                         Row(
                             modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)
                                 .selectable(
@@ -118,6 +146,7 @@ fun SettingsScreen(vm: SettingsViewModel = hiltViewModel()) {
                                 onCheckedChange = { vm.setDynamicColor(it) }
                             )
                         }
+                    }
                     }
                 }
             }
@@ -174,5 +203,122 @@ fun SettingsScreen(vm: SettingsViewModel = hiltViewModel()) {
                 }
             }
         }
+    }
+}
+
+private data class ThemeShowcase(
+    val id: String,
+    val label: String,
+    val primary: Color,
+    val secondary: Color,
+    val tertiary: Color,
+    val previewSurface: Color,
+    val previewOnSurface: Color
+)
+
+private val themeShowcases = listOf(
+    ThemeShowcase(
+        id = "system",
+        label = "System",
+        primary = Color(0xFF4C662B),
+        secondary = Color(0xFF586249),
+        tertiary = Color(0xFF38656A),
+        previewSurface = Color(0xFFF9FAEF),
+        previewOnSurface = Color(0xFF1A1C16)
+    ),
+    ThemeShowcase(
+        id = "light",
+        label = "Light",
+        primary = Color(0xFF30588F),
+        secondary = Color(0xFF5A6B85),
+        tertiary = Color(0xFF6B5E8A),
+        previewSurface = Color(0xFFFDFBFF),
+        previewOnSurface = Color(0xFF1A1C1E)
+    ),
+    ThemeShowcase(
+        id = "dark",
+        label = "Dark",
+        primary = Color(0xFFAAC7FF),
+        secondary = Color(0xFFBEC6DC),
+        tertiary = Color(0xFFDDBCE0),
+        previewSurface = Color(0xFF131316),
+        previewOnSurface = Color(0xFFE3E2E9)
+    ),
+    ThemeShowcase(
+        id = "amoled",
+        label = "AMOLED",
+        primary = Color(0xFFBBDEFB),
+        secondary = Color(0xFF90A4AE),
+        tertiary = Color(0xFF80CBC4),
+        previewSurface = Color(0xFF000000),
+        previewOnSurface = Color(0xFFFFFFFF)
+    ),
+    ThemeShowcase(
+        id = "contrast",
+        label = "High contrast",
+        primary = Color(0xFF000000),
+        secondary = Color(0xFF1A1A1A),
+        tertiary = Color(0xFF424242),
+        previewSurface = Color(0xFFFFFFFF),
+        previewOnSurface = Color(0xFF000000)
+    )
+)
+
+@Composable
+private fun ThemePreviewCard(
+    showcase: ThemeShowcase,
+    selected: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val borderColor = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant
+    val borderWidth = if (selected) 2.dp else 1.dp
+    Column(
+        modifier = modifier.width(104.dp)
+            .clip(RoundedCornerShape(16.dp))
+            .border(borderWidth, borderColor, RoundedCornerShape(16.dp))
+            .background(MaterialTheme.colorScheme.surface)
+            .selectable(selected = selected, onClick = onClick, role = Role.RadioButton)
+            .padding(12.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        Box(
+            modifier = Modifier.fillMaxWidth()
+                .size(width = 80.dp, height = 64.dp)
+                .clip(RoundedCornerShape(12.dp))
+                .background(showcase.previewSurface),
+            contentAlignment = Alignment.Center
+        ) {
+            Text(
+                text = "Aa",
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal,
+                color = showcase.previewOnSurface,
+                textAlign = TextAlign.Center
+            )
+        }
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(6.dp, Alignment.CenterHorizontally),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Box(
+                modifier = Modifier.size(20.dp).clip(CircleShape).background(showcase.primary)
+            )
+            Box(
+                modifier = Modifier.size(20.dp).clip(CircleShape).background(showcase.secondary)
+            )
+            Box(
+                modifier = Modifier.size(20.dp).clip(CircleShape).background(showcase.tertiary)
+            )
+        }
+        Text(
+            text = showcase.label,
+            style = MaterialTheme.typography.bodySmall,
+            fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal,
+            color = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
+            textAlign = TextAlign.Center,
+            modifier = Modifier.fillMaxWidth()
+        )
     }
 }

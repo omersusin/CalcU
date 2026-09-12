@@ -59,6 +59,7 @@ import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import calc.u.core.ClockAngle
 import calc.u.core.ClockKit
 import calc.u.core.ColorKit
 import calc.u.core.Constants
@@ -67,10 +68,14 @@ import calc.u.core.Engine
 import calc.u.core.Finance
 import calc.u.core.Geometry
 import calc.u.core.HealthDate
+import calc.u.core.HealthPlus
 import calc.u.core.Matrix
+import calc.u.core.NumberTheory
 import calc.u.core.ScreenKit
 import calc.u.core.TripKit
+import calc.u.core.UnitExpr
 import calc.u.core.Units
+import calc.u.core.VectorKit
 import calc.u.data.CurrencyRepository
 import calc.u.data.UnitPrefsRepository
 import calc.u.ui.CalcUNumberBox
@@ -111,6 +116,12 @@ private fun mapFor(cat: String): Map<String, Units.UnitDef> = when (cat) {
     "acceleration" -> Units.acceleration
     "flow" -> Units.flow
     "datarate" -> Units.datarate
+    "viscosity" -> Units.viscosity
+    "radiation" -> Units.radiation
+    "illuminance" -> Units.illuminance
+    "magnetic" -> Units.magnetic
+    "density" -> Units.density
+    "specificenergy" -> Units.specificenergy
     else -> emptyMap()
 }
 
@@ -294,6 +305,35 @@ private fun CurrencyCard() {
     }
 }
 
+@Composable
+private fun UnitExprCard() {
+    var expr by remember { mutableStateOf("ft*lbf") }
+    var target by remember { mutableStateOf("J") }
+    val targets = listOf("N", "J", "W", "Pa", "m/s", "km/h", "N*m", "kWh", "psi", "gal")
+    val safeTarget = if (target in targets) target else "J"
+    val out = runCatching { UnitExpr.convertExpr(1.0, expr, safeTarget) }.getOrNull()
+    SectionCard("Unit expression") {
+        OutlinedTextField(
+            value = expr,
+            onValueChange = { expr = it },
+            label = { Text("Expression, e.g. ft*lbf") },
+            singleLine = true,
+            modifier = Modifier.fillMaxWidth()
+        )
+        UnitDropdown(safeTarget, targets, { target = it }, "Target unit")
+        HorizontalDivider()
+        if (out == null) {
+            Text(
+                "Incompatible or unknown units",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.error
+            )
+        } else {
+            ResultLine("1 ($expr) in $safeTarget", fmt(out, 6))
+        }
+    }
+}
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ConvertersScreen() {
@@ -310,7 +350,8 @@ fun ConvertersScreen() {
         "length", "mass", "volume", "temp", "area", "speed",
         "pressure", "energy", "power", "data", "fuel",
         "cooking", "shoe", "ring", "historic",
-        "angle", "force", "torque", "acceleration", "flow", "datarate"
+        "angle", "force", "torque", "acceleration", "flow", "datarate",
+        "viscosity", "radiation", "illuminance", "magnetic", "density", "specificenergy"
     )
     val v = num(input)
     val units: List<String> = if (cat == "temp") Units.temperature else mapFor(cat).keys.toList()
@@ -426,6 +467,9 @@ fun ConvertersScreen() {
         Modifier.fillMaxSize().padding(vertical = 16.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
+        item {
+            UnitExprCard()
+        }
         item {
             SectionCard("Value") {
                 NumField(input, { input = it }, "Value to convert")
@@ -732,16 +776,17 @@ fun FinanceScreen() {
             }
         }
         item {
-            var sipM by remember { mutableStateOf("5000") }
-            var sipR by remember { mutableStateOf("12") }
-            var sipY by remember { mutableStateOf("10") }
-            val res = runCatching { Finance.sip(num(sipM), num(sipR), num(sipY)) }.getOrNull()
+            var sipMf by remember { mutableFloatStateOf(5000f) }
+            var sipRf by remember { mutableFloatStateOf(12f) }
+            var sipYf by remember { mutableFloatStateOf(10f) }
+            val res = runCatching { Finance.sip(sipMf.toDouble(), sipRf.toDouble(), sipYf.toDouble()) }.getOrNull()
             SectionCard("SIP") {
-                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    Box(Modifier.weight(1f)) { NumField(sipM, { sipM = it }, "Monthly") }
-                    Box(Modifier.weight(1f)) { NumField(sipR, { sipR = it }, "Annual %") }
-                    Box(Modifier.weight(1f)) { NumField(sipY, { sipY = it }, "Years") }
-                }
+                Text("Monthly: ${sipMf.toInt()}", style = MaterialTheme.typography.labelLarge)
+                Slider(value = sipMf, onValueChange = { sipMf = it }, valueRange = 500f..100000f)
+                Text("Annual %: ${fmt(sipRf.toDouble(), 1)}", style = MaterialTheme.typography.labelLarge)
+                Slider(value = sipRf, onValueChange = { sipRf = it }, valueRange = 0f..30f)
+                Text("Years: ${sipYf.toInt()}", style = MaterialTheme.typography.labelLarge)
+                Slider(value = sipYf, onValueChange = { sipYf = it }, valueRange = 1f..40f)
                 HorizontalDivider()
                 ResultLine("Invested", fmt(res?.first ?: Double.NaN, 2))
                 ResultLine("Gain", fmt(res?.second ?: Double.NaN, 2))
@@ -867,6 +912,51 @@ fun FinanceScreen() {
                 HorizontalDivider()
                 ResultLine("Fuel cost", cost?.let { fmt(it, 2) } ?: "—")
                 ResultLine("Drive time h", time?.let { fmt(it, 2) } ?: "—")
+            }
+        }
+        item {
+            var sh1 by remember { mutableStateOf("10") }
+            var pr1 by remember { mutableStateOf("100") }
+            var sh2 by remember { mutableStateOf("10") }
+            var pr2 by remember { mutableStateOf("80") }
+            val res = runCatching { Finance.stockAverage(num(sh1), num(pr1), num(sh2), num(pr2)) }.getOrNull()
+            SectionCard("Stock average") {
+                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Box(Modifier.weight(1f)) { NumField(sh1, { sh1 = it }, "Shares 1") }
+                    Box(Modifier.weight(1f)) { NumField(pr1, { pr1 = it }, "Price 1") }
+                }
+                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Box(Modifier.weight(1f)) { NumField(sh2, { sh2 = it }, "Shares 2") }
+                    Box(Modifier.weight(1f)) { NumField(pr2, { pr2 = it }, "Price 2") }
+                }
+                HorizontalDivider()
+                ResultLine("Total shares", fmt(res?.first ?: Double.NaN, 2))
+                ResultLine("Average price", fmt(res?.second ?: Double.NaN, 2))
+                ResultLine("Total cost", fmt(res?.third ?: Double.NaN, 2))
+            }
+        }
+        item {
+            var sgM by remember { mutableStateOf("5000") }
+            var sgR by remember { mutableStateOf("12") }
+            var sgY by remember { mutableStateOf("10") }
+            val fv = runCatching { Finance.savingsGoal(num(sgM), num(sgR), num(sgY)) }.getOrNull()
+            SectionCard("Savings goal") {
+                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Box(Modifier.weight(1f)) { NumField(sgM, { sgM = it }, "Monthly") }
+                    Box(Modifier.weight(1f)) { NumField(sgR, { sgR = it }, "Annual %") }
+                    Box(Modifier.weight(1f)) { NumField(sgY, { sgY = it }, "Years") }
+                }
+                HorizontalDivider()
+                ResultLine("Future value", fv?.let { fmt(it, 2) } ?: "—")
+            }
+        }
+        item {
+            var r72 by remember { mutableStateOf("8") }
+            val dbl = runCatching { Finance.rule72(num(r72)) }.getOrNull()
+            SectionCard("Rule of 72") {
+                NumField(r72, { r72 = it }, "Rate %")
+                HorizontalDivider()
+                ResultLine("Years to double", dbl?.let { fmt(it, 2) } ?: "—")
             }
         }
     }
@@ -1141,6 +1231,140 @@ private fun NumbersContent() {
                 ResultLine("PPI", ppiV?.let { fmt(it, 1) } ?: "—")
             }
         }
+        item {
+            var s11 by remember { mutableStateOf("2") }
+            var s12 by remember { mutableStateOf("1") }
+            var s13 by remember { mutableStateOf("-1") }
+            var s21 by remember { mutableStateOf("-3") }
+            var s22 by remember { mutableStateOf("-1") }
+            var s23 by remember { mutableStateOf("2") }
+            var s31 by remember { mutableStateOf("-2") }
+            var s32 by remember { mutableStateOf("1") }
+            var s33 by remember { mutableStateOf("2") }
+            var sr1 by remember { mutableStateOf("8") }
+            var sr2 by remember { mutableStateOf("-11") }
+            var sr3 by remember { mutableStateOf("-3") }
+            val grid = listOf(
+                listOf(num(s11), num(s12), num(s13)),
+                listOf(num(s21), num(s22), num(s23)),
+                listOf(num(s31), num(s32), num(s33))
+            )
+            val rhs = listOf(num(sr1), num(sr2), num(sr3))
+            val sol = runCatching { Engine.solve3x3(grid, rhs) }.getOrDefault(listOf("—"))
+            SectionCard("3x3 system solver") {
+                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Box(Modifier.weight(1f)) { NumField(s11, { s11 = it }, "a11") }
+                    Box(Modifier.weight(1f)) { NumField(s12, { s12 = it }, "a12") }
+                    Box(Modifier.weight(1f)) { NumField(s13, { s13 = it }, "a13") }
+                }
+                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Box(Modifier.weight(1f)) { NumField(s21, { s21 = it }, "a21") }
+                    Box(Modifier.weight(1f)) { NumField(s22, { s22 = it }, "a22") }
+                    Box(Modifier.weight(1f)) { NumField(s23, { s23 = it }, "a23") }
+                }
+                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Box(Modifier.weight(1f)) { NumField(s31, { s31 = it }, "a31") }
+                    Box(Modifier.weight(1f)) { NumField(s32, { s32 = it }, "a32") }
+                    Box(Modifier.weight(1f)) { NumField(s33, { s33 = it }, "a33") }
+                }
+                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Box(Modifier.weight(1f)) { NumField(sr1, { sr1 = it }, "b1") }
+                    Box(Modifier.weight(1f)) { NumField(sr2, { sr2 = it }, "b2") }
+                    Box(Modifier.weight(1f)) { NumField(sr3, { sr3 = it }, "b3") }
+                }
+                HorizontalDivider()
+                ResultLine(
+                    "Solution",
+                    if (sol.size == 3 && sol[0] != "no unique solution") "x=${sol[0]}, y=${sol[1]}, z=${sol[2]}"
+                    else sol.joinToString()
+                )
+            }
+        }
+        item {
+            var vax by remember { mutableStateOf("1") }
+            var vay by remember { mutableStateOf("2") }
+            var vaz by remember { mutableStateOf("3") }
+            var vbx by remember { mutableStateOf("4") }
+            var vby by remember { mutableStateOf("5") }
+            var vbz by remember { mutableStateOf("6") }
+            val va = listOf(num(vax), num(vay), num(vaz))
+            val vb = listOf(num(vbx), num(vby), num(vbz))
+            SectionCard("Vectors") {
+                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Box(Modifier.weight(1f)) { NumField(vax, { vax = it }, "ax") }
+                    Box(Modifier.weight(1f)) { NumField(vay, { vay = it }, "ay") }
+                    Box(Modifier.weight(1f)) { NumField(vaz, { vaz = it }, "az") }
+                }
+                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Box(Modifier.weight(1f)) { NumField(vbx, { vbx = it }, "bx") }
+                    Box(Modifier.weight(1f)) { NumField(vby, { vby = it }, "by") }
+                    Box(Modifier.weight(1f)) { NumField(vbz, { vbz = it }, "bz") }
+                }
+                HorizontalDivider()
+                ResultLine("Dot", runCatching { fmt(VectorKit.dot(va, vb)) }.getOrDefault("—"))
+                ResultLine(
+                    "Cross",
+                    runCatching { VectorKit.cross(va, vb).joinToString(prefix = "[", postfix = "]") { fmt(it) } }.getOrDefault("—")
+                )
+                ResultLine("Magnitude a", runCatching { fmt(VectorKit.magnitude(va)) }.getOrDefault("—"))
+                ResultLine("Magnitude b", runCatching { fmt(VectorKit.magnitude(vb)) }.getOrDefault("—"))
+                ResultLine(
+                    "Angle",
+                    runCatching { fmt(VectorKit.angleDeg(va, vb), 2) + "°" }.getOrDefault("—")
+                )
+            }
+        }
+        item {
+            var ch by remember { mutableStateOf("3") }
+            var cmi by remember { mutableStateOf("15") }
+            val ang = runCatching { ClockAngle.angle(ch.toIntOrNull() ?: 0, cmi.toIntOrNull() ?: 0) }.getOrNull()
+            SectionCard("Clock angle") {
+                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Box(Modifier.weight(1f)) { NumField(ch, { ch = it }, "Hour", integer = true) }
+                    Box(Modifier.weight(1f)) { NumField(cmi, { cmi = it }, "Minute", integer = true) }
+                }
+                HorizontalDivider()
+                ResultLine("Angle", ang?.let { fmt(it, 2) + "°" } ?: "—")
+            }
+        }
+        item {
+            var ntN by remember { mutableStateOf("36") }
+            var ntA by remember { mutableStateOf("7") }
+            var ntM by remember { mutableStateOf("26") }
+            var ntF by remember { mutableStateOf("20") }
+            val nL = ntN.toLongOrNull()
+            SectionCard("Advanced number theory") {
+                NumField(ntN, { ntN = it }, "n", integer = true)
+                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Box(Modifier.weight(1f)) { NumField(ntA, { ntA = it }, "a", integer = true) }
+                    Box(Modifier.weight(1f)) { NumField(ntM, { ntM = it }, "m", integer = true) }
+                }
+                NumField(ntF, { ntF = it }, "fib n", integer = true)
+                HorizontalDivider()
+                ResultLine(
+                    "Totient φ(n)",
+                    nL?.let { runCatching { "${NumberTheory.totient(it)}" }.getOrDefault("—") } ?: "—"
+                )
+                ResultLine(
+                    "Mod inverse a⁻¹ mod m",
+                    runCatching {
+                        val av = ntA.toLongOrNull() ?: return@runCatching "—"
+                        val mv = ntM.toLongOrNull() ?: return@runCatching "—"
+                        "${NumberTheory.modInverse(av, mv)}"
+                    }.getOrDefault("—")
+                )
+                ResultLine(
+                    "Prime factors",
+                    nL?.let {
+                        runCatching { NumberTheory.primeFactors(it).joinToString(" × ").ifEmpty { "—" } }.getOrDefault("—")
+                    } ?: "—"
+                )
+                ResultLine(
+                    "Fibonacci",
+                    ntF.toIntOrNull()?.let { runCatching { "${NumberTheory.fibonacci(it)}" }.getOrDefault("—") } ?: "—"
+                )
+            }
+        }
     }
 }
 
@@ -1383,6 +1607,58 @@ fun HealthScreen() {
                 ResultLine("Weekday", weekday ?: "—")
                 ResultLine("Days until", until?.toString() ?: "—")
                 ResultLine(zone, ClockKit.worldTime(zone))
+            }
+        }
+        item {
+            var wWt by remember { mutableStateOf("70") }
+            var wAct by remember { mutableStateOf("30") }
+            val ml = runCatching { HealthPlus.waterIntakeMl(num(wWt), num(wAct)) }.getOrNull()
+            SectionCard("Water intake") {
+                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Box(Modifier.weight(1f)) { NumField(wWt, { wWt = it }, "Weight kg") }
+                    Box(Modifier.weight(1f)) { NumField(wAct, { wAct = it }, "Active min") }
+                }
+                HorizontalDivider()
+                ResultLine("Daily water", ml?.let { "${fmt(it, 0)} mL (${fmt(it / 1000, 2)} L)" } ?: "—")
+            }
+        }
+        item {
+            var pDist by remember { mutableStateOf("5") }
+            var pMin by remember { mutableStateOf("30") }
+            val pace = runCatching { HealthPlus.runPace(num(pDist), num(pMin)) }.getOrNull()
+            SectionCard("Run pace") {
+                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Box(Modifier.weight(1f)) { NumField(pDist, { pDist = it }, "Distance km") }
+                    Box(Modifier.weight(1f)) { NumField(pMin, { pMin = it }, "Minutes") }
+                }
+                HorizontalDivider()
+                ResultLine("Pace", pace?.let { fmt(it, 2) + " min/km" } ?: "—")
+            }
+        }
+        item {
+            var ormW by remember { mutableStateOf("100") }
+            var ormR by remember { mutableStateOf("5") }
+            val orm = runCatching { HealthPlus.oneRepMax(num(ormW), ormR.toIntOrNull() ?: 0) }.getOrNull()
+            SectionCard("One-rep max") {
+                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Box(Modifier.weight(1f)) { NumField(ormW, { ormW = it }, "Weight kg") }
+                    Box(Modifier.weight(1f)) { NumField(ormR, { ormR = it }, "Reps", integer = true) }
+                }
+                HorizontalDivider()
+                ResultLine("1RM (Epley)", orm?.let { fmt(it, 1) + " kg" } ?: "—")
+            }
+        }
+        item {
+            var hrAge by remember { mutableStateOf("30") }
+            var hrInt by remember { mutableStateOf("70") }
+            val hr = runCatching { HealthPlus.targetHeartRate(hrAge.toIntOrNull() ?: 0, num(hrInt)) }.getOrNull()
+            SectionCard("Target heart rate") {
+                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Box(Modifier.weight(1f)) { NumField(hrAge, { hrAge = it }, "Age", integer = true) }
+                    Box(Modifier.weight(1f)) { NumField(hrInt, { hrInt = it }, "Intensity %") }
+                }
+                HorizontalDivider()
+                ResultLine("Target HR", hr?.let { fmt(it, 0) + " bpm" } ?: "—")
             }
         }
     }

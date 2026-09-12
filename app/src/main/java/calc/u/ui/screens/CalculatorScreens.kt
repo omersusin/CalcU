@@ -168,13 +168,13 @@ fun CalculatorScreen(vm: CalcViewModel = hiltViewModel()) {
             item {
                 Card(
                     colors = CardDefaults.cardColors(
-                        containerColor = MaterialTheme.colorScheme.surfaceContainerHigh
+                        containerColor = MaterialTheme.colorScheme.surfaceContainerHighest
                     ),
                     shape = MaterialTheme.shapes.extraLarge
                 ) {
                     Column(
-                        Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 20.dp).animateContentSize(),
-                        verticalArrangement = Arrangement.spacedBy(4.dp),
+                        Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 16.dp).animateContentSize(),
+                        verticalArrangement = Arrangement.spacedBy(8.dp),
                         horizontalAlignment = Alignment.End
                     ) {
                         Text(
@@ -183,7 +183,7 @@ fun CalculatorScreen(vm: CalcViewModel = hiltViewModel()) {
                                 MaterialTheme.colorScheme.onSurface,
                                 MaterialTheme.colorScheme.primary
                             ),
-                            style = MaterialTheme.typography.titleLarge,
+                            style = MaterialTheme.typography.titleMedium,
                             maxLines = 3,
                             overflow = TextOverflow.Ellipsis,
                             textAlign = TextAlign.End,
@@ -192,14 +192,14 @@ fun CalculatorScreen(vm: CalcViewModel = hiltViewModel()) {
                         AnimatedContent(
                             targetState = st.result,
                             transitionSpec = {
-                                (slideInVertically(tween(FluentMotion.Medium, easing = FluentMotion.Standard)) { it / 4 } + fadeIn()) togetherWith
-                                    (slideOutVertically(tween(FluentMotion.Medium, easing = FluentMotion.Standard)) { -it / 4 } + fadeOut())
+                                (slideInVertically(tween(FluentMotion.Medium, easing = FluentMotion.Standard)) { it / 5 } + fadeIn()) togetherWith
+                                    (slideOutVertically(tween(FluentMotion.Medium, easing = FluentMotion.Standard)) { -it / 5 } + fadeOut())
                             },
                             label = "result"
                         ) { target ->
                             Text(
                                 target.ifBlank { "" },
-                                style = MaterialTheme.typography.displayLarge,
+                                style = MaterialTheme.typography.displayLarge.copy(fontFeatureSettings = "tnum"),
                                 color = MaterialTheme.colorScheme.onSurface,
                                 maxLines = 2,
                                 overflow = TextOverflow.Ellipsis,
@@ -231,11 +231,20 @@ fun CalculatorScreen(vm: CalcViewModel = hiltViewModel()) {
                 }
             }
             item {
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
                     FilterChip(
                         selected = st.angleDeg,
                         onClick = { vm.onToggleAngle() },
-                        label = { Text(if (st.angleDeg) "DEG" else "RAD") }
+                        label = {
+                            Text(
+                                if (st.angleDeg) "DEG" else "RAD",
+                                fontWeight = if (st.angleDeg) FontWeight.SemiBold else FontWeight.Medium
+                            )
+                        }
                     )
                     AssistChip(onClick = { vm.onMemClear() }, label = { Text("MC") })
                     AssistChip(onClick = { vm.onMemRecall() }, label = { Text("MR") })
@@ -300,7 +309,8 @@ private fun HistorySheetContent(
     onClear: () -> Unit,
     onTap: (String) -> Unit,
     onNote: (Int, String) -> Unit,
-    onDelete: (Int) -> Unit
+    onDelete: (Int) -> Unit,
+    activity: Map<Long, Int> = emptyMap()
 ) {
     var selected by remember { mutableStateOf(setOf<Int>()) }
     val inSelection = selected.isNotEmpty()
@@ -319,6 +329,34 @@ private fun HistorySheetContent(
         query.isBlank() || h.contains(query, ignoreCase = true)
     }.take(50)
     Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            Row(
+                Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(4.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                val today = System.currentTimeMillis() / 86400000L
+                val days = (0..13).map { today - 13 + it }
+                val max = days.maxOfOrNull { activity[it] ?: 0 } ?: 0
+                days.forEach { d ->
+                    val c = activity[d] ?: 0
+                    val alpha = when {
+                        c <= 0 -> 0.12f
+                        max <= 1 -> 1f
+                        else -> 0.25f + 0.75f * (c.toFloat() / max.toFloat())
+                    }
+                    Box(
+                        Modifier.size(20.dp).clip(MaterialTheme.shapes.small)
+                            .background(MaterialTheme.colorScheme.primary.copy(alpha = alpha))
+                    )
+                }
+            }
+            Text(
+                "last 14 days",
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
         Row(
             Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween,
@@ -494,17 +532,17 @@ private fun Keypad(
     )
     fun rowEnter(delay: Int) =
         fadeIn(tween(FluentMotion.Medium, delayMillis = delay, easing = FluentMotion.Standard)) +
-            slideInVertically(tween(FluentMotion.Medium, delayMillis = delay, easing = FluentMotion.Standard)) { it / 8 }
+            slideInVertically(tween(FluentMotion.Medium, delayMillis = delay, easing = FluentMotion.Standard)) { it / 10 }
     val backInteractions = remember { MutableInteractionSource() }
     val backPressed by backInteractions.collectIsPressedAsState()
     val backScale by animateFloatAsState(
-        if (backPressed) 0.95f else 1f,
+        if (backPressed) 0.96f else 1f,
         animationSpec = tween(FluentMotion.Short, easing = FluentMotion.Standard),
         label = "back-press"
     )
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
         sciRows.forEachIndexed { i, row ->
-            AnimatedVisibility(visible = true, enter = rowEnter(i * 40)) {
+            AnimatedVisibility(visible = true, enter = rowEnter(i * 32)) {
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                     row.forEach { k ->
                         FluentCalcKey(
@@ -512,14 +550,14 @@ private fun Keypad(
                             onClick = { onKey(k) },
                             modifier = Modifier.weight(1f),
                             kind = FluentKeyKind.Sci,
-                            keyHeight = 52.dp
+                            keyHeight = 64.dp
                         )
                     }
                 }
             }
         }
         digitRows.forEachIndexed { j, row ->
-            AnimatedVisibility(visible = true, enter = rowEnter((j + sciRows.size) * 40)) {
+            AnimatedVisibility(visible = true, enter = rowEnter((j + sciRows.size) * 32)) {
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                     row.forEach { k ->
                         val isOp = k in setOf("÷", "×", "−", "+")
@@ -540,7 +578,7 @@ private fun Keypad(
         }
         AnimatedVisibility(
             visible = true,
-            enter = rowEnter((sciRows.size + digitRows.size) * 40)
+            enter = rowEnter((sciRows.size + digitRows.size) * 32)
         ) {
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 FluentCalcKey(
@@ -548,10 +586,10 @@ private fun Keypad(
                     onClick = onClear,
                     modifier = Modifier.weight(1f),
                     kind = FluentKeyKind.Sci,
-                    keyHeight = 52.dp
+                    keyHeight = 64.dp
                 )
                 Box(
-                    modifier = Modifier.weight(1f).height(52.dp)
+                    modifier = Modifier.weight(1f).height(64.dp)
                         .graphicsLayer(scaleX = backScale, scaleY = backScale)
                         .clip(MaterialTheme.shapes.large)
                         .border(1.dp, MaterialTheme.colorScheme.outlineVariant, MaterialTheme.shapes.large)

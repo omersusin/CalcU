@@ -4,4 +4,6 @@
     <string name="shortcut_calc">Calculator</string>
     <string name="shortcut_graph">Graph</string>
     <string name="tile_label">CalcU</string>
+    <string name="shortcut_time">Time</string>
+    <string name="shortcut_tools">Tools</string>
 </resources>

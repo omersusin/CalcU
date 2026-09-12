@@ -52,6 +52,8 @@ class CalcViewModel @Inject constructor(
     val effects = _effects.receiveAsFlow()
     val vibration: StateFlow<Boolean> =
         settingsRepo.vibration.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), true)
+    val activity: StateFlow<Map<Long, Int>> =
+        historyRepo.activityLast14Days().stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyMap())
 
     init {
         viewModelScope.launch {

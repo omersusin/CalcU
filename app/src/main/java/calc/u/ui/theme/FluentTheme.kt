@@ -79,7 +79,9 @@ object FluentMotion {
     val Short: Int = 100
     val Medium: Int = 300
     val Long: Int = 500
+    // Verified: M3 emphasized standard (0.05, 0.7, 0.1, 1.0) — keep.
     val Standard: Easing = CubicBezierEasing(0.05f, 0.7f, 0.1f, 1.0f)
+    val Emphasized: Easing = Standard
 }
 
 object FluentElevation {
@@ -89,6 +91,16 @@ object FluentElevation {
     val AccentKey = 2.dp
 }
 
+object FluentExpressive {
+    val HeroCardShape = RoundedCornerShape(28.dp)
+    val GroupCardShape = RoundedCornerShape(16.dp)
+    // Group headers follow titleLarge spec (token-only, no behavior).
+    val GroupHeaderFontSize = 20.sp
+    val GroupHeaderLineHeight = 28.sp
+    val GroupHeaderWeight = FontWeight.SemiBold
+    val GroupHeaderLetterSpacing = 0.sp
+}
+
 private fun fluentType(): Typography {
     val f = FontFamily.Default
     fun s(size: Int, height: Int, w: FontWeight) = TextStyle(
@@ -96,12 +108,12 @@ private fun fluentType(): Typography {
     )
     val semi = FontWeight.SemiBold
     val reg = FontWeight.Normal
-    return Typography(
-        displayLarge = s(57, 64, semi),
-        displayMedium = s(45, 52, semi),
-        displaySmall = s(32, 40, semi),
-        headlineLarge = s(32, 40, semi),
-        headlineMedium = s(20, 28, semi),
+    val base = Typography(
+        displayLarge = s(64, 68, semi),
+        displayMedium = s(52, 58, semi),
+        displaySmall = s(40, 46, semi),
+        headlineLarge = s(36, 44, semi),
+        headlineMedium = s(24, 32, semi),
         headlineSmall = s(20, 26, semi),
         titleLarge = s(20, 28, semi),
         titleMedium = s(16, 22, semi),
@@ -112,6 +124,14 @@ private fun fluentType(): Typography {
         labelLarge = s(14, 20, semi),
         labelMedium = s(12, 16, semi),
         labelSmall = s(12, 16, reg)
+    )
+    // M3 Expressive: larger display/headline with tighter tracking.
+    return base.copy(
+        displayLarge = base.displayLarge.copy(letterSpacing = (-0.25).sp),
+        displayMedium = base.displayMedium.copy(letterSpacing = (-0.25).sp),
+        displaySmall = base.displaySmall.copy(letterSpacing = (-0.25).sp),
+        headlineLarge = base.headlineLarge.copy(letterSpacing = (-0.25).sp),
+        headlineMedium = base.headlineMedium.copy(letterSpacing = (-0.25).sp)
     )
 }
 
@@ -131,10 +151,10 @@ private val FluentLight = lightColorScheme(
     surfaceVariant = Color(0xFFEDEDED),
     onSurfaceVariant = FluentText.LightSecondary,
     surfaceContainerLowest = Color.White,
-    surfaceContainerLow = Color(0xFFF9F9F9),
-    surfaceContainer = Color(0xFFF3F3F3),
-    surfaceContainerHigh = Color(0xFFEDEDED),
-    surfaceContainerHighest = Color(0xFFE6E6E6),
+    surfaceContainerLow = Color(0xFFF6F6F6),
+    surfaceContainer = Color(0xFFEFEFEF),
+    surfaceContainerHigh = Color(0xFFE5E5E5),
+    surfaceContainerHighest = Color(0xFFDCDCDC),
     outline = Color(0xFF73777F),
     outlineVariant = Color(0xFFC3C7CF),
     scrim = Color(0x52000000)
@@ -155,11 +175,11 @@ private val FluentDark = darkColorScheme(
     onSurface = FluentText.DarkPrimary,
     surfaceVariant = Color(0xFF323232),
     onSurfaceVariant = FluentText.DarkSecondary,
-    surfaceContainerLowest = Color(0xFF101010),
-    surfaceContainerLow = Color(0xFF2B2B2B),
-    surfaceContainer = Color(0xFF323232),
-    surfaceContainerHigh = Color(0xFF3A3A3A),
-    surfaceContainerHighest = Color(0xFF434343),
+    surfaceContainerLowest = Color(0xFF0C0C0C),
+    surfaceContainerLow = Color(0xFF272727),
+    surfaceContainer = Color(0xFF303030),
+    surfaceContainerHigh = Color(0xFF3B3B3B),
+    surfaceContainerHighest = Color(0xFF474747),
     outline = Color(0xFF8E9199),
     outlineVariant = Color(0xFF43474E),
     scrim = Color(0x52000000)
@@ -179,10 +199,10 @@ private val FluentAmoled = darkColorScheme(
     onSurface = Color(0xFFE6E6E6),
     onSurfaceVariant = Color(0xFFC6C6C6),
     surfaceContainerLowest = Color.Black,
-    surfaceContainerLow = Color(0xFF0A0A0A),
-    surfaceContainer = Color(0xFF111111),
-    surfaceContainerHigh = Color(0xFF1A1A1A),
-    surfaceContainerHighest = Color(0xFF242424),
+    surfaceContainerLow = Color(0xFF0B0B0B),
+    surfaceContainer = Color(0xFF141414),
+    surfaceContainerHigh = Color(0xFF1E1E1E),
+    surfaceContainerHighest = Color(0xFF2A2A2A),
     outline = Color(0xFF8E9199),
     outlineVariant = Color(0xFF2A2A2A)
 )
@@ -202,9 +222,9 @@ private val FluentContrast = darkColorScheme(
     onSurfaceVariant = Color.White,
     surfaceContainerLowest = Color.Black,
     surfaceContainerLow = Color.Black,
-    surfaceContainer = Color(0xFF1A1A1A),
-    surfaceContainerHigh = Color(0xFF2B2B2B),
-    surfaceContainerHighest = Color(0xFF3A3A3A),
+    surfaceContainer = Color(0xFF1C1C1C),
+    surfaceContainerHigh = Color(0xFF2E2E2E),
+    surfaceContainerHighest = Color(0xFF404040),
     outline = Color.White,
     outlineVariant = Color.White
 )
