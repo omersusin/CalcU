@@ -35,7 +35,7 @@ import calc.u.ui.ResultLine
 import calc.u.ui.SectionCard
 import kotlinx.coroutines.delay
 
-private fun fmtMs(ms: Long): String = TimeLab.formatHMS(ms)
+private fun fmtMs(ms: Long): String = runCatching { TimeLab.formatHMS(ms.coerceAtLeast(0L)) }.getOrDefault("—")
 
 @Composable
 fun TimeLabScreen() {
@@ -64,9 +64,15 @@ fun StopwatchScreen() {
     LaunchedEffect(running) {
         var last = 0L
         while (running) {
-            delay(10)
-            val now = System.currentTimeMillis()
-            if (last != 0L) elapsed += now - last
+            try {
+                delay(10)
+            } catch (e: kotlinx.coroutines.CancellationException) {
+                throw e
+            } catch (_: Exception) {
+                break
+            }
+            val now = runCatching { System.currentTimeMillis() }.getOrNull() ?: break
+            if (last != 0L) elapsed += (now - last).coerceAtLeast(0L)
             last = now
         }
     }
@@ -102,7 +108,8 @@ fun StopwatchScreen() {
         if (totals.isNotEmpty()) {
             item {
                 SectionCard("Laps") {
-                    val laps = TimeLab.addLap(totals.dropLast(1), totals.last())
+                    val last = totals.lastOrNull()
+                    val laps = if (last == null) emptyList() else runCatching { TimeLab.addLap(totals.dropLast(1), last) }.getOrDefault(emptyList())
                     laps.forEach { lap ->
                         ResultLine("Lap ${lap.index}", "${fmtMs(lap.totalMs)} (+${fmtMs(lap.splitMs)})")
                     }
@@ -119,16 +126,22 @@ fun TimerScreen() {
     var csIn by remember { mutableStateOf("0") }
     var remaining by remember { mutableStateOf<Long?>(null) }
     var running by remember { mutableStateOf(false) }
-    val total = ((minIn.toLongOrNull() ?: 0L) * 60000) + ((secIn.toLongOrNull() ?: 0L) * 1000) + ((csIn.toLongOrNull() ?: 0L) * 10)
+    val total = (((minIn.toLongOrNull() ?: 0L).coerceIn(0L, 1440L)) * 60000) + (((secIn.toLongOrNull() ?: 0L).coerceIn(0L, 3600L)) * 1000) + (((csIn.toLongOrNull() ?: 0L).coerceIn(0L, 99L)) * 10)
     LaunchedEffect(running) {
         while (running && (remaining ?: 0L) > 0) {
-            delay(10)
+            try {
+                delay(10)
+            } catch (e: kotlinx.coroutines.CancellationException) {
+                throw e
+            } catch (_: Exception) {
+                break
+            }
             remaining = ((remaining ?: 0L) - 10).coerceAtLeast(0L)
             if ((remaining ?: 0L) <= 0) running = false
         }
     }
-    val shown = remaining ?: total
-    val frac = if (total <= 0) 0f else (shown.toFloat() / total.toFloat()).coerceIn(0f, 1f)
+    val shown = (remaining ?: total).coerceAtLeast(0L)
+    val frac = if (total <= 0) 0f else (shown.toFloat() / total.coerceAtLeast(1L).toFloat()).coerceIn(0f, 1f)
     val track = MaterialTheme.colorScheme.surfaceContainerHighest
     val primary = MaterialTheme.colorScheme.primary
     LazyColumn(Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(16.dp)) {
@@ -202,25 +215,33 @@ fun PomodoroScreen() {
     var inBreak by remember { mutableStateOf(false) }
     var running by remember { mutableStateOf(false) }
     var leftMs by remember { mutableStateOf<Long?>(null) }
-    val cfg = TimeLab.PomoConfig(
-        focusMin = focusIn.toIntOrNull() ?: 25,
-        shortMin = shortIn.toIntOrNull() ?: 5,
-        longMin = longIn.toIntOrNull() ?: 15,
-        roundsUntilLong = roundsIn.toIntOrNull() ?: 4
-    )
-    val breakKind = TimeLab.pomoPhase(completed, cfg)
+    val cfg = runCatching {
+        TimeLab.PomoConfig(
+            focusMin = (focusIn.toIntOrNull() ?: 25).coerceIn(1, 480),
+            shortMin = (shortIn.toIntOrNull() ?: 5).coerceIn(1, 120),
+            longMin = (longIn.toIntOrNull() ?: 15).coerceIn(1, 240),
+            roundsUntilLong = (roundsIn.toIntOrNull() ?: 4).coerceIn(1, 12)
+        )
+    }.getOrDefault(TimeLab.PomoConfig(focusMin = 25, shortMin = 5, longMin = 15, roundsUntilLong = 4))
+    val breakKind = runCatching { TimeLab.pomoPhase(completed.coerceAtLeast(0), cfg) }.getOrDefault("short")
     val phaseLabel = if (!inBreak) "focus" else breakKind
     val phaseMin = if (!inBreak) cfg.focusMin else if (breakKind == "long") cfg.longMin else cfg.shortMin
     LaunchedEffect(running, phaseLabel, completed) {
         if (running && (leftMs ?: 0L) > 0) {
             while (running && (leftMs ?: 0L) > 0) {
-                delay(1000)
+                try {
+                    delay(1000)
+                } catch (e: kotlinx.coroutines.CancellationException) {
+                    throw e
+                } catch (_: Exception) {
+                    break
+                }
                 leftMs = ((leftMs ?: 0L) - 1000).coerceAtLeast(0L)
             }
             if ((leftMs ?: 0L) <= 0) running = false
         }
     }
-    val shown = leftMs ?: (phaseMin * 60000L)
+    val shown = (leftMs ?: (phaseMin.coerceAtLeast(0) * 60000L)).coerceAtLeast(0L)
     LazyColumn(Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(16.dp)) {
         item {
             SectionCard("Pomodoro") {

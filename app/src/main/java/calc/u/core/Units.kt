@@ -195,14 +195,26 @@ object Units {
     private const val MPG_US_CONST = 235.214583
 
     fun fuelToL100km(v: Double, from: String): Double = when (from) {
-        "mpg_us", "mpg" -> MPG_US_CONST / v
-        "km_l", "km/L" -> 100.0 / v
+        "mpg_us", "mpg" -> {
+            require(v != 0.0) { "fuel economy must be non-zero" }
+            MPG_US_CONST / v
+        }
+        "km_l", "km/L" -> {
+            require(v != 0.0) { "fuel economy must be non-zero" }
+            100.0 / v
+        }
         else -> v
     }
 
     fun l100kmToFuel(v: Double, to: String): Double = when (to) {
-        "mpg_us", "mpg" -> MPG_US_CONST / v
-        "km_l", "km/L" -> 100.0 / v
+        "mpg_us", "mpg" -> {
+            require(v != 0.0) { "fuel economy must be non-zero" }
+            MPG_US_CONST / v
+        }
+        "km_l", "km/L" -> {
+            require(v != 0.0) { "fuel economy must be non-zero" }
+            100.0 / v
+        }
         else -> v
     }
 
@@ -224,10 +236,15 @@ object Units {
             require(fromFuel && toFuel) { "cannot mix fuel and linear units" }
             return convertFuel(value, from.id, to.id)
         }
+        require(from.toBase.isFinite()) { "source factor must be finite" }
+        require(to.toBase.isFinite()) { "target factor must be finite" }
+        require(to.toBase != 0.0) { "target factor must be non-zero" }
         return value * from.toBase / to.toBase
     }
 
     fun convertTemp(v: Double, from: String, to: String): Double {
+        require(from == "C" || from == "F" || from == "K") { "unknown temperature unit: $from" }
+        require(to == "C" || to == "F" || to == "K") { "unknown temperature unit: $to" }
         val c = when (from) { "C" -> v; "F" -> (v - 32) * 5 / 9; "K" -> v - 273.15; else -> v }
         return when (to) { "C" -> c; "F" -> c * 9 / 5 + 32; "K" -> c + 273.15; else -> c }
     }

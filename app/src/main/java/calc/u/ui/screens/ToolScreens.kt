@@ -90,7 +90,11 @@ import kotlinx.coroutines.launch
 
 private fun fmt(v: Double, digits: Int = 4): String {
     if (!v.isFinite()) return "—"
-    return "%.${digits}f".format(v)
+    return try {
+        "%.${digits.coerceIn(0, 10)}f".format(v)
+    } catch (_: Exception) {
+        "—"
+    }
 }
 
 private fun num(s: String): Double = s.toDoubleOrNull() ?: 0.0
@@ -134,8 +138,8 @@ private fun convertFuel(v: Double, from: String, to: String): Double {
         else -> v
     }
     return when (to) {
-        "mpg" -> 235.214 / l100km
-        "km/L" -> 100.0 / l100km
+        "mpg" -> if (!l100km.isFinite() || l100km == 0.0) Double.NaN else 235.214 / l100km
+        "km/L" -> if (!l100km.isFinite() || l100km == 0.0) Double.NaN else 100.0 / l100km
         else -> l100km
     }
 }
@@ -256,13 +260,13 @@ private fun CurrencyCard() {
     var from by remember { mutableStateOf("USD") }
     var to by remember { mutableStateOf("EUR") }
     val scope = rememberCoroutineScope()
-    LaunchedEffect(Unit) { repo.refresh() }
+    LaunchedEffect(Unit) { runCatching { repo.refresh() }.onFailure { } }
     val options = remember(rates) { (Currency.codes + rates.keys).distinct().sorted() }
     val safeFrom = if (from in options) from else "USD"
     val safeTo = if (to in options) to else "EUR"
     val fromRate = rates[safeFrom] ?: Currency.fallbackUsdRates[safeFrom] ?: 0.0
     val toRate = rates[safeTo] ?: Currency.fallbackUsdRates[safeTo] ?: 0.0
-    val result = Currency.convert(num(amount), fromRate, toRate)
+    val result = runCatching { Currency.convert(num(amount), fromRate, toRate) }.getOrDefault(Double.NaN)
     SectionCard("Currency") {
         NumField(amount, { amount = it }, "Amount")
         Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -278,7 +282,7 @@ private fun CurrencyCard() {
                 if (stale && source.label == "live") "live · stale" else source.label,
                 style = MaterialTheme.typography.labelLarge
             )
-            Button(onClick = { scope.launch { repo.refresh() } }) { Text("Refresh") }
+            Button(onClick = { scope.launch { runCatching { repo.refresh() } } }) { Text("Refresh") }
         }
         HorizontalDivider()
         Column(
@@ -378,12 +382,16 @@ fun ConvertersScreen() {
     val rotation by animateFloatAsState(if (swapped) 180f else 0f, label = "swap")
     val favorites by prefs.favoritesFlow(cat).collectAsState(initial = emptySet())
     LaunchedEffect(cat) {
-        val (savedFrom, savedTo) = prefs.getPair(cat)
-        if (savedFrom != null && savedFrom in units) from = savedFrom
-        if (savedTo != null && savedTo in units) to = savedTo
+        runCatching {
+            val (savedFrom, savedTo) = prefs.getPair(cat)
+            if (savedFrom != null && savedFrom in units) from = savedFrom
+            if (savedTo != null && savedTo in units) to = savedTo
+        }
     }
     LaunchedEffect(cat, from, to) {
-        if (from in units && to in units) prefs.savePair(cat, from, to)
+        runCatching {
+            if (from in units && to in units) prefs.savePair(cat, from, to)
+        }
     }
     fun previewFor(candidate: String): String = runCatching {
         if (cat == "temp") {
@@ -449,7 +457,7 @@ fun ConvertersScreen() {
                                 )
                             }
                             IconButton(
-                                onClick = { scope.launch { prefs.toggleFavorite(cat, u) } },
+                                onClick = { scope.launch { runCatching { prefs.toggleFavorite(cat, u) } } },
                                 modifier = Modifier.size(48.dp)
                             ) {
                                 Icon(
@@ -549,7 +557,7 @@ fun ConvertersScreen() {
                         Box(Modifier.weight(1f)) { NumField(feet, { feet = it }, "Feet") }
                         Box(Modifier.weight(1f)) { NumField(inches, { inches = it }, "Inches") }
                     }
-                    val totalCm = Units.ftInToCm(num(feet), num(inches))
+                    val totalCm = runCatching { Units.ftInToCm(num(feet), num(inches)) }.getOrDefault(Double.NaN)
                     val cmDef = Units.length["cm"]
                     HorizontalDivider()
                     FluentStagger(1) {
@@ -557,7 +565,7 @@ fun ConvertersScreen() {
                             ResultLine("Centimeters", fmt(totalCm, 2))
                             if (cmDef != null) {
                                 Units.length.forEach { (name, def) ->
-                                    ResultLine(name, fmt(Units.convert(totalCm, cmDef, def), 4))
+                                    ResultLine(name, runCatching { fmt(Units.convert(totalCm, cmDef, def), 4) }.getOrDefault("—"))
                                 }
                             }
                         }
@@ -573,7 +581,9 @@ fun ConvertersScreen() {
                         Box(Modifier.weight(1f)) { NumField(gramsPerCup, { gramsPerCup = it }, "Grams per cup") }
                     }
                     val volMl = runCatching {
-                        Units.convert(num(cookCups), Units.cooking["cup"]!!, Units.cooking["ml"]!!)
+                        val cup = Units.cooking["cup"] ?: throw IllegalStateException("Unknown unit")
+                        val ml = Units.cooking["ml"] ?: throw IllegalStateException("Unknown unit")
+                        Units.convert(num(cookCups), cup, ml)
                     }.getOrDefault(Double.NaN)
                     val weight = runCatching {
                         Units.convertCookingToWeight(volMl, num(gramsPerCup))
@@ -594,9 +604,9 @@ fun ConvertersScreen() {
                 HorizontalDivider()
                 FluentStagger(3) {
                     Column {
-                        ResultLine("Binary", if (baseLong == null) "—" else Units.fromBase(baseLong.toDouble(), 2))
-                        ResultLine("Octal", if (baseLong == null) "—" else Units.fromBase(baseLong.toDouble(), 8))
-                        ResultLine("Hex", if (baseLong == null) "—" else Units.fromBase(baseLong.toDouble(), 16))
+                        ResultLine("Binary", if (baseLong == null) "—" else runCatching { Units.fromBase(baseLong.toDouble(), 2) }.getOrDefault("—"))
+                        ResultLine("Octal", if (baseLong == null) "—" else runCatching { Units.fromBase(baseLong.toDouble(), 8) }.getOrDefault("—"))
+                        ResultLine("Hex", if (baseLong == null) "—" else runCatching { Units.fromBase(baseLong.toDouble(), 16) }.getOrDefault("—"))
                         val roman = if (baseLong == null || baseLong < 1 || baseLong > 3999) "—"
                         else runCatching { Units.toRoman(baseLong.toInt()) }.getOrDefault("—").ifEmpty { "—" }
                         ResultLine("Roman", roman)
@@ -669,20 +679,20 @@ fun FinanceScreen() {
     var qtyB by remember { mutableStateOf("750") }
     val billV = num(bill)
     val splitV = split.toIntOrNull()?.coerceAtLeast(1) ?: 1
-    val (tipAmt, grand, per) = Finance.tip(billV, tipPct.toDouble(), splitV)
+    val (tipAmt, grand, per) = runCatching { Finance.tip(billV, tipPct.toDouble(), splitV) }.getOrDefault(Triple(Double.NaN, Double.NaN, Double.NaN))
     val p = num(principal)
     val annual = num(rate)
     val months = monthsF.toInt().coerceIn(1, 360)
-    val emi = Finance.emi(p, annual, months)
-    val (sched, totalInt) = amortPreview(p, annual, months)
+    val emi = runCatching { Finance.emi(p, annual, months) }.getOrDefault(Double.NaN)
+    val (sched, totalInt) = runCatching { amortPreview(p, annual, months) }.getOrDefault(emptyList<AmortRow>() to Double.NaN)
     val yrs = num(years)
-    val (si, siTotal) = Finance.simple(p, annual, yrs)
-    val ci = Finance.compound(p, annual, yrs)
+    val (si, siTotal) = runCatching { Finance.simple(p, annual, yrs) }.getOrDefault(0.0 to Double.NaN)
+    val ci = runCatching { Finance.compound(p, annual, yrs) }.getOrDefault(Double.NaN)
     val priceV = num(price)
     val taxV = num(taxRate)
-    val (taxTotal, taxAmt) = Finance.withTax(priceV, taxV, inclusive)
-    val unitA = Finance.unitPrice(num(priceA), num(qtyA))
-    val unitB = Finance.unitPrice(num(priceB), num(qtyB))
+    val (taxTotal, taxAmt) = runCatching { Finance.withTax(priceV, taxV, inclusive) }.getOrDefault(Double.NaN to Double.NaN)
+    val unitA = runCatching { Finance.unitPrice(num(priceA), num(qtyA)) }.getOrDefault(0.0)
+    val unitB = runCatching { Finance.unitPrice(num(priceB), num(qtyB)) }.getOrDefault(0.0)
     val verdict = when {
         unitA == 0.0 && unitB == 0.0 -> "Enter quantities"
         unitA == 0.0 -> "B is the better buy"
@@ -1079,7 +1089,7 @@ fun FinanceScreen() {
             val source by repo.source.collectAsState()
             var cryptoAmt by remember { mutableStateOf("100") }
             val scope = rememberCoroutineScope()
-            LaunchedEffect(Unit) { repo.refresh() }
+            LaunchedEffect(Unit) { runCatching { repo.refresh() }.onFailure { } }
             val coins = listOf("bitcoin", "ethereum", "solana", "bnb", "xrp", "cardano", "dogecoin")
             val amt = num(cryptoAmt)
             SectionCard("Crypto") {
@@ -1093,7 +1103,7 @@ fun FinanceScreen() {
                         "CoinGecko · " + if (stale && source.label == "live") "live · stale" else source.label,
                         style = MaterialTheme.typography.labelLarge
                     )
-                    Button(onClick = { scope.launch { repo.refresh() } }) { Text("Refresh") }
+            Button(onClick = { scope.launch { runCatching { repo.refresh() } } }) { Text("Refresh") }
                 }
                 HorizontalDivider()
                 coins.forEach { id ->
@@ -1103,7 +1113,7 @@ fun FinanceScreen() {
                     } else {
                         val change = coin.usd_24h_change
                         val changeTxt = if (change == null) "n/a" else fmt(change, 2) + " %"
-                        val qty = if (coin.usd > 0) amt / coin.usd else Double.NaN
+                        val qty = if (coin.usd.isFinite() && coin.usd > 0 && amt.isFinite()) amt / coin.usd else Double.NaN
                         ResultLine(id, fmt(coin.usd, 2) + " USD (" + changeTxt + ") → " + fmt(qty, 6))
                     }
                 }
@@ -1175,21 +1185,23 @@ private fun NumbersContent() {
     val bv = b.toLongOrNull() ?: 0L
     val values = parseList(listInput)
     val sorted = values.sorted()
-    val statValue: String = when (stat) {
-        "Median" -> if (sorted.isEmpty()) "—" else fmt(
-            if (sorted.size % 2 == 1) sorted[sorted.size / 2]
-            else (sorted[sorted.size / 2 - 1] + sorted[sorted.size / 2]) / 2
-        )
-        "Min" -> sorted.firstOrNull()?.let { fmt(it) } ?: "—"
-        "Max" -> sorted.lastOrNull()?.let { fmt(it) } ?: "—"
-        "Sum" -> if (values.isEmpty()) "—" else fmt(values.sum())
-        "Count" -> "${values.size}"
-        else -> if (values.isEmpty()) "—" else fmt(values.sum() / values.size)
-    }
+    val statValue: String = runCatching {
+        when (stat) {
+            "Median" -> if (sorted.isEmpty()) "—" else fmt(
+                if (sorted.size % 2 == 1) sorted.getOrNull(sorted.size / 2) ?: return@runCatching "—"
+                else ((sorted.getOrNull(sorted.size / 2 - 1) ?: return@runCatching "—") + (sorted.getOrNull(sorted.size / 2) ?: return@runCatching "—")) / 2
+            )
+            "Min" -> sorted.firstOrNull()?.let { fmt(it) } ?: "—"
+            "Max" -> sorted.lastOrNull()?.let { fmt(it) } ?: "—"
+            "Sum" -> if (values.isEmpty()) "—" else fmt(values.sum())
+            "Count" -> "${values.size}"
+            else -> if (values.isEmpty()) "—" else fmt(values.sum() / values.size.coerceAtLeast(1))
+        }
+    }.getOrDefault("—")
     val qav = num(qa)
     val qbv = num(qb)
     val qcv = num(qc)
-    val roots = Engine.solveQuadratic(qav, qbv, qcv)
+    val roots = runCatching { Engine.solveQuadratic(qav, qbv, qcv) }.getOrDefault(emptyList())
     val m1 = num(a1)
     val n1 = num(b1)
     val o1 = num(c1)
@@ -1197,16 +1209,17 @@ private fun NumbersContent() {
     val n2 = num(b2)
     val o2 = num(c2)
     val det = m1 * n2 - m2 * n1
-    val sys = if (det == 0.0) null else Pair((o1 * n2 - o2 * n1) / det, (m1 * o2 - m2 * o1) / det)
+    val sys = if (!det.isFinite() || det == 0.0) null else runCatching { Pair((o1 * n2 - o2 * n1) / det, (m1 * o2 - m2 * o1) / det) }.getOrNull()
     val fn = fracN.toLongOrNull()
     val fd = fracD.toLongOrNull()
-    val frac: String = if (fn == null || fd == null || fd == 0L) "—" else {
+    val frac: String = if (fn == null || fd == null || fd == 0L) "—" else runCatching {
         val g = Engine.gcd(fn, fd)
+        if (g == 0L) return@runCatching "—"
         val rn = fn / g
         val rd = fd / g
         val sign = if (rd < 0) "-" else ""
         "$sign${kotlin.math.abs(rn)}/${kotlin.math.abs(rd)} = ${fmt(fn.toDouble() / fd.toDouble(), 6)}"
-    }
+    }.getOrDefault("—")
     LazyColumn(Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(16.dp)) {
         item {
             SectionCard("Number theory") {
@@ -1215,10 +1228,10 @@ private fun NumbersContent() {
                     Box(Modifier.weight(1f)) { NumField(b, { b = it }, "b", integer = true) }
                 }
                 HorizontalDivider()
-                ResultLine("GCD", "${Engine.gcd(av, bv)}")
+                ResultLine("GCD", runCatching { "${Engine.gcd(av, bv)}" }.getOrDefault("—"))
                 ResultLine("LCM", "${runCatching { Engine.lcm(av, bv) }.getOrDefault(0)}")
-                ResultLine("a is prime", if (Engine.isPrime(av)) "yes" else "no")
-                ResultLine("b is prime", if (Engine.isPrime(bv)) "yes" else "no")
+                ResultLine("a is prime", runCatching { if (Engine.isPrime(av)) "yes" else "no" }.getOrDefault("—"))
+                ResultLine("b is prime", runCatching { if (Engine.isPrime(bv)) "yes" else "no" }.getOrDefault("—"))
                 ResultLine("nCr", "${runCatching { Engine.nCr(av, bv) }.getOrDefault(0)}")
                 ResultLine("nPr", "${runCatching { Engine.nPr(av, bv) }.getOrDefault(0)}")
                 ResultLine("a!", factorial(av)?.toString() ?: "too large")
@@ -1315,7 +1328,9 @@ private fun NumbersContent() {
                 ResultLine("det", m?.let { runCatching { fmt(it.determinant()) }.getOrDefault("—") } ?: "—")
                 ResultLine(
                     "transpose",
-                    m?.transpose()?.let { t -> "${fmt(t[0, 0])}, ${fmt(t[0, 1])} / ${fmt(t[1, 0])}, ${fmt(t[1, 1])}" } ?: "—"
+                    runCatching {
+                        m?.transpose()?.let { t -> "${fmt(t[0, 0])}, ${fmt(t[0, 1])} / ${fmt(t[1, 0])}, ${fmt(t[1, 1])}" } ?: "—"
+                    }.getOrDefault("—")
                 )
                 ResultLine(
                     "inverse",
@@ -1355,7 +1370,7 @@ private fun NumbersContent() {
         item {
             var cq by remember { mutableStateOf("") }
             val clipboard = LocalClipboardManager.current
-            val hits = remember(cq) { Constants.search(cq).take(30) }
+            val hits = remember(cq) { runCatching { Constants.search(cq).take(30) }.getOrDefault(emptyList()) }
             SectionCard("Constants") {
                 OutlinedTextField(
                     value = cq,
@@ -1368,7 +1383,7 @@ private fun NumbersContent() {
                 hits.forEach { c ->
                     Row(
                         modifier = Modifier.fillMaxWidth().clickable {
-                            clipboard.setText(AnnotatedString(c.value.toString()))
+                            runCatching { clipboard.setText(AnnotatedString(c.value.toString())) }
                         }.padding(vertical = 4.dp),
                         horizontalArrangement = Arrangement.SpaceBetween
                     ) {
@@ -1440,7 +1455,7 @@ private fun NumbersContent() {
                 HorizontalDivider()
                 ResultLine(
                     "Solution",
-                    if (sol.size == 3 && sol[0] != "no unique solution") "x=${sol[0]}, y=${sol[1]}, z=${sol[2]}"
+                    if (sol.size == 3 && sol.getOrNull(0) != "no unique solution") "x=${sol.getOrNull(0)}, y=${sol.getOrNull(1)}, z=${sol.getOrNull(2)}"
                     else sol.joinToString()
                 )
             }
@@ -1559,43 +1574,45 @@ fun GeometryScreen() {
     val x = num(f1)
     val y = num(f2)
     val z = num(f3)
-    val outputs: List<Pair<String, String>> = when (shape) {
-        "circle" -> listOf(
-            "Area" to fmt(Geometry.circleArea(x), 2),
-            "Circumference" to fmt(Geometry.circleCirc(x), 2)
-        )
-        "rectangle" -> listOf(
-            "Area" to fmt(Geometry.rectArea(x, y), 2),
-            "Perimeter" to fmt(2 * (x + y), 2)
-        )
-        "triangle" -> listOf("Area" to fmt(Geometry.triangleArea(x, y), 2))
-        "sphere" -> listOf(
-            "Volume" to fmt(Geometry.sphereVolume(x), 2),
-            "Surface" to fmt(Geometry.sphereArea(x), 2)
-        )
-        "cylinder" -> listOf(
-            "Volume" to fmt(Geometry.cylinderVolume(x, y), 2),
-            "Surface" to fmt(2 * PI * x * (x + y), 2)
-        )
-        "cone" -> listOf(
-            "Volume" to fmt(Geometry.coneVolume(x, y), 2),
-            "Surface" to fmt(PI * x * (x + sqrt(x * x + y * y)), 2)
-        )
-        "cube" -> listOf(
-            "Volume" to fmt(Geometry.cubeVolume(x), 2),
-            "Surface" to fmt(6 * x * x, 2)
-        )
-        "prism" -> listOf(
-            "Volume" to fmt(Geometry.prismVolume(x, y, z), 2),
-            "Surface" to fmt(2 * (x * y + x * z + y * z), 2)
-        )
-        "pyramid" -> listOf(
-            "Volume" to fmt(Geometry.pyramidVolume(x, y), 2),
-            "Surface" to fmt(x * x + 2 * x * sqrt((x / 2) * (x / 2) + y * y), 2)
-        )
-        "ellipse" -> listOf("Area" to fmt(Geometry.ellipseArea(x, y), 2))
-        else -> emptyList()
-    }
+    val outputs: List<Pair<String, String>> = runCatching {
+        when (shape) {
+            "circle" -> listOf(
+                "Area" to fmt(Geometry.circleArea(x), 2),
+                "Circumference" to fmt(Geometry.circleCirc(x), 2)
+            )
+            "rectangle" -> listOf(
+                "Area" to fmt(Geometry.rectArea(x, y), 2),
+                "Perimeter" to fmt(2 * (x + y), 2)
+            )
+            "triangle" -> listOf("Area" to fmt(Geometry.triangleArea(x, y), 2))
+            "sphere" -> listOf(
+                "Volume" to fmt(Geometry.sphereVolume(x), 2),
+                "Surface" to fmt(Geometry.sphereArea(x), 2)
+            )
+            "cylinder" -> listOf(
+                "Volume" to fmt(Geometry.cylinderVolume(x, y), 2),
+                "Surface" to fmt(2 * PI * x * (x + y), 2)
+            )
+            "cone" -> listOf(
+                "Volume" to fmt(Geometry.coneVolume(x, y), 2),
+                "Surface" to fmt(PI * x * (x + sqrt(x * x + y * y)), 2)
+            )
+            "cube" -> listOf(
+                "Volume" to fmt(Geometry.cubeVolume(x), 2),
+                "Surface" to fmt(6 * x * x, 2)
+            )
+            "prism" -> listOf(
+                "Volume" to fmt(Geometry.prismVolume(x, y, z), 2),
+                "Surface" to fmt(2 * (x * y + x * z + y * z), 2)
+            )
+            "pyramid" -> listOf(
+                "Volume" to fmt(Geometry.pyramidVolume(x, y), 2),
+                "Surface" to fmt(x * x + 2 * x * sqrt((x / 2) * (x / 2) + y * y), 2)
+            )
+            "ellipse" -> listOf("Area" to fmt(Geometry.ellipseArea(x, y), 2))
+            else -> emptyList()
+        }
+    }.getOrDefault(listOf("Result" to "—"))
     LazyColumn(Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(16.dp)) {
         item {
             SectionCard("Shape") {
@@ -1609,7 +1626,7 @@ fun GeometryScreen() {
         item {
             SectionCard("Dimensions") {
                 labels.forEachIndexed { i, label ->
-                    NumField(dims[i], setters[i], label)
+                    NumField(dims.getOrNull(i) ?: "", setters.getOrNull(i) ?: {}, label)
                 }
                 HorizontalDivider()
                 outputs.forEach { (label, value) -> ResultLine(label, value) }
@@ -1653,7 +1670,7 @@ fun HealthScreen() {
     var bd by remember { mutableStateOf("15") }
     val w = num(weight)
     val h = num(height)
-    val bmi = HealthDate.bmi(w, h)
+    val bmi = runCatching { HealthDate.bmi(w, h) }.getOrDefault(Double.NaN)
     val bmiCat = when {
         !bmi.isFinite() || (w == 0.0 && h == 0.0) -> "—"
         bmi < 18.5 -> "Underweight"
@@ -1661,9 +1678,9 @@ fun HealthScreen() {
         bmi < 30 -> "Overweight"
         else -> "Obese"
     }
-    val fat = HealthDate.bodyFatNavy(num(waist), num(neck), h, num(hips), male)
+    val fat = runCatching { HealthDate.bodyFatNavy(num(waist), num(neck), h, num(hips), male) }.getOrDefault(Double.NaN)
     val ageInt = age.toIntOrNull() ?: 0
-    val tdee = HealthDate.tdee(w, h, ageInt, tdeeMale, activity)
+    val tdee = runCatching { HealthDate.tdee(w, h, ageInt, tdeeMale, activity) }.getOrDefault(Double.NaN)
     val ageRes = ageYMD(by.toIntOrNull() ?: 0, bm.toIntOrNull() ?: 0, bd.toIntOrNull() ?: 0)
     val activities = listOf(
         1.2 to "Sedentary",
@@ -1771,7 +1788,7 @@ fun HealthScreen() {
                 HorizontalDivider()
                 ResultLine("Weekday", weekday ?: "—")
                 ResultLine("Days until", until?.toString() ?: "—")
-                ResultLine(zone, ClockKit.worldTime(zone))
+                ResultLine(zone.ifBlank { "Zone" }, runCatching { ClockKit.worldTime(zone) }.getOrDefault("—"))
             }
         }
         item {
@@ -1784,7 +1801,7 @@ fun HealthScreen() {
                     Box(Modifier.weight(1f)) { NumField(wAct, { wAct = it }, "Active min") }
                 }
                 HorizontalDivider()
-                ResultLine("Daily water", ml?.let { "${fmt(it, 0)} mL (${fmt(it / 1000, 2)} L)" } ?: "—")
+                ResultLine("Daily water", ml?.let { runCatching { "${fmt(it, 0)} mL (${fmt(it / 1000.0, 2)} L)" }.getOrDefault("—") } ?: "—")
             }
         }
         item {
@@ -1876,8 +1893,8 @@ fun StepsScreen() {
                                         color = MaterialTheme.colorScheme.error
                                     )
                                 } else {
-                                    val r = annual / 1200
-                                    val emi = Finance.emi(p, annual, months)
+                                    val r = annual / 1200.0
+                                    val emi = runCatching { Finance.emi(p, annual, months) }.getOrDefault(Double.NaN)
                                     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                                         Text("1. Monthly rate r = $annual / 12 / 100 = ${fmt(r, 6)}", style = MaterialTheme.typography.bodyMedium)
                                         if (r == 0.0) {
@@ -1978,7 +1995,7 @@ fun StepsScreen() {
                                     )
                                 } else {
                                     val base = v * f.toBase / 1.0
-                                    val out = Units.convert(v, f, t)
+                                    val out = runCatching { Units.convert(v, f, t) }.getOrDefault(Double.NaN)
                                     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                                         Text("1. Factors to metres: 1 ${f.id} = ${fmt(f.toBase, 6)} m, 1 ${t.id} = ${fmt(t.toBase, 6)} m", style = MaterialTheme.typography.bodyMedium)
                                         Text("2. To base: $v × ${fmt(f.toBase, 6)} = ${fmt(base, 6)} m", style = MaterialTheme.typography.bodyMedium)
@@ -2036,7 +2053,7 @@ fun StepsScreen() {
                                         }
                                     }
                                     HorizontalDivider()
-                                    ResultLine("Roots", Engine.solveQuadratic(a, b, c).joinToString())
+                                    ResultLine("Roots", runCatching { Engine.solveQuadratic(a, b, c) }.getOrDefault(emptyList()).joinToString().ifBlank { "—" })
                                 }
                             }
                         }
@@ -2095,12 +2112,12 @@ fun ProgrammerScreen() {
             if (av == null || bv == null) {
                 ResultLine("Result", "—")
             } else {
-                ResultLine("AND", show(Engine.bitwiseAnd(av, bv)))
-                ResultLine("OR", show(Engine.bitwiseOr(av, bv)))
-                ResultLine("XOR", show(Engine.bitwiseXor(av, bv)))
-                ResultLine("NOT a", show(Engine.bitwiseNot(av)))
-                ResultLine("a shl b", show(Engine.shl(av, bv.toInt())))
-                ResultLine("a shr b", show(Engine.shr(av, bv.toInt())))
+                ResultLine("AND", runCatching { show(Engine.bitwiseAnd(av, bv)) }.getOrDefault("—"))
+                ResultLine("OR", runCatching { show(Engine.bitwiseOr(av, bv)) }.getOrDefault("—"))
+                ResultLine("XOR", runCatching { show(Engine.bitwiseXor(av, bv)) }.getOrDefault("—"))
+                ResultLine("NOT a", runCatching { show(Engine.bitwiseNot(av)) }.getOrDefault("—"))
+                ResultLine("a shl b", runCatching { show(Engine.shl(av, bv.toInt())) }.getOrDefault("—"))
+                ResultLine("a shr b", runCatching { show(Engine.shr(av, bv.toInt())) }.getOrDefault("—"))
             }
             HorizontalDivider()
             ResultLine("a dec", av?.toString() ?: "—")
@@ -2116,7 +2133,7 @@ fun ProgrammerScreen() {
             Button(onClick = {
                 val lo = minStr.toIntOrNull() ?: 0
                 val hi = maxStr.toIntOrNull() ?: 0
-                rolls = (listOf(Engine.randomInt(lo, hi)) + rolls).take(5)
+                runCatching { Engine.randomInt(lo, hi) }.onSuccess { rolls = (listOf(it) + rolls).take(5) }
             }) { Text("Generate") }
             HorizontalDivider()
             if (rolls.isEmpty()) {

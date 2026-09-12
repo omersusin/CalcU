@@ -132,11 +132,13 @@ fun CalculatorScreen(vm: CalcViewModel = hiltViewModel()) {
     val clipboard = LocalClipboardManager.current
     val snackbar = remember { SnackbarHostState() }
     LaunchedEffect(Unit) {
-        vm.effects.collect { e ->
-            when (e) {
-                is CalcEffect.Copy -> {
-                    clipboard.setText(AnnotatedString(e.text))
-                    snackbar.showSnackbar("Copied")
+        runCatching {
+            vm.effects.collect { e ->
+                when (e) {
+                    is CalcEffect.Copy -> {
+                        runCatching { clipboard.setText(AnnotatedString(e.text)) }
+                        runCatching { snackbar.showSnackbar("Copied") }
+                    }
                 }
             }
         }
@@ -317,11 +319,13 @@ private fun HistorySheetContent(
     val listState = rememberLazyListState()
     val haptics = LocalHapticFeedback.current
     LaunchedEffect(listState) {
-        var prev = listState.firstVisibleItemIndex
-        snapshotFlow { listState.firstVisibleItemIndex }.collect {
-            if (it != prev) {
-                prev = it
-                haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+        var prev = runCatching { listState.firstVisibleItemIndex }.getOrDefault(0)
+        runCatching {
+            snapshotFlow { listState.firstVisibleItemIndex }.collect {
+                if (it != prev) {
+                    prev = it
+                    runCatching { haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove) }
+                }
             }
         }
     }
@@ -642,10 +646,31 @@ fun GraphScreen() {
     var view by remember { mutableStateOf(GraphView(scale = defaultScale)) }
     var canvasPx by remember { mutableStateOf(IntSize.Zero) }
     var readout by remember { mutableStateOf<String?>(null) }
+    var shareError by remember { mutableStateOf<String?>(null) }
     LaunchedEffect(readout) {
         if (readout != null) {
-            delay(3000)
+            try {
+                delay(3000)
+            } catch (e: kotlinx.coroutines.CancellationException) {
+                throw e
+            } catch (_: Exception) {
+                readout = null
+                return@LaunchedEffect
+            }
             readout = null
+        }
+    }
+    LaunchedEffect(shareError) {
+        if (shareError != null) {
+            try {
+                delay(3000)
+            } catch (e: kotlinx.coroutines.CancellationException) {
+                throw e
+            } catch (_: Exception) {
+                shareError = null
+                return@LaunchedEffect
+            }
+            shareError = null
         }
     }
     val context = LocalContext.current
@@ -717,18 +742,21 @@ fun GraphScreen() {
                                 .pointerInput(Unit) {
                                     detectTapGestures(
                                         onTap = { off ->
-                                            val w = canvasPx.width
-                                            val h = canvasPx.height
-                                            if (w > 0 && h > 0) {
-                                                val mx = view.centerX + (off.x - w / 2.0) / view.scale
-                                                val my = view.centerY - (off.y - h / 2.0) / view.scale
-                                                fun fmt(v: Double) = if (v.isFinite()) "%.2f".format(v) else "—"
-                                                val parts = buildList {
-                                                    add("x=" + fmt(mx))
-                                                    if (fOn) add("f=" + fmt(evalGraphAt(fExpr, mx)))
-                                                    if (gOn) add("g=" + fmt(evalGraphAt(gExpr, mx)))
+                                            runCatching {
+                                                val w = canvasPx.width
+                                                val h = canvasPx.height
+                                                if (w > 0 && h > 0) {
+                                                    val scale = view.scale.coerceIn(5f, 500f)
+                                                    val mx = view.centerX + (off.x - w / 2.0) / scale
+                                                    val my = view.centerY - (off.y - h / 2.0) / scale
+                                                    fun fmt(v: Double) = if (!v.isFinite()) "—" else runCatching { "%.2f".format(v) }.getOrDefault("—")
+                                                    val parts = buildList {
+                                                        add("x=" + fmt(mx))
+                                                        if (fOn) add("f=" + fmt(evalGraphAt(fExpr, mx)))
+                                                        if (gOn) add("g=" + fmt(evalGraphAt(gExpr, mx)))
+                                                    }
+                                                    readout = parts.joinToString(", ") + "  y=" + fmt(my)
                                                 }
-                                                readout = parts.joinToString(", ") + "  y=" + fmt(my)
                                             }
                                         },
                                         onDoubleTap = { view = GraphView(scale = defaultScale) }
@@ -736,12 +764,15 @@ fun GraphScreen() {
                                 }
                                 .pointerInput(Unit) {
                                     detectTransformGestures { _, pan, zoom, _ ->
-                                        val s = (view.scale * zoom).coerceIn(5f, 500f)
-                                        view = view.copy(
-                                            centerX = view.centerX - pan.x / view.scale,
-                                            centerY = view.centerY + pan.y / view.scale,
-                                            scale = s
-                                        )
+                                        runCatching {
+                                            val cur = view.scale.coerceIn(5f, 500f)
+                                            val s = (view.scale * zoom.coerceIn(0.1f, 10f)).coerceIn(5f, 500f)
+                                            view = view.copy(
+                                                centerX = view.centerX - pan.x / cur,
+                                                centerY = view.centerY + pan.y / cur,
+                                                scale = s
+                                            )
+                                        }
                                     }
                                 }
                                 .onSizeChanged { canvasPx = it }
@@ -846,24 +877,34 @@ fun GraphScreen() {
                         }
                         IconButton(
                             onClick = {
-                                val text = buildString {
-                                    if (fOn) append("f(x)=" + fExpr)
-                                    if (fOn && gOn) append("; ")
-                                    if (gOn) append("g(x)=" + gExpr)
-                                }
-                                context.startActivity(
-                                    Intent.createChooser(
-                                        Intent(Intent.ACTION_SEND).setType("text/plain")
-                                            .putExtra(Intent.EXTRA_TEXT, text.ifBlank { "f(x)=" + fExpr }),
-                                        null
+                                runCatching {
+                                    val text = buildString {
+                                        if (fOn) append("f(x)=" + fExpr)
+                                        if (fOn && gOn) append("; ")
+                                        if (gOn) append("g(x)=" + gExpr)
+                                    }
+                                    context.startActivity(
+                                        Intent.createChooser(
+                                            Intent(Intent.ACTION_SEND).setType("text/plain")
+                                                .putExtra(Intent.EXTRA_TEXT, text.ifBlank { "f(x)=" + fExpr }),
+                                            null
+                                        )
                                     )
-                                )
+                                }.onFailure { shareError = "Could not share expressions" }
                             },
                             modifier = Modifier.size(48.dp)
                         ) {
                             Icon(Icons.Filled.Share, contentDescription = "Share expressions")
                         }
                     }
+                    }
+                    if (shareError != null) {
+                        FluentInfoBar(
+                            severity = WARNING,
+                            title = "Share failed",
+                            message = shareError ?: "Could not share expressions",
+                            modifier = Modifier.padding(horizontal = 8.dp)
+                        )
                     }
                     if (noneValid) {
                         FluentInfoBar(

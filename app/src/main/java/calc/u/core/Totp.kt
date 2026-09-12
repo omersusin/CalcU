@@ -30,16 +30,28 @@ object Totp {
     }
 
     fun hotp(key: ByteArray, counter: Long, digits: Int = 6): String {
+        require(key.isNotEmpty()) { "key must not be empty" }
+        require(digits in 1..9) { "digits must be in 1..9" }
         val msg = ByteArray(8)
         var c = counter
         for (i in 7 downTo 0) {
             msg[i] = (c and 0xFF).toByte()
             c = c ushr 8
         }
-        val mac = Mac.getInstance("HmacSHA1")
-        mac.init(SecretKeySpec(key, "HmacSHA1"))
+        val mac = try {
+            Mac.getInstance("HmacSHA1")
+        } catch (e: java.security.NoSuchAlgorithmException) {
+            throw IllegalArgumentException("HmacSHA1 unavailable", e)
+        }
+        try {
+            mac.init(SecretKeySpec(key, "HmacSHA1"))
+        } catch (e: java.security.InvalidKeyException) {
+            throw IllegalArgumentException("invalid key", e)
+        }
         val hmac = mac.doFinal(msg)
+        require(hmac.size >= 4) { "hmac too short" }
         val offset = hmac[hmac.size - 1].toInt() and 0x0F
+        require(offset >= 0 && offset + 3 < hmac.size) { "invalid hmac offset" }
         val binary = ((hmac[offset].toInt() and 0x7F) shl 24) or
             ((hmac[offset + 1].toInt() and 0xFF) shl 16) or
             ((hmac[offset + 2].toInt() and 0xFF) shl 8) or
@@ -50,11 +62,14 @@ object Totp {
     }
 
     fun totp(secret: String, timeSec: Long, period: Long = 30, digits: Int = 6): String {
+        require(period > 0) { "period must be > 0" }
         val key = base32Decode(secret)
         val counter = Math.floorDiv(timeSec, period)
         return hotp(key, counter, digits)
     }
 
-    fun secondsRemaining(timeSec: Long, period: Long = 30): Long =
-        period - Math.floorMod(timeSec, period)
+    fun secondsRemaining(timeSec: Long, period: Long = 30): Long {
+        if (period <= 0) return 0L
+        return period - Math.floorMod(timeSec, period)
+    }
 }

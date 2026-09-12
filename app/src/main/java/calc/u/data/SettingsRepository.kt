@@ -8,6 +8,7 @@ import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.map
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -18,35 +19,35 @@ private val Context.settingsDataStore by preferencesDataStore("calcu-settings")
 class SettingsRepository @Inject constructor(@ApplicationContext private val ctx: Context) {
     private val themeKey = stringPreferencesKey("theme")
 
-    val theme: Flow<String> = ctx.settingsDataStore.data.map { it[themeKey] ?: "system" }
+    val theme: Flow<String> = ctx.settingsDataStore.data.map { it[themeKey] ?: "system" }.catch { emit("system") }
 
     suspend fun setTheme(value: String) {
-        ctx.settingsDataStore.edit { it[themeKey] = value }
+        runCatching { ctx.settingsDataStore.edit { it[themeKey] = value } }
     }
 
     private val tipKey = booleanPreferencesKey("graph_tip_seen")
 
-    val graphTipSeen: Flow<Boolean> = ctx.settingsDataStore.data.map { it[tipKey] ?: false }
+    val graphTipSeen: Flow<Boolean> = ctx.settingsDataStore.data.map { it[tipKey] ?: false }.catch { emit(false) }
 
     suspend fun setGraphTipSeen() {
-        ctx.settingsDataStore.edit { it[tipKey] = true }
+        runCatching { ctx.settingsDataStore.edit { it[tipKey] = true } }
     }
 
     private val vibrationKey = booleanPreferencesKey("vibration")
 
-    val vibration: Flow<Boolean> = ctx.settingsDataStore.data.map { it[vibrationKey] ?: true }
+    val vibration: Flow<Boolean> = ctx.settingsDataStore.data.map { it[vibrationKey] ?: true }.catch { emit(true) }
 
     suspend fun setVibration(value: Boolean) {
-        ctx.settingsDataStore.edit { it[vibrationKey] = value }
+        runCatching { ctx.settingsDataStore.edit { it[vibrationKey] = value } }
     }
 
     private val dynamicKey = booleanPreferencesKey("dynamic_color")
 
     val dynamicColor: Flow<Boolean> = ctx.settingsDataStore.data.map {
         it[dynamicKey] ?: (Build.VERSION.SDK_INT >= 31)
-    }
+    }.catch { emit(Build.VERSION.SDK_INT >= 31) }
 
     suspend fun setDynamicColor(value: Boolean) {
-        ctx.settingsDataStore.edit { it[dynamicKey] = value }
+        runCatching { ctx.settingsDataStore.edit { it[dynamicKey] = value } }
     }
 }

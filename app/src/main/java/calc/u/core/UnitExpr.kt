@@ -192,7 +192,11 @@ object UnitExpr {
     private fun resolve(name: String): UnitDef {
         units[name]?.let { return it }
         val lower = name.lowercase()
-        lowerIndex[lower]?.let { return units[it]!! }
+        val lowerKey = lowerIndex[lower]
+        if (lowerKey != null) {
+            val u = units[lowerKey] ?: throw IllegalArgumentException("unknown unit: $name")
+            return u
+        }
         aliases[lower]?.let { units[it]?.let { u -> return u } }
         val singular = when {
             lower.endsWith("es") -> lower.dropLast(2)
@@ -200,7 +204,11 @@ object UnitExpr {
             else -> lower
         }
         if (singular != lower) {
-            lowerIndex[singular]?.let { return units[it]!! }
+            val singularKey = lowerIndex[singular]
+            if (singularKey != null) {
+                val u = units[singularKey] ?: throw IllegalArgumentException("unknown unit: $name")
+                return u
+            }
             aliases[singular]?.let { units[it]?.let { u -> return u } }
         }
         throw IllegalArgumentException("unknown unit: $name")
@@ -272,18 +280,46 @@ object UnitExpr {
         return out
     }
 
+    private fun checkDim(q: Quantity, what: String) {
+        require(q.dim.size == 7) { "$what dimension must have size 7" }
+    }
+
     private fun mul(a: Quantity, b: Quantity): Quantity {
-        val dim = IntArray(7) { a.dim[it] + b.dim[it] }
+        checkDim(a, "operand")
+        checkDim(b, "operand")
+        val dim = IntArray(7) {
+            try {
+                Math.addExact(a.dim[it], b.dim[it])
+            } catch (e: ArithmeticException) {
+                throw ArithmeticException("dimension overflow")
+            }
+        }
         return Quantity(a.factor * b.factor, dim)
     }
 
     private fun div(a: Quantity, b: Quantity): Quantity {
-        val dim = IntArray(7) { a.dim[it] - b.dim[it] }
+        checkDim(a, "operand")
+        checkDim(b, "operand")
+        if (b.factor == 0.0) throw ArithmeticException("division by zero in unit expression")
+        val dim = IntArray(7) {
+            try {
+                Math.subtractExact(a.dim[it], b.dim[it])
+            } catch (e: ArithmeticException) {
+                throw ArithmeticException("dimension overflow")
+            }
+        }
         return Quantity(a.factor / b.factor, dim)
     }
 
     private fun powQ(a: Quantity, exp: Int): Quantity {
-        val dim = IntArray(7) { a.dim[it] * exp }
+        checkDim(a, "operand")
+        val dim = IntArray(7) {
+            try {
+                Math.multiplyExact(a.dim[it], exp)
+            } catch (e: ArithmeticException) {
+                throw ArithmeticException("dimension exponent overflow")
+            }
+        }
         return Quantity(a.factor.pow(exp), dim)
     }
 
@@ -341,7 +377,11 @@ object UnitExpr {
         }
 
         private fun checkedExp(v: Double, text: String): Int {
+            if (!v.isFinite()) throw IllegalArgumentException("non-finite exponent: $text")
             if (v % 1.0 != 0.0) throw IllegalArgumentException("non-integer exponent: $text")
+            if (v < Int.MIN_VALUE.toDouble() || v > Int.MAX_VALUE.toDouble()) {
+                throw IllegalArgumentException("exponent out of range: $text")
+            }
             return v.toInt()
         }
 
@@ -409,6 +449,7 @@ object UnitExpr {
         if (!q1.dim.contentEquals(q2.dim)) {
             throw IllegalArgumentException("incompatible: ${describe(q1.dim)} vs ${describe(q2.dim)}")
         }
+        if (q2.factor == 0.0) throw ArithmeticException("division by zero in unit conversion")
         return value * q1.factor / q2.factor
     }
 }

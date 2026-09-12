@@ -138,4 +138,57 @@ class UnitsTest {
         assertEquals(12.0, Units.convert(1.0, Units.printing["pica"]!!, Units.printing["point"]!!), 1e-9)
         assertEquals(1.0, Units.convert(12.0, Units.printing["point"]!!, Units.printing["pica"]!!), 1e-9)
     }
+
+    @Test fun fuelZeroThrows() {
+        try {
+            Units.convertFuel(0.0, "mpg_us", "l_100km")
+            fail("expected IAE")
+        } catch (e: IllegalArgumentException) { }
+        try {
+            Units.convertFuel(10.0, "bogus", "l_100km")
+            fail("expected IAE")
+        } catch (e: IllegalArgumentException) { }
+    }
+
+    @Test fun convertZeroTargetThrows() {
+        try {
+            Units.convert(1.0, Units.length["m"]!!, Units.UnitDef("zero", 0.0))
+            fail("expected IAE")
+        } catch (e: IllegalArgumentException) { }
+    }
+
+    @Test fun crashHardeningEdges() {
+        assertEquals(32.0, Units.convertTemp(0.0, "C", "F"), 1e-9)
+        try {
+            Units.convertTemp(0.0, "X", "C")
+            fail("expected IAE")
+        } catch (e: IllegalArgumentException) { }
+        try {
+            Units.convertTemp(0.0, "C", "X")
+            fail("expected IAE")
+        } catch (e: IllegalArgumentException) { }
+        try {
+            Units.convertTemp(0.0, "", "")
+            fail("expected IAE")
+        } catch (e: IllegalArgumentException) { }
+        try {
+            Units.fromBase(10.0, 1)
+            fail("expected IAE")
+        } catch (e: IllegalArgumentException) { }
+        try {
+            Units.fromBase(10.0, 37)
+            fail("expected IAE")
+        } catch (e: IllegalArgumentException) { }
+        assertEquals("0", Units.fromBase(0.0, 16))
+        assertEquals("-101", Units.fromBase(-5.0, 2))
+        assertEquals("Error", Units.fromBase(Double.NaN, 10))
+        assertEquals("1000000000000000000", Units.fromBase(1e18, 10))
+        assertEquals("—", Units.toRoman(-5))
+        assertEquals("—", Units.toRoman(Int.MAX_VALUE))
+        try {
+            Units.convertFuel(10.0, "mpg_us", "bogus")
+            fail("expected IAE")
+        } catch (e: IllegalArgumentException) { }
+        assertEquals(-5.0, Units.convertFuel(-5.0, "l_100km", "l_100km"), 0.0)
+    }
 }

@@ -17,6 +17,7 @@ import kotlin.math.sqrt
 
 object Engine {
     fun eval(input: String, angleDeg: Boolean = true): Result<BigDecimal> = runCatching {
+        require(input.length <= 20000) { "expression too long" }
         var expr = input.trim()
             .replace("×", "*")
             .replace("÷", "/")
@@ -35,6 +36,7 @@ object Engine {
             expr = expr.replace(Regex("\\bTAN\\s*\\(", RegexOption.IGNORE_CASE), "TANR(")
         }
         val unclosed = expr.count { it == '(' } - expr.count { it == ')' }
+        require(unclosed <= 1000) { "too many unclosed parentheses" }
         if (unclosed > 0) expr += ")".repeat(unclosed)
         Expression(expr).evaluate().numberValue
     }
@@ -113,7 +115,10 @@ object Engine {
 
     fun nCr(n: Long, r: Long): Long {
         if (r < 0L || r > n) return 0L
+        if (n < 0L) return 0L
         val rr = if (r < n - r) r else n - r
+        require(rr <= 10000L) { "nCr too large" }
+        require(n <= 100000L) { "nCr too large" }
         var res = BigInteger.ONE
         for (i in 1L..rr) {
             res = res.multiply(BigInteger.valueOf(n - rr + i)).divide(BigInteger.valueOf(i))
@@ -123,6 +128,9 @@ object Engine {
 
     fun nPr(n: Long, r: Long): Long {
         if (r < 0L || r > n) return 0L
+        if (n < 0L) return 0L
+        require(r <= 10000L) { "nPr too large" }
+        require(n <= 100000L) { "nPr too large" }
         var res = BigInteger.ONE
         for (i in 0L until r) {
             res = res.multiply(BigInteger.valueOf(n - i))
@@ -258,7 +266,7 @@ object Engine {
         require(values.isNotEmpty()) { "values must not be empty" }
         return values.groupingBy { it }.eachCount()
             .entries.sortedWith(compareByDescending<Map.Entry<Double, Int>> { it.value }.thenBy { it.key })
-            .first().key
+            .firstOrNull()?.key ?: throw IllegalArgumentException("values must not be empty")
     }
 
     fun statsVariance(values: List<Double>): Double {
@@ -296,6 +304,7 @@ object Engine {
     fun solve3x3(a: List<List<Double>>, b: List<Double>): List<String> {
         require(a.size == 3 && a.all { it.size == 3 }) { "a must be 3x3" }
         require(b.size == 3) { "b must have 3 entries" }
+        require(a.all { row -> row.all { it.isFinite() } } && b.all { it.isFinite() }) { "entries must be finite" }
         fun detOf(grid: List<List<Double>>): Double {
             val flat = DoubleArray(9) { grid[it / 3][it % 3] }
             return Matrix(3, 3, flat).determinant()
@@ -347,6 +356,7 @@ object Engine {
         val scales = listOf("", "thousand", "million", "billion")
         var scaleIdx = 0
         while (rem > 0) {
+            require(scaleIdx < scales.size) { "n must be in 0..999_999_999_999" }
             val cur = rem % 1000
             if (cur > 0) {
                 val words = underThousand(cur)

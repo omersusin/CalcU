@@ -100,13 +100,13 @@ fun HashScreen() {
                 Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                     Box(Modifier.weight(1f)) {
                         OutlinedButton(
-                            onClick = { clipboard.setText(AnnotatedString(sha)) },
+                            onClick = { runCatching { clipboard.setText(AnnotatedString(sha)) } },
                             modifier = Modifier.fillMaxWidth()
                         ) { Text("Copy SHA") }
                     }
                     Box(Modifier.weight(1f)) {
                         OutlinedButton(
-                            onClick = { clipboard.setText(AnnotatedString(md5)) },
+                            onClick = { runCatching { clipboard.setText(AnnotatedString(md5)) } },
                             modifier = Modifier.fillMaxWidth()
                         ) { Text("Copy MD5") }
                     }
@@ -142,7 +142,7 @@ fun Base64Screen() {
                 )
                 HorizontalDivider()
                 ResultLine("Result", output)
-                Button(onClick = { clipboard.setText(AnnotatedString(output)) }) { Text("Copy") }
+                Button(onClick = { runCatching { clipboard.setText(AnnotatedString(output)) } }) { Text("Copy") }
             }
         }
     }
@@ -151,7 +151,7 @@ fun Base64Screen() {
 @Composable
 fun TextStatsScreen() {
     var input by remember { mutableStateOf("") }
-    val counts = remember(input) { TextData.counts(input) }
+    val counts = remember(input) { runCatching { TextData.counts(input) }.getOrDefault(Triple(0, 0, 0)) }
     LazyColumn(Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(16.dp)) {
         item {
             SectionCard("Text stats") {
@@ -178,8 +178,11 @@ fun QrScreen() {
         if (input.isBlank()) null
         else runCatching {
             val m = TextData.qrMatrix(input, 512)
+            require(m.width > 0 && m.height > 0 && m.width <= 2048 && m.height <= 2048) { "Invalid QR size" }
+            val size = m.width * m.height
+            require(size > 0 && size <= 2048 * 2048) { "Invalid QR size" }
             val bmp = Bitmap.createBitmap(m.width, m.height, Bitmap.Config.ARGB_8888)
-            val px = IntArray(m.width * m.height)
+            val px = IntArray(size)
             for (y in 0 until m.height) {
                 for (x in 0 until m.width) {
                     px[y * m.width + x] = if (m.get(x, y)) 0xFF000000.toInt() else 0xFFFFFFFF.toInt()
@@ -213,22 +216,22 @@ fun QrScreen() {
 
 @Composable
 fun UuidScreen() {
-    var value by remember { mutableStateOf(TextData.uuid()) }
+    var value by remember { mutableStateOf(runCatching { TextData.uuid() }.getOrDefault("")) }
     val clipboard = LocalClipboardManager.current
     LazyColumn(Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(16.dp)) {
         item {
             SectionCard("UUID") {
-                ResultLine("Value", value)
+                ResultLine("Value", value.ifBlank { "—" })
                 Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                     Box(Modifier.weight(1f)) {
                         Button(
-                            onClick = { value = TextData.uuid() },
+                            onClick = { runCatching { TextData.uuid() }.onSuccess { value = it } },
                             modifier = Modifier.fillMaxWidth()
                         ) { Text("Regenerate") }
                     }
                     Box(Modifier.weight(1f)) {
                         OutlinedButton(
-                            onClick = { clipboard.setText(AnnotatedString(value)) },
+                            onClick = { runCatching { clipboard.setText(AnnotatedString(value)) } },
                             modifier = Modifier.fillMaxWidth()
                         ) { Text("Copy") }
                     }
@@ -241,9 +244,9 @@ fun UuidScreen() {
 @Composable
 fun CaseConverterCard() {
     var input by remember { mutableStateOf("") }
-    val upper = remember(input) { TextData.toUpper(input) }
-    val lower = remember(input) { TextData.toLower(input) }
-    val title = remember(input) { TextData.titleCase(input) }
+    val upper = remember(input) { runCatching { TextData.toUpper(input) }.getOrDefault(input) }
+    val lower = remember(input) { runCatching { TextData.toLower(input) }.getOrDefault(input) }
+    val title = remember(input) { runCatching { TextData.titleCase(input) }.getOrDefault(input) }
     SectionCard("Case converter") {
         OutlinedTextField(
             value = input,
@@ -344,7 +347,7 @@ fun JsonFormatterCard() {
             error = null
             ""
         } else {
-            runCatching { TextData.jsonPretty(input) }.onFailure { error = it.message }
+            runCatching { TextData.jsonPretty(input) }.onFailure { error = it.message ?: "Invalid JSON" }
                 .onSuccess { error = null }.getOrDefault("")
         }
     }
@@ -358,7 +361,7 @@ fun JsonFormatterCard() {
         )
         HorizontalDivider()
         if (error != null) {
-            Text(error ?: "")
+            Text(error ?: "Invalid JSON")
         } else {
             ResultLine("Pretty", if (output.isEmpty()) "—" else output)
         }
@@ -375,7 +378,7 @@ fun RegexTesterCard() {
             error = null
             emptyList()
         } else {
-            runCatching { TextData.regexTest(pattern, input) }.onFailure { error = it.message }
+            runCatching { TextData.regexTest(pattern, input) }.onFailure { error = it.message ?: "Invalid pattern" }
                 .onSuccess { error = null }.getOrDefault(emptyList())
         }
     }
@@ -394,7 +397,7 @@ fun RegexTesterCard() {
         )
         HorizontalDivider()
         if (error != null) {
-            Text(error ?: "")
+            Text(error ?: "Invalid pattern")
         } else {
             ResultLine("Matches", if (matches.isEmpty()) "—" else matches.joinToString(", "))
         }
@@ -403,7 +406,7 @@ fun RegexTesterCard() {
 
 @Composable
 fun UnixTimeCard() {
-    var now by remember { mutableStateOf(TextData.unixNow()) }
+    var now by remember { mutableStateOf(runCatching { TextData.unixNow() }.getOrDefault(0L)) }
     var input by remember { mutableStateOf("") }
     val converted = remember(input) {
         if (input.isBlank()) "—"
@@ -411,7 +414,7 @@ fun UnixTimeCard() {
     }
     SectionCard("Unix time") {
         ResultLine("Now", "$now")
-        Button(onClick = { now = TextData.unixNow() }) { Text("Refresh now") }
+        Button(onClick = { runCatching { TextData.unixNow() }.onSuccess { now = it } }) { Text("Refresh now") }
         HorizontalDivider()
         OutlinedTextField(
             value = input,
@@ -426,11 +429,17 @@ fun UnixTimeCard() {
 @Composable
 fun TotpCard() {
     var secret by remember { mutableStateOf("") }
-    var nowSec by remember { mutableStateOf(System.currentTimeMillis() / 1000L) }
+    var nowSec by remember { mutableStateOf(runCatching { System.currentTimeMillis() / 1000L }.getOrDefault(0L)) }
     androidx.compose.runtime.LaunchedEffect(Unit) {
         while (true) {
-            kotlinx.coroutines.delay(1000L)
-            nowSec = System.currentTimeMillis() / 1000L
+            try {
+                kotlinx.coroutines.delay(1000L)
+            } catch (e: kotlinx.coroutines.CancellationException) {
+                throw e
+            } catch (_: Exception) {
+                break
+            }
+            nowSec = runCatching { System.currentTimeMillis() / 1000L }.getOrDefault(nowSec)
         }
     }
     val period = 30L
@@ -438,7 +447,7 @@ fun TotpCard() {
         if (secret.isBlank()) "—"
         else runCatching { calc.u.core.Totp.totp(secret, nowSec, period) }.getOrDefault("—")
     }
-    val remaining = remember(nowSec) { calc.u.core.Totp.secondsRemaining(nowSec, period) }
+    val remaining = remember(nowSec) { runCatching { calc.u.core.Totp.secondsRemaining(nowSec, period) }.getOrDefault(period) }
     val clipboard = LocalClipboardManager.current
     SectionCard("Authenticator (TOTP)") {
         OutlinedTextField(
@@ -451,10 +460,10 @@ fun TotpCard() {
         ResultLine("Code", code)
         ResultLine("Expires in", "$remaining s")
         androidx.compose.material3.LinearProgressIndicator(
-            progress = { remaining / period.toFloat() },
+            progress = { remaining.coerceIn(0L, period).toFloat() / period.coerceAtLeast(1L).toFloat() },
             modifier = Modifier.fillMaxWidth()
         )
-        Button(onClick = { clipboard.setText(AnnotatedString(code)) }) { Text("Copy code") }
+        Button(onClick = { runCatching { clipboard.setText(AnnotatedString(code)) } }) { Text("Copy code") }
     }
 }
 
@@ -477,8 +486,8 @@ fun CipherCard() {
                 require(clean.length % 2 == 0) { "Hex length must be even" }
                 val kb = key.toByteArray(Charsets.UTF_8)
                 require(kb.isNotEmpty()) { "Key must not be empty" }
-                val bytes = clean.chunked(2).map { it.toInt(16).toByte() }.toByteArray()
-                bytes.mapIndexed { i, b -> (b.toInt() xor kb[i % kb.size].toInt()).toByte() }
+                val bytes = clean.chunked(2).map { runCatching { it.toInt(16).toByte() }.getOrElse { throw IllegalArgumentException("Invalid hex") } }.toByteArray()
+                bytes.mapIndexed { i, b -> (b.toInt() xor kb[i % kb.size.coerceAtLeast(1)].toInt()).toByte() }
                     .toByteArray().toString(Charsets.UTF_8)
             }
         }.getOrDefault("—")
@@ -516,6 +525,6 @@ fun CipherCard() {
         }
         HorizontalDivider()
         ResultLine("Result", output)
-        Button(onClick = { clipboard.setText(AnnotatedString(output)) }) { Text("Copy") }
+        Button(onClick = { runCatching { clipboard.setText(AnnotatedString(output)) } }) { Text("Copy") }
     }
 }

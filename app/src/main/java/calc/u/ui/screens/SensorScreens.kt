@@ -58,15 +58,28 @@ fun SensorScreen() {
 
 private fun cardinalLabel(deg: Float): String {
     val names = listOf("N", "NE", "E", "SE", "S", "SW", "W", "NW")
-    return names[(((deg + 22.5f) / 45f).toInt() % 8 + 8) % 8]
+    if (!deg.isFinite()) return "—"
+    return names.getOrNull((((((deg + 22.5f) / 45f).toInt() % 8 + 8) % 8))) ?: "—"
 }
 
 @Composable
 fun CompassScreen() {
     val context = LocalContext.current
-    val sensorManager = remember { context.getSystemService(Context.SENSOR_SERVICE) as SensorManager }
-    val accelerometer = remember(sensorManager) { sensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER) }
-    val magnetometer = remember(sensorManager) { sensorManager.getDefaultSensor(Sensor.TYPE_MAGNETIC_FIELD) }
+    val sensorManager = remember {
+        runCatching { context.getSystemService(Context.SENSOR_SERVICE) as SensorManager }.getOrNull()
+    }
+    if (sensorManager == null) {
+        SectionCard("Compass") {
+            Text(
+                "Compass is unavailable on this device.",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.error
+            )
+        }
+        return
+    }
+    val accelerometer = remember(sensorManager) { runCatching { sensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER) }.getOrNull() }
+    val magnetometer = remember(sensorManager) { runCatching { sensorManager.getDefaultSensor(Sensor.TYPE_MAGNETIC_FIELD) }.getOrNull() }
     var azimuth by remember { mutableFloatStateOf(0f) }
     var hasReading by remember { mutableStateOf(false) }
     if (accelerometer == null || magnetometer == null) {
@@ -86,29 +99,36 @@ fun CompassScreen() {
         var hasMag = false
         val listener = object : SensorEventListener {
             override fun onSensorChanged(event: SensorEvent) {
-                if (event.sensor.type == Sensor.TYPE_ACCELEROMETER) {
-                    System.arraycopy(event.values, 0, gravity, 0, 3)
-                    hasGravity = true
-                } else if (event.sensor.type == Sensor.TYPE_MAGNETIC_FIELD) {
-                    System.arraycopy(event.values, 0, geomagnetic, 0, 3)
-                    hasMag = true
-                }
-                if (hasGravity && hasMag) {
-                    val r = FloatArray(9)
-                    val i = FloatArray(9)
-                    if (SensorManager.getRotationMatrix(r, i, gravity, geomagnetic)) {
-                        val orientation = FloatArray(3)
-                        SensorManager.getOrientation(r, orientation)
-                        azimuth = ((Math.toDegrees(orientation[0].toDouble()).toFloat() + 360f) % 360f)
-                        hasReading = true
+                runCatching {
+                    val vals = event.values
+                    if (event.sensor.type == Sensor.TYPE_ACCELEROMETER) {
+                        if (vals.size < 3) return@runCatching
+                        System.arraycopy(vals, 0, gravity, 0, 3)
+                        hasGravity = true
+                    } else if (event.sensor.type == Sensor.TYPE_MAGNETIC_FIELD) {
+                        if (vals.size < 3) return@runCatching
+                        System.arraycopy(vals, 0, geomagnetic, 0, 3)
+                        hasMag = true
+                    }
+                    if (hasGravity && hasMag) {
+                        val r = FloatArray(9)
+                        val i = FloatArray(9)
+                        if (runCatching { SensorManager.getRotationMatrix(r, i, gravity, geomagnetic) }.getOrDefault(false)) {
+                            val orientation = FloatArray(3)
+                            runCatching { SensorManager.getOrientation(r, orientation) }
+                            val deg = orientation.getOrNull(0)?.toDouble()?.let { Math.toDegrees(it) }?.toFloat() ?: return@runCatching
+                            if (!deg.isFinite()) return@runCatching
+                            azimuth = ((deg + 360f) % 360f)
+                            hasReading = true
+                        }
                     }
                 }
             }
             override fun onAccuracyChanged(sensor: Sensor?, accuracy: Int) = Unit
         }
-        sensorManager.registerListener(listener, accelerometer, SensorManager.SENSOR_DELAY_UI)
-        sensorManager.registerListener(listener, magnetometer, SensorManager.SENSOR_DELAY_UI)
-        onDispose { sensorManager.unregisterListener(listener) }
+        runCatching { sensorManager.registerListener(listener, accelerometer, SensorManager.SENSOR_DELAY_UI) }
+        runCatching { sensorManager.registerListener(listener, magnetometer, SensorManager.SENSOR_DELAY_UI) }
+        onDispose { runCatching { sensorManager.unregisterListener(listener) } }
     }
     val primary = MaterialTheme.colorScheme.primary
     val onSurface = MaterialTheme.colorScheme.onSurface
@@ -185,12 +205,17 @@ fun CompassScreen() {
 @Composable
 fun LevelScreen() {
     val context = LocalContext.current
-    val sensorManager = remember { context.getSystemService(Context.SENSOR_SERVICE) as SensorManager }
-    val accelerometer = remember(sensorManager) { sensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER) }
+    val sensorManager = remember {
+        runCatching { context.getSystemService(Context.SENSOR_SERVICE) as SensorManager }.getOrNull()
+    }
+    val accelerometer = remember(sensorManager) {
+        val mgr = sensorManager ?: return@remember null
+        runCatching { mgr.getDefaultSensor(Sensor.TYPE_ACCELEROMETER) }.getOrNull()
+    }
     var pitch by remember { mutableFloatStateOf(0f) }
     var roll by remember { mutableFloatStateOf(0f) }
     var hasReading by remember { mutableStateOf(false) }
-    if (accelerometer == null) {
+    if (sensorManager == null || accelerometer == null) {
         SectionCard("Spirit level") {
             Text(
                 "Spirit level needs an accelerometer, which this device lacks.",
@@ -201,19 +226,28 @@ fun LevelScreen() {
         return
     }
     DisposableEffect(Unit) {
-        val listener = object : SensorEventListener {
-            override fun onSensorChanged(event: SensorEvent) {
-                val ax = event.values[0]
-                val ay = event.values[1]
-                val az = event.values[2]
-                pitch = Math.toDegrees(atan2(-ax.toDouble(), sqrt((ay * ay + az * az).toDouble()))).toFloat()
-                roll = Math.toDegrees(atan2(ay.toDouble(), az.toDouble())).toFloat()
-                hasReading = true
+        val mgr = sensorManager
+        val sensor = accelerometer
+        if (mgr == null || sensor == null) {
+            onDispose { }
+        } else {
+            val listener = object : SensorEventListener {
+                override fun onSensorChanged(event: SensorEvent) {
+                    runCatching {
+                        val ax = event.values.getOrNull(0) ?: return@runCatching
+                        val ay = event.values.getOrNull(1) ?: return@runCatching
+                        val az = event.values.getOrNull(2) ?: return@runCatching
+                        if (!ax.isFinite() || !ay.isFinite() || !az.isFinite()) return@runCatching
+                        pitch = Math.toDegrees(atan2(-ax.toDouble(), sqrt((ay * ay + az * az).toDouble()))).toFloat()
+                        roll = Math.toDegrees(atan2(ay.toDouble(), az.toDouble())).toFloat()
+                        if (pitch.isFinite() && roll.isFinite()) hasReading = true
+                    }
+                }
+                override fun onAccuracyChanged(sensor: Sensor?, accuracy: Int) = Unit
             }
-            override fun onAccuracyChanged(sensor: Sensor?, accuracy: Int) = Unit
+            runCatching { mgr.registerListener(listener, sensor, SensorManager.SENSOR_DELAY_UI) }
+            onDispose { runCatching { mgr.unregisterListener(listener) } }
         }
-        sensorManager.registerListener(listener, accelerometer, SensorManager.SENSOR_DELAY_UI)
-        onDispose { sensorManager.unregisterListener(listener) }
     }
     val primary = MaterialTheme.colorScheme.primary
     val onSurfaceVariant = MaterialTheme.colorScheme.onSurfaceVariant

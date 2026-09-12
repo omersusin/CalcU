@@ -111,4 +111,64 @@ class FinanceTest {
     @Test fun zakatBelowNisab() {
         assertEquals(0.0, Finance.zakat(1000.0, 0.0, 5000.0), 1e-9)
     }
+
+    @Test fun edgeCasesSafe() {
+        assertEquals(0.0, Finance.emi(1000.0, 5.0, 0), 0.0)
+        assertEquals(0.0, Finance.unitPrice(10.0, 0.0), 0.0)
+        try {
+            Finance.compound(100.0, 5.0, 1.0, 0)
+            fail("expected IAE")
+        } catch (e: IllegalArgumentException) { }
+        try {
+            Finance.withTax(100.0, -100.0, true)
+            fail("expected IAE")
+        } catch (e: IllegalArgumentException) { }
+        try {
+            Finance.rule72(0.0)
+            fail("expected IAE")
+        } catch (e: IllegalArgumentException) { }
+        try {
+            Finance.sip(100.0, 5.0, 0.0)
+            fail("expected IAE")
+        } catch (e: IllegalArgumentException) { }
+    }
+
+    @Test fun crashHardeningEdges() {
+        assertEquals(0.0, Finance.emi(1000.0, 5.0, -3), 0.0)
+        assertEquals(0.0, Finance.profitMargin(50.0, 0.0), 0.0)
+        assertEquals(0.0, Finance.gpa(emptyList()), 0.0)
+        assertEquals(Triple(0, 0.0, 0.0), Finance.creditPayoff(0.0, 12.0, 100.0))
+        try {
+            Finance.rentVsBuy(1500.0, 3.0, 300000.0, 20.0, 6.0, 101)
+            fail("expected IAE")
+        } catch (e: IllegalArgumentException) { }
+        try {
+            Finance.rentVsBuy(1500.0, 3.0, 300000.0, 20.0, 6.0, 1e10)
+            fail("expected IAE")
+        } catch (e: IllegalArgumentException) { }
+        try {
+            Finance.amortization(1000.0, 5.0, 0)
+            fail("expected IAE")
+        } catch (e: IllegalArgumentException) { }
+        try {
+            Finance.amortization(1000.0, 5.0, 1201)
+            fail("expected IAE")
+        } catch (e: IllegalArgumentException) { }
+        try {
+            Finance.gradeNeeded(80.0, 100.0, 90.0)
+            fail("expected IAE")
+        } catch (e: IllegalArgumentException) { }
+        try {
+            Finance.creditPayoff(10000.0, 24.0, 1.0)
+            fail("expected IAE")
+        } catch (e: IllegalArgumentException) { }
+        try {
+            Finance.cagr(0.0, 100.0, 5.0)
+            fail("expected IAE")
+        } catch (e: IllegalArgumentException) { }
+        try {
+            Finance.rule72(-5.0)
+            fail("expected IAE")
+        } catch (e: IllegalArgumentException) { }
+    }
 }

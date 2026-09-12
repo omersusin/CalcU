@@ -148,20 +148,20 @@ fun ResistorScreen() {
                     Box(Modifier.weight(1f)) { CalcUNumberBox(value = r1, onValueChange = { r1 = it }, label = "R1 Ω") }
                     Box(Modifier.weight(1f)) { CalcUNumberBox(value = r2, onValueChange = { r2 = it }, label = "R2 Ω") }
                 }
-                ResultLine("Vout", vout?.let { "%.4f V".format(it) } ?: "—")
+                ResultLine("Vout", vout?.let { runCatching { "%.4f V".format(it) }.getOrDefault("—") } ?: "—")
                 HorizontalDivider()
                 Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                     Box(Modifier.weight(1f)) { CalcUNumberBox(value = vs, onValueChange = { vs = it }, label = "Vsupply") }
                     Box(Modifier.weight(1f)) { CalcUNumberBox(value = vf, onValueChange = { vf = it }, label = "Vf") }
                     Box(Modifier.weight(1f)) { CalcUNumberBox(value = ma, onValueChange = { ma = it }, label = "mA") }
                 }
-                ResultLine("R LED", rled?.let { "%.2f Ω".format(it) } ?: "—")
+                ResultLine("R LED", rled?.let { runCatching { "%.2f Ω".format(it) }.getOrDefault("—") } ?: "—")
                 HorizontalDivider()
                 Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                     Box(Modifier.weight(1f)) { CalcUNumberBox(value = rrc, onValueChange = { rrc = it }, label = "R Ω") }
                     Box(Modifier.weight(1f)) { CalcUNumberBox(value = crc, onValueChange = { crc = it }, label = "C F") }
                 }
-                ResultLine("τ = RC", tau?.let { "%.6f s".format(it) } ?: "—")
+                ResultLine("τ = RC", tau?.let { runCatching { "%.6f s".format(it) }.getOrDefault("—") } ?: "—")
             }
         }
     }

@@ -121,8 +121,9 @@ class MainActivity : ComponentActivity() {
                     } ?: "calc"
                     var route by remember { mutableStateOf(startRoute) }
                     fun go(r: String) {
-                        route = r
-                        nav.navigate(r) { launchSingleTop = true; popUpTo("calc") }
+                        val safe = r.takeIf { it in setOf("calc", "graph", "convert", "finance", "math", "steps", "time", "electro", "textdata", "everyday", "sensors", "tools", "settings") } ?: return
+                        route = safe
+                        runCatching { nav.navigate(safe) { launchSingleTop = true; popUpTo("calc") } }
                     }
                     BoxWithConstraints(Modifier.fillMaxSize()) {
                         val expanded = maxWidth >= 1008.dp

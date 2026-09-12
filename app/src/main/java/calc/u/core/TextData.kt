@@ -10,13 +10,21 @@ import java.util.UUID
 
 object TextData {
     fun sha256(text: String): String {
-        val digest = MessageDigest.getInstance("SHA-256").digest(text.toByteArray(Charsets.UTF_8))
-        return digest.joinToString("") { "%02x".format(it) }
+        try {
+            val digest = MessageDigest.getInstance("SHA-256").digest(text.toByteArray(Charsets.UTF_8))
+            return digest.joinToString("") { "%02x".format(it) }
+        } catch (e: java.security.NoSuchAlgorithmException) {
+            throw IllegalArgumentException("SHA-256 unavailable", e)
+        }
     }
 
     fun md5(text: String): String {
-        val digest = MessageDigest.getInstance("MD5").digest(text.toByteArray(Charsets.UTF_8))
-        return digest.joinToString("") { "%02x".format(it) }
+        try {
+            val digest = MessageDigest.getInstance("MD5").digest(text.toByteArray(Charsets.UTF_8))
+            return digest.joinToString("") { "%02x".format(it) }
+        } catch (e: java.security.NoSuchAlgorithmException) {
+            throw IllegalArgumentException("MD5 unavailable", e)
+        }
     }
 
     fun base64Encode(text: String): String =
@@ -39,9 +47,17 @@ object TextData {
     fun uuid(): String = UUID.randomUUID().toString()
 
     fun qrMatrix(text: String, size: Int): BitMatrix {
+        require(size > 0) { "size must be > 0" }
+        require(size <= 2000) { "size must be <= 2000" }
+        require(text.isNotEmpty()) { "text must not be empty" }
+        require(text.length <= 5000) { "text too long for QR" }
         try {
             return QRCodeWriter().encode(text, BarcodeFormat.QR_CODE, size, size)
         } catch (e: WriterException) {
+            throw IllegalArgumentException(e.message, e)
+        } catch (e: IllegalArgumentException) {
+            throw e
+        } catch (e: Exception) {
             throw IllegalArgumentException(e.message, e)
         }
     }
@@ -58,11 +74,25 @@ object TextData {
         }
     }
 
-    fun urlEncode(text: String): String =
-        java.net.URLEncoder.encode(text, "UTF-8").replace("+", "%20")
+    fun urlEncode(text: String): String {
+        try {
+            return java.net.URLEncoder.encode(text, "UTF-8").replace("+", "%20")
+        } catch (e: java.io.UnsupportedEncodingException) {
+            throw IllegalArgumentException("UTF-8 unavailable", e)
+        }
+    }
 
-    fun urlDecode(text: String): String =
-        java.net.URLDecoder.decode(text, "UTF-8")
+    fun urlDecode(text: String): String {
+        try {
+            return java.net.URLDecoder.decode(text, "UTF-8")
+        } catch (e: java.io.UnsupportedEncodingException) {
+            throw IllegalArgumentException("UTF-8 unavailable", e)
+        } catch (e: IllegalArgumentException) {
+            throw e
+        } catch (e: Exception) {
+            throw IllegalArgumentException(e.message, e)
+        }
+    }
 
     private val morseMap: Map<Char, String> = mapOf(
         'A' to ".-", 'B' to "-...", 'C' to "-.-.", 'D' to "-..",
@@ -179,10 +209,18 @@ object TextData {
     fun unixNow(): Long = System.currentTimeMillis() / 1000
 
     fun unixToDate(ts: Long): String {
-        val instant = java.time.Instant.ofEpochSecond(ts)
-        val zone = java.time.ZoneId.systemDefault()
-        val dt = java.time.LocalDateTime.ofInstant(instant, zone)
-        return dt.format(java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"))
+        try {
+            val instant = java.time.Instant.ofEpochSecond(ts)
+            val zone = java.time.ZoneId.systemDefault()
+            val dt = java.time.LocalDateTime.ofInstant(instant, zone)
+            return dt.format(java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"))
+        } catch (e: java.time.DateTimeException) {
+            throw IllegalArgumentException("timestamp out of range: $ts")
+        } catch (e: ArithmeticException) {
+            throw e
+        } catch (e: Exception) {
+            throw IllegalArgumentException(e.message, e)
+        }
     }
 
     fun caesar(text: String, shift: Int, encrypt: Boolean): String {

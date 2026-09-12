@@ -114,4 +114,74 @@ class UnitExprTest {
         assertEquals(1.0, UnitExpr.convertExpr(1.0, "revolution", "turn"), 1e-12)
         assertEquals(1.0 / 60.0, UnitExpr.convertExpr(1.0, "arcmin", "deg"), 1e-12)
     }
+
+    @Test fun emptyExpressionThrows() {
+        assertEquals(1.0, UnitExpr.evaluate("").factor, 0.0)
+        assertEquals(1.0, UnitExpr.evaluate("   ").factor, 0.0)
+        try {
+            UnitExpr.evaluate("/")
+            fail("expected IAE")
+        } catch (e: IllegalArgumentException) { }
+        try {
+            UnitExpr.evaluate("(")
+            fail("expected IAE")
+        } catch (e: IllegalArgumentException) { }
+    }
+
+    @Test fun unknownUnitThrows() {
+        try {
+            UnitExpr.convertExpr(1.0, "furlongg", "m")
+            fail("expected IAE")
+        } catch (e: IllegalArgumentException) { }
+        try {
+            UnitExpr.evaluate("!!")
+            fail("expected IAE")
+        } catch (e: IllegalArgumentException) { }
+    }
+
+    @Test fun hugeExponentOutOfRangeThrows() {
+        try {
+            UnitExpr.evaluate("m^99999999999999999999")
+            fail("expected IAE")
+        } catch (e: IllegalArgumentException) { }
+        try {
+            UnitExpr.evaluate("m^2.5")
+            fail("expected IAE")
+        } catch (e: IllegalArgumentException) { }
+    }
+
+    @Test fun crashHardeningEdges() {
+        assertEquals(1.0, UnitExpr.evaluate("1").factor, 0.0)
+        assertEquals(1.0, UnitExpr.evaluate("unitless").factor, 0.0)
+        assertEquals(1.0, UnitExpr.evaluate("dimensionless").factor, 0.0)
+        try {
+            UnitExpr.evaluate("m/0")
+            fail("expected AE")
+        } catch (e: ArithmeticException) { }
+        try {
+            UnitExpr.evaluate("(m")
+            fail("expected IAE")
+        } catch (e: IllegalArgumentException) { }
+        try {
+            UnitExpr.evaluate("m)")
+            fail("expected IAE")
+        } catch (e: IllegalArgumentException) { }
+        try {
+            UnitExpr.evaluate("m*")
+            fail("expected IAE")
+        } catch (e: IllegalArgumentException) { }
+        try {
+            UnitExpr.convertExpr(1.0, "m", "")
+            fail("expected IAE")
+        } catch (e: IllegalArgumentException) { }
+        try {
+            UnitExpr.convertExpr(1.0, "", "m")
+            fail("expected IAE")
+        } catch (e: IllegalArgumentException) { }
+        try {
+            UnitExpr.evaluate("bogusunit")
+            fail("expected IAE")
+        } catch (e: IllegalArgumentException) { }
+        assertEquals(1000.0, UnitExpr.convertExpr(1.0, "km", "m"), 1e-9)
+    }
 }

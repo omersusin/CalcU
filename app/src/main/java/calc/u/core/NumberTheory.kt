@@ -6,7 +6,7 @@ object NumberTheory {
         var result = n
         var x = n
         var p = 2L
-        while (p * p <= x) {
+        while (p <= x / p) {
             if (x % p == 0L) {
                 while (x % p == 0L) x /= p
                 result -= result / p
@@ -25,10 +25,18 @@ object NumberTheory {
         var newR = ((a % m) + m) % m
         while (newR != 0L) {
             val q = r / newR
-            val tmpT = t - q * newT
+            val tmpT = try {
+                Math.subtractExact(t, Math.multiplyExact(q, newT))
+            } catch (e: ArithmeticException) {
+                throw ArithmeticException("modular inverse overflow")
+            }
             t = newT
             newT = tmpT
-            val tmpR = r - q * newR
+            val tmpR = try {
+                Math.subtractExact(r, Math.multiplyExact(q, newR))
+            } catch (e: ArithmeticException) {
+                throw ArithmeticException("modular inverse overflow")
+            }
             r = newR
             newR = tmpR
         }
@@ -46,7 +54,7 @@ object NumberTheory {
             x /= 2L
         }
         var p = 3L
-        while (p * p <= x) {
+        while (p <= x / p) {
             while (x % p == 0L) {
                 out.add(p)
                 x /= p
@@ -75,7 +83,13 @@ object NumberTheory {
         var x = n
         var steps = 0
         while (x != 1L) {
-            x = if (x % 2L == 0L) x / 2 else 3 * x + 1
+            require(steps < 100000) { "collatz did not converge" }
+            x = if (x % 2L == 0L) {
+                x / 2
+            } else {
+                if (x > (Long.MAX_VALUE - 1) / 3) throw ArithmeticException("collatz overflow")
+                3 * x + 1
+            }
             steps++
         }
         return steps

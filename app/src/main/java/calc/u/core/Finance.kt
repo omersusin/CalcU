@@ -11,7 +11,9 @@ object Finance {
 
     fun withTax(amount: Double, rate: Double, inclusive: Boolean): Pair<Double, Double> {
         return if (inclusive) {
-            val net = amount / (1 + rate / 100)
+            val denom = 1 + rate / 100
+            require(denom != 0.0) { "rate must not be -100" }
+            val net = amount / denom
             Pair(net, amount - net)
         } else {
             val tax = amount * rate / 100
@@ -24,11 +26,14 @@ object Finance {
         val r = annualRate / 1200
         if (r == 0.0) return principal / months
         val f = (1 + r).pow(months)
+        if (f == 1.0) return principal / months
         return principal * r * f / (f - 1)
     }
 
-    fun compound(principal: Double, annualRate: Double, years: Double, perYear: Int = 12): Double =
-        principal * (1 + annualRate / 100 / perYear).pow(perYear * years)
+    fun compound(principal: Double, annualRate: Double, years: Double, perYear: Int = 12): Double {
+        require(perYear > 0) { "perYear must be > 0" }
+        return principal * (1 + annualRate / 100 / perYear).pow(perYear * years)
+    }
 
     fun simple(principal: Double, annualRate: Double, years: Double): Pair<Double, Double> {
         val interest = principal * annualRate / 100 * years
@@ -82,6 +87,7 @@ object Finance {
 
     fun amortization(principal: Double, annualRatePct: Double, months: Int): List<Triple<Int, Double, Double>> {
         require(months > 0) { "months must be > 0" }
+        require(months <= 1200) { "months must be <= 1200" }
         require(principal >= 0.0) { "principal must be >= 0" }
         val r = annualRatePct / 1200
         val payment = emi(principal, annualRatePct, months)
@@ -150,6 +156,7 @@ object Finance {
         require(homePrice >= 0.0) { "homePrice must be >= 0" }
         require(downPct >= 0.0) { "downPct must be >= 0" }
         require(years > 0) { "years must be > 0" }
+        require(years <= 100) { "years must be <= 100" }
         val g = rentGrowthPct / 100
         var totalRent = 0.0
         for (y in 0 until years) {
@@ -168,6 +175,7 @@ object Finance {
         require(homePrice >= 0.0) { "homePrice must be >= 0" }
         require(downPct >= 0.0) { "downPct must be >= 0" }
         require(years > 0.0) { "years must be > 0" }
+        require(years <= 100.0) { "years must be <= 100" }
         val nYears = years.toInt()
         require(nYears > 0) { "years must be > 0" }
         return rentVsBuy(monthlyRent, rentGrowthPct, homePrice, downPct, mortgageRatePct, nYears)

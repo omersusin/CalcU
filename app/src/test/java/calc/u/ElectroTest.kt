@@ -37,4 +37,51 @@ class ElectroTest {
         } catch (e: IllegalArgumentException) {
         }
     }
+
+    @Test fun decodeInvalidColorsThrow() {
+        try {
+            Electro.decode4Band(listOf("red", "green"))
+            fail("expected IAE")
+        } catch (e: IllegalArgumentException) { }
+        try {
+            Electro.decode4Band(listOf("pink", "black", "red", "gold"))
+            fail("expected IAE")
+        } catch (e: IllegalArgumentException) { }
+        try {
+            Electro.decode5Band(listOf("brown", "black", "black", "red", "pink"))
+            fail("expected IAE")
+        } catch (e: IllegalArgumentException) { }
+    }
+
+    @Test fun crashHardeningEdges() {
+        assertEquals("4.7kΩ ±5%", Electro.decode4Band(listOf(" Yellow ", "VIOLET", "Red", "Gold")))
+        try {
+            Electro.decode4Band(listOf("yellow", "violet", "red", "pink"))
+            fail("expected IAE")
+        } catch (e: IllegalArgumentException) { }
+        try {
+            Electro.decode5Band(listOf("gold", "black", "black", "red", "brown"))
+            fail("expected IAE")
+        } catch (e: IllegalArgumentException) { }
+        try {
+            Electro.ledResistor(2.0, 2.0, 20.0)
+            fail("expected IAE")
+        } catch (e: IllegalArgumentException) { }
+        try {
+            Electro.ledResistor(9.0, 2.0, 0.0)
+            fail("expected IAE")
+        } catch (e: IllegalArgumentException) { }
+        try {
+            Electro.ledResistor(9.0, -1.0, 20.0)
+            fail("expected IAE")
+        } catch (e: IllegalArgumentException) { }
+        try {
+            Electro.rcTimeConstant(0.0, 1e-6)
+            fail("expected IAE")
+        } catch (e: IllegalArgumentException) { }
+        try {
+            Electro.voltageDivider(Double.NaN, 1000.0, 1000.0)
+            fail("expected IAE")
+        } catch (e: IllegalArgumentException) { }
+    }
 }

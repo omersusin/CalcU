@@ -11,6 +11,7 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.serialization.Serializable
@@ -59,15 +60,15 @@ class CryptoRepository @Inject constructor(@ApplicationContext private val ctx: 
     val source: StateFlow<RateSource> = _source.asStateFlow()
 
     val prices: Flow<Map<String, CoinPrice>> = ctx.cryptoDataStore.data.map { prefs ->
-        val raw = prefs[pricesKey]
+        val raw = runCatching { prefs[pricesKey] }.getOrNull()
         if (raw.isNullOrEmpty()) emptyMap()
         else runCatching { json.decodeFromString<Map<String, CoinPrice>>(raw) }.getOrNull()?.takeIf { it.isNotEmpty() } ?: emptyMap()
-    }
+    }.catch { emit(emptyMap()) }
 
     val isStale: Flow<Boolean> = ctx.cryptoDataStore.data.map { prefs ->
-        val ts = prefs[tsKey] ?: 0L
-        System.currentTimeMillis() - ts > STALE_MS
-    }
+        val ts = runCatching { prefs[tsKey] }.getOrNull() ?: 0L
+        runCatching { System.currentTimeMillis() - ts > STALE_MS }.getOrDefault(true)
+    }.catch { emit(true) }
 
     suspend fun refresh(): RateSource {
         return try {
@@ -77,9 +78,11 @@ class CryptoRepository @Inject constructor(@ApplicationContext private val ctx: 
                 include24hChange = true
             )
             if (res.isEmpty()) throw IllegalStateException("empty prices")
-            ctx.cryptoDataStore.edit {
-                it[pricesKey] = json.encodeToString(res)
-                it[tsKey] = System.currentTimeMillis()
+            runCatching {
+                ctx.cryptoDataStore.edit {
+                    it[pricesKey] = runCatching { json.encodeToString(res) }.getOrDefault("{}")
+                    it[tsKey] = System.currentTimeMillis()
+                }
             }
             _source.value = RateSource.LIVE
             RateSource.LIVE

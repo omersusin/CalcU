@@ -92,4 +92,80 @@ class TextDataTest {
             // expected
         }
     }
+
+    @Test fun badInputsThrowIAEOnly() {
+        try {
+            TextData.base64Decode("!!!")
+            fail("expected IAE")
+        } catch (e: IllegalArgumentException) { }
+        try {
+            TextData.qrMatrix("abc", 0)
+            fail("expected IAE")
+        } catch (e: IllegalArgumentException) { }
+        try {
+            TextData.qrMatrix("", 200)
+            fail("expected IAE")
+        } catch (e: IllegalArgumentException) { }
+        try {
+            TextData.morseEncode("~")
+            fail("expected IAE")
+        } catch (e: IllegalArgumentException) { }
+        try {
+            TextData.binaryToText("zzzz")
+            fail("expected IAE")
+        } catch (e: IllegalArgumentException) { }
+        try {
+            TextData.jsonPretty("{\"a\":")
+            fail("expected IAE")
+        } catch (e: IllegalArgumentException) { }
+        try {
+            TextData.unixToDate(Long.MAX_VALUE)
+            fail("expected IAE")
+        } catch (e: IllegalArgumentException) { }
+        assertEquals("", TextData.morseEncode("   "))
+        assertEquals("", TextData.binaryToText("   "))
+    }
+
+    @Test fun crashHardeningEdges() {
+        assertEquals("", TextData.base64Decode(TextData.base64Encode("")))
+        assertEquals(0, TextData.wordCount("   "))
+        assertEquals(0, TextData.lineCount(""))
+        assertEquals("", TextData.titleCase("   "))
+        assertEquals("", TextData.textToBinary(""))
+        assertEquals("", TextData.textToHex(""))
+        assertEquals("abc", TextData.caesar("abc", 0, true))
+        assertEquals("", TextData.xorHex("", "key"))
+        try {
+            TextData.qrMatrix("abc", 5000)
+            fail("expected IAE")
+        } catch (e: IllegalArgumentException) { }
+        try {
+            TextData.qrMatrix("x".repeat(6000), 200)
+            fail("expected IAE")
+        } catch (e: IllegalArgumentException) { }
+        try {
+            TextData.morseDecode(".....---")
+            fail("expected IAE")
+        } catch (e: IllegalArgumentException) { }
+        try {
+            TextData.morseDecode("... --- ... / ???")
+            fail("expected IAE")
+        } catch (e: IllegalArgumentException) { }
+        try {
+            TextData.regexTest("[", "abc")
+            fail("expected IAE")
+        } catch (e: IllegalArgumentException) { }
+        try {
+            TextData.urlDecode("%ZZ")
+            fail("expected IAE")
+        } catch (e: IllegalArgumentException) { }
+        try {
+            TextData.jsonPretty("{]")
+            fail("expected IAE")
+        } catch (e: IllegalArgumentException) { }
+        try {
+            TextData.jsonPretty("\"abc")
+            fail("expected IAE")
+        } catch (e: IllegalArgumentException) { }
+    }
 }

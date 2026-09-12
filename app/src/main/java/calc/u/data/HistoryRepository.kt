@@ -6,6 +6,7 @@ import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.map
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
@@ -19,49 +20,57 @@ class HistoryRepository @Inject constructor(@ApplicationContext private val ctx:
     private val key = stringPreferencesKey("history")
     val history: Flow<List<String>> = ctx.dataStore.data.map {
         try { Json.decodeFromString<List<String>>(it[key] ?: "[]") } catch (e: Exception) { emptyList() }
-    }
+    }.catch { emit(emptyList()) }
     suspend fun push(expr: String, result: String) {
-        val entry = "${System.currentTimeMillis()}|$expr=$result|"
-        ctx.dataStore.edit { p ->
-            val cur: MutableList<String> = try { Json.decodeFromString<MutableList<String>>(p[key] ?: "[]") } catch (e: Exception) { mutableListOf() }
-            cur.add(0, entry)
-            p[key] = Json.encodeToString(cur.take(200))
+        runCatching {
+            val entry = "${System.currentTimeMillis()}|$expr=$result|"
+            ctx.dataStore.edit { p ->
+                val cur: MutableList<String> = try { Json.decodeFromString<MutableList<String>>(p[key] ?: "[]") } catch (e: Exception) { mutableListOf() }
+                cur.add(0, entry)
+                p[key] = runCatching { Json.encodeToString(cur.take(200)) }.getOrDefault("[]")
+            }
         }
     }
     fun search(q: String): Flow<List<String>> = history.map { list ->
         if (q.isBlank()) list else list.filter { it.contains(q, ignoreCase = true) }
     }
     suspend fun deleteAt(index: Int) {
-        ctx.dataStore.edit { p ->
-            val cur: MutableList<String> = try { Json.decodeFromString<MutableList<String>>(p[key] ?: "[]") } catch (e: Exception) { mutableListOf() }
-            if (index in cur.indices) cur.removeAt(index)
-            p[key] = Json.encodeToString(cur.take(200))
+        runCatching {
+            ctx.dataStore.edit { p ->
+                val cur: MutableList<String> = try { Json.decodeFromString<MutableList<String>>(p[key] ?: "[]") } catch (e: Exception) { mutableListOf() }
+                if (index in cur.indices) cur.removeAt(index)
+                p[key] = runCatching { Json.encodeToString(cur.take(200)) }.getOrDefault("[]")
+            }
         }
     }
     suspend fun setNote(index: Int, note: String) {
-        val clean = note.replace("|", "/").replace("\n", " ").take(140)
-        ctx.dataStore.edit { p ->
-            val cur: MutableList<String> = try { Json.decodeFromString<MutableList<String>>(p[key] ?: "[]") } catch (e: Exception) { mutableListOf() }
-            if (index in cur.indices) {
-                val parts = cur[index].split("|", limit = 3)
-                val ts = parts.getOrNull(0) ?: System.currentTimeMillis().toString()
-                val body = parts.getOrNull(1) ?: ""
-                cur[index] = "$ts|$body|$clean"
+        runCatching {
+            val clean = runCatching { note.replace("|", "/").replace("\n", " ").take(140) }.getOrDefault("")
+            ctx.dataStore.edit { p ->
+                val cur: MutableList<String> = try { Json.decodeFromString<MutableList<String>>(p[key] ?: "[]") } catch (e: Exception) { mutableListOf() }
+                if (index in cur.indices) {
+                    val parts = runCatching { cur.getOrNull(index)?.split("|", limit = 3) }.getOrNull()
+                    val ts = parts?.getOrNull(0) ?: System.currentTimeMillis().toString()
+                    val body = parts?.getOrNull(1) ?: ""
+                    cur[index] = "$ts|$body|$clean"
+                }
+                p[key] = runCatching { Json.encodeToString(cur.take(200)) }.getOrDefault("[]")
             }
-            p[key] = Json.encodeToString(cur.take(200))
         }
     }
-    suspend fun clear() { ctx.dataStore.edit { it.remove(key) } }
+    suspend fun clear() { runCatching { ctx.dataStore.edit { it.remove(key) } } }
     fun activityLast14Days(): Flow<Map<Long, Int>> = history.map { list ->
-        val today = System.currentTimeMillis() / 86400000L
-        val counts = mutableMapOf<Long, Int>()
-        for (e in list) {
-            val ts = e.substringBefore("|").toLongOrNull() ?: continue
-            val day = ts / 86400000L
-            if (day in (today - 13)..today) {
-                counts[day] = (counts[day] ?: 0) + 1
+        runCatching {
+            val today = System.currentTimeMillis() / 86400000L
+            val counts = mutableMapOf<Long, Int>()
+            for (e in list) {
+                val ts = e.substringBefore("|").toLongOrNull() ?: continue
+                val day = ts / 86400000L
+                if (day in (today - 13)..today) {
+                    counts[day] = (counts[day] ?: 0) + 1
+                }
             }
-        }
-        counts.toMap()
-    }
+            counts.toMap()
+        }.getOrDefault(emptyMap())
+    }.catch { emit(emptyMap()) }
 }

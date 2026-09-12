@@ -204,4 +204,103 @@ class EngineTest {
     @Test fun clockAngle3() {
         assertEquals(90.0, calc.u.core.ClockAngle.angle(3, 0), 1e-9)
     }
+
+    @Test fun edgeCasesNoCrash() {
+        assertNull(Engine.toFraction(Double.NaN, 100))
+        assertNull(Engine.toFraction(1.5, 0))
+        assertNull(Engine.toFraction(Double.POSITIVE_INFINITY, 100))
+        try {
+            Engine.mean(listOf(1.0), "bogus")
+            fail("expected IAE")
+        } catch (e: IllegalArgumentException) { }
+    }
+
+    @Test fun emptyListThrowsIAE() {
+        try {
+            Engine.mean(emptyList())
+            fail("expected IAE")
+        } catch (e: IllegalArgumentException) { }
+        try {
+            Engine.statsMedian(emptyList())
+            fail("expected IAE")
+        } catch (e: IllegalArgumentException) { }
+        try {
+            Engine.statsMode(emptyList())
+            fail("expected IAE")
+        } catch (e: IllegalArgumentException) { }
+        try {
+            Engine.statsVariance(emptyList())
+            fail("expected IAE")
+        } catch (e: IllegalArgumentException) { }
+    }
+
+    @Test fun hugeCombinatoricsThrowIAE() {
+        try {
+            Engine.nCr(100001L, 2L)
+            fail("expected IAE")
+        } catch (e: IllegalArgumentException) { }
+        try {
+            Engine.nPr(100001L, 2L)
+            fail("expected IAE")
+        } catch (e: IllegalArgumentException) { }
+        try {
+            Engine.factorial(-1L)
+            fail("expected IAE")
+        } catch (e: IllegalArgumentException) { }
+        try {
+            Engine.numberToWords(-1L)
+            fail("expected IAE")
+        } catch (e: IllegalArgumentException) { }
+    }
+
+    @Test fun singular3x3NoUniqueSolution() {
+        val singular = listOf(listOf(1.0, 2.0, 3.0), listOf(1.0, 2.0, 3.0), listOf(4.0, 5.0, 6.0))
+        assertEquals(listOf("no unique solution"), Engine.solve3x3(singular, listOf(1.0, 2.0, 3.0)))
+        try {
+            Engine.solve3x3(listOf(listOf(1.0)), listOf(1.0))
+            fail("expected IAE")
+        } catch (e: IllegalArgumentException) { }
+    }
+
+    @Test fun crashHardeningEdges() {
+        assertTrue(Engine.eval("").isFailure)
+        assertTrue(Engine.eval("   ").isFailure)
+        assertTrue(Engine.eval("(").isFailure)
+        assertTrue(Engine.eval("2+").isSuccess)
+        assertTrue(Engine.eval("A".repeat(20001)).isFailure)
+        try {
+            Engine.mean(listOf(0.0, 1.0), "geometric")
+            fail("expected IAE")
+        } catch (e: IllegalArgumentException) { }
+        try {
+            Engine.mean(listOf(1.0, 0.0), "harmonic")
+            fail("expected IAE")
+        } catch (e: IllegalArgumentException) { }
+        try {
+            Engine.mean(listOf(-1.0, 2.0), "g")
+            fail("expected IAE")
+        } catch (e: IllegalArgumentException) { }
+        try {
+            Engine.nCr(100L, 50L)
+            fail("expected AE")
+        } catch (e: ArithmeticException) { }
+        try {
+            Engine.factorial(30L)
+            fail("expected AE")
+        } catch (e: ArithmeticException) { }
+        try {
+            Engine.toFraction(1e308, 1000)
+            fail("expected AE")
+        } catch (e: ArithmeticException) { }
+        try {
+            Engine.solve3x3(
+                listOf(listOf(Double.NaN, 0.0, 0.0), listOf(0.0, 1.0, 0.0), listOf(0.0, 0.0, 1.0)),
+                listOf(1.0, 2.0, 3.0)
+            )
+            fail("expected IAE")
+        } catch (e: IllegalArgumentException) { }
+        assertEquals(0L, Engine.gcd(0L, 0L))
+        assertEquals(0L, Engine.lcm(0L, 5L))
+        assertEquals(0.0, calc.u.core.VectorKit.dot(emptyList(), emptyList()), 0.0)
+    }
 }

@@ -141,7 +141,7 @@ private fun DiceCoinSection() {
                 Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                     Box(Modifier.weight(1f)) {
                         Button(
-                            onClick = { rolls.add(0, Engine.diceRoll(sides)) },
+                            onClick = { runCatching { Engine.diceRoll(sides.coerceIn(2, 100)) }.onSuccess { rolls.add(0, it) } },
                             modifier = Modifier.fillMaxWidth()
                         ) { Text("Roll d$sides") }
                     }
@@ -155,7 +155,7 @@ private fun DiceCoinSection() {
                 if (rolls.isEmpty()) {
                     ResultLine("History", "—")
                 } else {
-                    ResultLine("Last", "${rolls.first()}")
+                    ResultLine("Last", "${rolls.firstOrNull() ?: "—"}")
                     ResultLine("Rolls", "${rolls.size}")
                     HorizontalDivider()
                     rolls.take(20).forEachIndexed { i, r ->
@@ -170,11 +170,12 @@ private fun DiceCoinSection() {
                     Box(Modifier.weight(1f)) {
                         Button(
                             onClick = {
-                                val res = Engine.coinFlip()
-                                if (res == lastFlip) streakCount += 1 else streakCount = 1
-                                lastFlip = res
-                                streakLabel = res
-                                if (res == "Heads") heads += 1 else tails += 1
+                                runCatching { Engine.coinFlip() }.onSuccess { res ->
+                                    if (res == lastFlip) streakCount += 1 else streakCount = 1
+                                    lastFlip = res
+                                    streakLabel = res
+                                    if (res == "Heads") heads += 1 else tails += 1
+                                }
                             },
                             modifier = Modifier.fillMaxWidth()
                         ) { Text("Flip") }
@@ -344,10 +345,18 @@ private fun MetronomeSection() {
     LaunchedEffect(running, bpm, beats) {
         if (!running) return@LaunchedEffect
         beat = 0
-        while (true) {
-            haptics.performHapticFeedback(HapticFeedbackType.LongPress)
-            delay((60000f / bpm).toLong())
-            beat = (beat + 1) % beats
+        val safeBeats = beats.coerceIn(1, 12)
+        val interval = (60000f / bpm.coerceIn(1f, 600f)).toLong().coerceIn(50L, 5000L)
+        while (running) {
+            runCatching { haptics.performHapticFeedback(HapticFeedbackType.LongPress) }
+            try {
+                delay(interval)
+            } catch (e: kotlinx.coroutines.CancellationException) {
+                throw e
+            } catch (_: Exception) {
+                break
+            }
+            beat = (beat + 1) % safeBeats.coerceAtLeast(1)
         }
     }
     LazyColumn(Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(16.dp)) {
@@ -372,7 +381,7 @@ private fun MetronomeSection() {
                     horizontalArrangement = Arrangement.spacedBy(12.dp, Alignment.CenterHorizontally),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    repeat(beats) { i ->
+                    repeat(beats.coerceIn(1, 12)) { i ->
                         Box(
                             Modifier.size(20.dp).clip(CircleShape).background(
                                 MaterialTheme.colorScheme.primary.copy(

@@ -29,23 +29,27 @@ data class Backup(
 @Singleton
 class BackupRepository @Inject constructor(@ApplicationContext private val ctx: Context) {
     suspend fun export(): String {
-        val hprefs = ctx.backupHistoryStore.data.first()
-        val history = try {
-            Json.decodeFromString<List<String>>(hprefs[stringPreferencesKey("history")] ?: "[]")
-        } catch (e: Exception) {
-            emptyList()
-        }
-        val sprefs = ctx.backupSettingsStore.data.first()
-        val theme = sprefs[stringPreferencesKey("theme")] ?: "system"
-        val vibration = sprefs[booleanPreferencesKey("vibration")] ?: true
-        val uprefs = ctx.backupUnitsStore.data.first()
-        val favorites: Map<String, Set<String>> = uprefs.asMap().entries.mapNotNull { e ->
-            if (!e.key.name.startsWith("fav_")) null
-            else e.key.name.removePrefix("fav_") to (
-                (e.value as? Set<*>)?.mapNotNull { it as? String }?.toSet() ?: emptySet<String>()
-            )
-        }.toMap()
-        return Json.encodeToString(Backup(history, theme, vibration, favorites))
+        return runCatching {
+            val hprefs = runCatching { ctx.backupHistoryStore.data.first() }.getOrNull()
+            val history = try {
+                Json.decodeFromString<List<String>>(hprefs?.get(stringPreferencesKey("history")) ?: "[]")
+            } catch (e: Exception) {
+                emptyList()
+            }
+            val sprefs = runCatching { ctx.backupSettingsStore.data.first() }.getOrNull()
+            val theme = sprefs?.get(stringPreferencesKey("theme")) ?: "system"
+            val vibration = sprefs?.get(booleanPreferencesKey("vibration")) ?: true
+            val uprefs = runCatching { ctx.backupUnitsStore.data.first() }.getOrNull()
+            val favorites: Map<String, Set<String>> = runCatching {
+                uprefs?.asMap()?.entries?.mapNotNull { e ->
+                    if (!e.key.name.startsWith("fav_")) null
+                    else e.key.name.removePrefix("fav_") to (
+                        (e.value as? Set<*>)?.mapNotNull { it as? String }?.toSet() ?: emptySet<String>()
+                    )
+                }?.toMap() ?: emptyMap()
+            }.getOrDefault(emptyMap())
+            Json.encodeToString(Backup(history, theme, vibration, favorites))
+        }.getOrDefault("{\"history\":[],\"theme\":\"system\",\"vibration\":true,\"favorites\":{}}")
     }
 
     suspend fun import(json: String): Int {
@@ -57,21 +61,32 @@ class BackupRepository @Inject constructor(@ApplicationContext private val ctx: 
         require(backup.history.size < 10000) { "Invalid file" }
         require(backup.favorites.size < 10000) { "Invalid file" }
         require(backup.favorites.values.all { it.size < 10000 }) { "Invalid file" }
-        ctx.backupHistoryStore.edit {
-            it[stringPreferencesKey("history")] = Json.encodeToString(backup.history)
-        }
-        ctx.backupSettingsStore.edit {
-            it[stringPreferencesKey("theme")] = backup.theme
-            it[booleanPreferencesKey("vibration")] = backup.vibration
-        }
-        ctx.backupUnitsStore.edit { prefs ->
-            prefs.asMap().keys.map { it.name }
-                .filter { it.startsWith("fav_") }
-                .forEach { prefs.remove(stringSetPreferencesKey(it)) }
-            backup.favorites.forEach { (cat, set) ->
-                prefs[stringSetPreferencesKey("fav_$cat")] = set
+        require(backup.theme.length < 100) { "Invalid file" }
+        val safeHistory = backup.history.take(10000)
+        val safeFavorites = backup.favorites.toList().take(10000).toMap()
+            .mapValues { (_, v) -> v.take(10000).toSet() }
+        runCatching {
+            ctx.backupHistoryStore.edit {
+                it[stringPreferencesKey("history")] = runCatching { Json.encodeToString(safeHistory) }.getOrDefault("[]")
             }
         }
-        return backup.history.size + backup.favorites.values.sumOf { it.size }
+        runCatching {
+            ctx.backupSettingsStore.edit {
+                it[stringPreferencesKey("theme")] = backup.theme
+                it[booleanPreferencesKey("vibration")] = backup.vibration
+            }
+        }
+        runCatching {
+            ctx.backupUnitsStore.edit { prefs ->
+                prefs.asMap().keys.map { it.name }
+                    .filter { it.startsWith("fav_") }
+                    .forEach { prefs.remove(stringSetPreferencesKey(it)) }
+                safeFavorites.forEach { (cat, set) ->
+                    val safeCat = cat.take(100)
+                    prefs[stringSetPreferencesKey("fav_$safeCat")] = set.map { it.take(100) }.toSet()
+                }
+            }
+        }
+        return safeHistory.size + safeFavorites.values.sumOf { it.size }
     }
 }

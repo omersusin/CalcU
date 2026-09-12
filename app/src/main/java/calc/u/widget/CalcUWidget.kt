@@ -20,33 +20,37 @@ private val Context.widgetStore by preferencesDataStore("calcu")
 
 class CalcUWidget : AppWidgetProvider() {
     override fun onUpdate(context: Context, appWidgetManager: AppWidgetManager, appWidgetIds: IntArray) {
-        val pending = goAsync()
+        val pending = runCatching { goAsync() }.getOrNull()
         CoroutineScope(Dispatchers.IO).launch {
             try {
                 val prefs = context.widgetStore.data.first()
-                val raw = prefs[stringPreferencesKey("history")] ?: "[]"
+                val raw = runCatching { prefs[stringPreferencesKey("history")] }.getOrNull() ?: "[]"
                 val list = try {
                     Json.decodeFromString<List<String>>(raw)
                 } catch (_: Exception) {
                     emptyList()
                 }
-                val text = list.firstOrNull()?.split("|")?.getOrNull(1)?.takeIf { it.isNotBlank() } ?: "CalcU"
+                val text = runCatching {
+                    list.firstOrNull()?.split("|")?.getOrNull(1)?.takeIf { it.isNotBlank() } ?: "CalcU"
+                }.getOrDefault("CalcU")
                 for (id in appWidgetIds) {
-                    val views = RemoteViews(context.packageName, R.layout.widget_calcu)
-                    views.setTextViewText(R.id.widget_result, text)
-                    val open = Intent(context, MainActivity::class.java)
-                    val pi = PendingIntent.getActivity(
-                        context,
-                        0,
-                        open,
-                        PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-                    )
-                    views.setOnClickPendingIntent(R.id.widget_root, pi)
-                    appWidgetManager.updateAppWidget(id, views)
+                    runCatching {
+                        val views = RemoteViews(context.packageName, R.layout.widget_calcu)
+                        views.setTextViewText(R.id.widget_result, text)
+                        val open = Intent(context, MainActivity::class.java)
+                        val pi = PendingIntent.getActivity(
+                            context,
+                            0,
+                            open,
+                            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+                        )
+                        views.setOnClickPendingIntent(R.id.widget_root, pi)
+                        appWidgetManager.updateAppWidget(id, views)
+                    }
                 }
             } catch (_: Exception) {
             } finally {
-                pending.finish()
+                runCatching { pending?.finish() }
             }
         }
     }

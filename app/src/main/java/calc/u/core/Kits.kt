@@ -43,31 +43,27 @@ object Geometry {
 
 object HealthDate {
     fun bmi(weightKg: Double, heightCm: Double): Double {
-        require(weightKg > 0) { "weightKg must be > 0" }
-        require(heightCm > 0) { "heightCm must be > 0" }
+        if (!(weightKg > 0) || !(heightCm > 0)) return Double.NaN
         val m = heightCm / 100
         return weightKg / (m * m)
     }
 
     fun bodyFatNavy(waistCm: Double, neckCm: Double, heightCm: Double, hipCm: Double = 0.0, male: Boolean = true): Double {
-        require(waistCm > 0) { "waistCm must be > 0" }
-        require(neckCm > 0) { "neckCm must be > 0" }
-        require(heightCm > 0) { "heightCm must be > 0" }
+        if (!(waistCm > 0) || !(neckCm > 0) || !(heightCm > 0)) return Double.NaN
         return if (male) {
-            require(waistCm > neckCm) { "waistCm must exceed neckCm for males" }
+            if (!(waistCm > neckCm)) return Double.NaN
             495 / (1.0324 - 0.19077 * log10(waistCm - neckCm) + 0.15456 * log10(heightCm)) - 450
         } else {
-            require(hipCm > 0) { "hipCm must be > 0 for females" }
-            require(waistCm + hipCm > neckCm) { "waistCm + hipCm must exceed neckCm" }
+            if (!(hipCm > 0)) return Double.NaN
+            if (!(waistCm + hipCm > neckCm)) return Double.NaN
             495 / (1.29579 - 0.35004 * log10(waistCm + hipCm - neckCm) + 0.22100 * log10(heightCm)) - 450
         }
     }
 
     fun tdee(weightKg: Double, heightCm: Double, age: Int, male: Boolean, activity: Double = 1.55): Double {
-        require(weightKg > 0) { "weightKg must be > 0" }
-        require(heightCm > 0) { "heightCm must be > 0" }
-        require(age in 0..150) { "age must be in 0..150" }
-        require(activity > 0) { "activity must be > 0" }
+        if (!(weightKg > 0) || !(heightCm > 0)) return Double.NaN
+        if (age !in 0..150) return Double.NaN
+        if (!(activity > 0)) return Double.NaN
         val bmr = if (male) 10 * weightKg + 6.25 * heightCm - 5 * age + 5
         else 10 * weightKg + 6.25 * heightCm - 5 * age - 161
         return bmr * activity
@@ -228,12 +224,20 @@ object TripKit {
 
 object ClockKit {
     fun weekdayName(year: Int, month: Int, day: Int): String {
-        val d = java.time.LocalDate.of(year, month, day)
+        val d = try {
+            java.time.LocalDate.of(year, month, day)
+        } catch (e: java.time.DateTimeException) {
+            throw IllegalArgumentException("invalid date: $year-$month-$day")
+        }
         return d.dayOfWeek.getDisplayName(java.time.format.TextStyle.FULL, java.util.Locale.ENGLISH)
     }
     fun daysUntil(year: Int, month: Int, day: Int): Long {
+        val target = try {
+            java.time.LocalDate.of(year, month, day)
+        } catch (e: java.time.DateTimeException) {
+            throw IllegalArgumentException("invalid date: $year-$month-$day")
+        }
         val today = java.time.LocalDate.now()
-        val target = java.time.LocalDate.of(year, month, day)
         return java.time.temporal.ChronoUnit.DAYS.between(today, target)
     }
     fun worldTime(zoneId: String): String {

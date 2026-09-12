@@ -57,11 +57,15 @@ class CalcViewModel @Inject constructor(
 
     init {
         viewModelScope.launch {
-            historyRepo.history.collect { h -> _uiState.update { it.copy(history = h) } }
+            runCatching {
+                historyRepo.history.collect { h -> _uiState.update { it.copy(history = h) } }
+            }
         }
         viewModelScope.launch {
-            settingsRepo.graphTipSeen.collect { seen ->
-                _uiState.update { it.copy(showGraphTip = !seen) }
+            runCatching {
+                settingsRepo.graphTipSeen.collect { seen ->
+                    _uiState.update { it.copy(showGraphTip = !seen) }
+                }
             }
         }
     }
@@ -79,16 +83,16 @@ class CalcViewModel @Inject constructor(
 
     fun onEquals() {
         val st = _uiState.value
-        Engine.eval(st.input, st.angleDeg).onSuccess {
-            val r = Engine.format(it)
+        runCatching { Engine.eval(st.input, st.angleDeg) }.getOrNull()?.onSuccess {
+            val r = runCatching { Engine.format(it) }.getOrDefault("Error")
             _uiState.update { s -> s.copy(result = r) }
             viewModelScope.launch {
-                historyRepo.push(st.input, r)
+                runCatching { historyRepo.push(st.input, r) }
                 refreshWidget()
             }
-        }.onFailure {
+        }?.onFailure {
             _uiState.update { s -> s.copy(result = "Error") }
-        }
+        } ?: _uiState.update { s -> s.copy(result = "Error") }
     }
 
     private fun refreshWidget() {
@@ -109,9 +113,12 @@ class CalcViewModel @Inject constructor(
     private fun evaluate() {
         val st = _uiState.value
         if (st.input.isBlank()) { _uiState.update { it.copy(result = "") }; return }
-        Engine.eval(st.input, st.angleDeg).onSuccess {
-            _uiState.update { s -> s.copy(result = Engine.format(it)) }
-        }.onFailure { _uiState.update { s -> s.copy(result = "") } }
+        runCatching { Engine.eval(st.input, st.angleDeg) }.getOrNull()?.onSuccess {
+            val formatted = runCatching { Engine.format(it) }.getOrNull()
+            if (formatted != null) _uiState.update { s -> s.copy(result = formatted) }
+            else _uiState.update { s -> s.copy(result = "") }
+        }?.onFailure { _uiState.update { s -> s.copy(result = "") } }
+            ?: _uiState.update { s -> s.copy(result = "") }
     }
 
     fun onMemPlus() {
@@ -124,22 +131,36 @@ class CalcViewModel @Inject constructor(
             _uiState.update { it.copy(memory = it.memory - v) }
         }
     }
-    fun onMemRecall() { _uiState.update { it.copy(input = it.input + Engine.format(BigDecimal.valueOf(it.memory))) }; evaluate() }
-    fun onMemClear() { _uiState.update { it.copy(memory = 0.0) } }
-    fun onClearHistory() { viewModelScope.launch { historyRepo.clear() } }
-    fun onHistoryTap(entry: String) {
-        val body = entry.substringAfter("|", entry).let {
-            if (entry.count { c -> c == '|' } >= 2) it.substringBeforeLast("|") else it
+    fun onMemRecall() {
+        val formatted = runCatching { Engine.format(BigDecimal.valueOf(safeMemory())) }.getOrNull()
+        if (formatted != null) {
+            _uiState.update { it.copy(input = it.input + formatted) }
+            evaluate()
         }
-        val expr = if ("=" in body) body.substringBeforeLast("=") else body
+    }
+    private fun safeMemory(): Double {
+        val m = _uiState.value.memory
+        return if (m.isFinite()) m else 0.0
+    }
+    fun onMemClear() { _uiState.update { it.copy(memory = 0.0) } }
+    fun onClearHistory() { viewModelScope.launch { runCatching { historyRepo.clear() } } }
+    fun onHistoryTap(entry: String) {
+        val body = runCatching {
+            entry.substringAfter("|", entry).let {
+                if (entry.count { c -> c == '|' } >= 2) it.substringBeforeLast("|") else it
+            }
+        }.getOrDefault(entry)
+        val expr = runCatching {
+            if ("=" in body) body.substringBeforeLast("=") else body
+        }.getOrDefault(body)
         if (expr.isBlank()) return
         _uiState.update { it.copy(input = expr) }
         evaluate()
     }
-    fun onDeleteHistoryAt(index: Int) { viewModelScope.launch { historyRepo.deleteAt(index) } }
-    fun onSetHistoryNote(index: Int, note: String) { viewModelScope.launch { historyRepo.setNote(index, note) } }
+    fun onDeleteHistoryAt(index: Int) { viewModelScope.launch { runCatching { historyRepo.deleteAt(index) } } }
+    fun onSetHistoryNote(index: Int, note: String) { viewModelScope.launch { runCatching { historyRepo.setNote(index, note) } } }
     fun onDismissGraphTip() {
         _uiState.update { it.copy(showGraphTip = false) }
-        viewModelScope.launch { settingsRepo.setGraphTipSeen() }
+        viewModelScope.launch { runCatching { settingsRepo.setGraphTipSeen() } }
     }
 }
