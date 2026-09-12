@@ -61,7 +61,7 @@ class AutocompleteTest {
         assertEquals("si", result.relevantText)
         assertEquals(0, result.start)
         assertEquals(2, result.end)
-        val sin = result.items.firstOrNull { it.name == "sin" } ?: fail("expected sin suggestion")
+        val sin = result.items.firstOrNull { it.name == "sin" } ?: error("expected sin suggestion")
         assertEquals("sin(", sin.insertBefore)
     }
 
@@ -121,7 +121,7 @@ class AutocompleteTest {
         assertEquals("tbsp_m", result.relevantText)
         assertEquals(0, result.start)
         assertEquals(6, result.end)
-        val hit = result.items.firstOrNull { it.name == "tbsp_metric" } ?: fail("expected tbsp_metric suggestion")
+        val hit = result.items.firstOrNull { it.name == "tbsp_metric" } ?: error("expected tbsp_metric suggestion")
         assertEquals("tbsp_metric", hit.insertBefore)
         assertEquals("", hit.insertAfter)
         val long = AutocompleteIndex.query("2*tbsp_metric", 13)
