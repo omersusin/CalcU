@@ -39,9 +39,11 @@ class BackupRepository @Inject constructor(@ApplicationContext private val ctx: 
         val theme = sprefs[stringPreferencesKey("theme")] ?: "system"
         val vibration = sprefs[booleanPreferencesKey("vibration")] ?: true
         val uprefs = ctx.backupUnitsStore.data.first()
-        val favorites = uprefs.asMap().entries.mapNotNull { (k, v) ->
-            if (!k.name.startsWith("fav_")) null
-            else k.name.removePrefix("fav_") to ((v as? Set<*>)?.mapNotNull { it as? String }?.toSet() ?: emptySet())
+        val favorites: Map<String, Set<String>> = uprefs.asMap().entries.mapNotNull { e ->
+            if (!e.key.name.startsWith("fav_")) null
+            else e.key.name.removePrefix("fav_") to (
+                (e.value as? Set<*>)?.mapNotNull { it as? String }?.toSet() ?: emptySet<String>()
+            )
         }.toMap()
         return Json.encodeToString(Backup(history, theme, vibration, favorites))
     }
