@@ -28,7 +28,7 @@
     </shortcut>
     <shortcut
         android:enabled="true"
-        android:icon="@android:drawable/ic_dialog_time"
+        android:icon="@mipmap/ic_launcher"
         android:shortcutId="time"
         android:shortcutLongLabel="@string/shortcut_time"
         android:shortcutShortLabel="@string/shortcut_time">
