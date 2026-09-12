@@ -171,4 +171,29 @@ class FinanceTest {
             fail("expected IAE")
         } catch (e: IllegalArgumentException) { }
     }
+
+    @Test fun investRoiYearlyFifty() {
+        val (profit, margin, annualized) = Finance.investRoi(1000.0, 1500.0, 365)
+        assertEquals(500.0, profit, 1e-9)
+        assertEquals(50.0, margin, 1e-9)
+        assertEquals(50.0, annualized, 1e-9)
+    }
+
+    @Test fun gstForwardEighteen() {
+        val (net, tax, gross) = Finance.gstForward(1000.0, 18.0, true)
+        assertEquals(1000.0, net, 1e-9)
+        assertEquals(180.0, tax, 1e-9)
+        assertEquals(1180.0, gross, 1e-9)
+    }
+
+    @Test fun gstReverseEighteen() {
+        val (net, tax, gross) = Finance.gstReverse(1180.0, 18.0)
+        assertEquals(1000.0, net, 1e-9)
+        assertEquals(180.0, tax, 1e-9)
+        assertEquals(1180.0, gross, 1e-9)
+    }
+
+    @Test fun bmiDeltaOverweight() {
+        assertEquals(13.74, calc.u.core.HealthPlus.bmiDelta(90.0, 175.0), 0.05)
+    }
 }

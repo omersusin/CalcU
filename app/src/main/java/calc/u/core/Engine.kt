@@ -401,4 +401,185 @@ object Engine {
         }
         return null
     }
+
+    fun repeatingToDecimal(num: Long, den: Long): String {
+        require(den != 0L) { "denominator must not be zero" }
+        if (num == 0L) return "0"
+        val neg = (num < 0) != (den < 0)
+        val nn = BigInteger.valueOf(num).abs()
+        val dd = BigInteger.valueOf(den).abs()
+        val intPart = nn.divide(dd).toString()
+        var rem = nn.remainder(dd)
+        if (rem == BigInteger.ZERO) return (if (neg) "-" else "") + intPart
+        val digits = StringBuilder()
+        val seen = mutableMapOf<BigInteger, Int>()
+        var repeatStart = -1
+        while (rem != BigInteger.ZERO) {
+            val prev = seen[rem]
+            if (prev != null) {
+                repeatStart = prev
+                break
+            }
+            seen[rem] = digits.length
+            rem = rem.multiply(BigInteger.TEN)
+            val d = rem.divide(dd)
+            digits.append(d.toString())
+            rem = rem.remainder(dd)
+        }
+        val prefix = (if (neg) "-" else "") + intPart + "."
+        if (rem == BigInteger.ZERO) return prefix + digits.toString()
+        return prefix + digits.substring(0, repeatStart) + "(" + digits.substring(repeatStart) + ")"
+    }
+
+    fun decimalToFraction(s: String): String {
+        val t = s.trim()
+        require(t.isNotEmpty()) { "invalid decimal: $s" }
+        var body = t
+        var sign = 1
+        if (body.startsWith("+") || body.startsWith("-")) {
+            if (body.startsWith("-")) sign = -1
+            body = body.drop(1)
+        }
+        require(body.isNotEmpty()) { "invalid decimal: $s" }
+        if (body.contains("(") || body.contains(")")) {
+            require(body.endsWith(")") && body.contains("(") && body.contains(".")) { "invalid repeating decimal: $s" }
+            val open = body.indexOf('(')
+            val close = body.indexOf(')')
+            require(open > 0 && close == body.length - 1 && body.indexOf('(', open + 1) == -1) { "invalid repeating decimal: $s" }
+            val rep = body.substring(open + 1, close)
+            require(rep.isNotEmpty() && rep.all { it in '0'..'9' }) { "invalid repeating decimal: $s" }
+            val beforeParen = body.substring(0, open)
+            val dot = beforeParen.indexOf('.')
+            require(dot >= 0 && beforeParen.indexOf('.', dot + 1) == -1) { "invalid repeating decimal: $s" }
+            val intStr = beforeParen.substring(0, dot)
+            val nonRep = beforeParen.substring(dot + 1)
+            require(intStr.isNotEmpty() && intStr.all { it in '0'..'9' }) { "invalid repeating decimal: $s" }
+            require(nonRep.all { it in '0'..'9' }) { "invalid repeating decimal: $s" }
+            if (rep.all { it == '0' }) {
+                val frac = nonRep
+                if (frac.isEmpty()) {
+                    val n = BigInteger(intStr)
+                    if (n == BigInteger.ZERO) return "0/1"
+                    return (if (sign < 0) "-" else "") + n.toString() + "/1"
+                }
+                val den = BigInteger.TEN.pow(frac.length)
+                var numAbs = BigInteger(intStr + frac)
+                if (numAbs == BigInteger.ZERO) return "0/1"
+                val g = numAbs.gcd(den)
+                numAbs = numAbs.divide(g)
+                val d = den.divide(g)
+                return (if (sign < 0) "-" else "") + numAbs.toString() + "/" + d.toString()
+            }
+            val n = nonRep.length
+            val r = rep.length
+            val pow10n = BigInteger.TEN.pow(n)
+            val pow10nr = BigInteger.TEN.pow(n + r)
+            val den = pow10nr.subtract(pow10n)
+            val aStr = intStr + nonRep + rep
+            val bStr = intStr + nonRep
+            val a = BigInteger(aStr)
+            val b = if (bStr.isEmpty()) BigInteger.ZERO else BigInteger(bStr)
+            var numAbs = a.subtract(b)
+            if (numAbs == BigInteger.ZERO) return "0/1"
+            val g = numAbs.gcd(den)
+            numAbs = numAbs.divide(g)
+            val d = den.divide(g)
+            return (if (sign < 0) "-" else "") + numAbs.toString() + "/" + d.toString()
+        }
+        if (body.contains('.')) {
+            val parts = body.split('.')
+            require(parts.size == 2) { "invalid decimal: $s" }
+            val intP = parts[0]
+            val fracP = parts[1]
+            require(intP.isEmpty() || intP.all { it in '0'..'9' }) { "invalid decimal: $s" }
+            require(fracP.all { it in '0'..'9' }) { "invalid decimal: $s" }
+            require(intP.isNotEmpty() || fracP.isNotEmpty()) { "invalid decimal: $s" }
+            val intNorm = if (intP.isEmpty()) "0" else intP
+            if (fracP.isEmpty()) {
+                val n = BigInteger(intNorm)
+                if (n == BigInteger.ZERO) return "0/1"
+                return (if (sign < 0) "-" else "") + n.toString() + "/1"
+            }
+            var numAbs = BigInteger(intNorm + fracP)
+            if (numAbs == BigInteger.ZERO) return "0/1"
+            val den = BigInteger.TEN.pow(fracP.length)
+            val g = numAbs.gcd(den)
+            numAbs = numAbs.divide(g)
+            val d = den.divide(g)
+            return (if (sign < 0) "-" else "") + numAbs.toString() + "/" + d.toString()
+        }
+        require(body.all { it in '0'..'9' }) { "invalid decimal: $s" }
+        val n = BigInteger(body)
+        if (n == BigInteger.ZERO) return "0/1"
+        return (if (sign < 0) "-" else "") + n.toString() + "/1"
+    }
+
+    fun radixConvert(intPart: String, fracPart: String, from: Int, to: Int, cap: Int = 12): String {
+        require(from in 2..36) { "from must be in 2..36" }
+        require(to in 2..36) { "to must be in 2..36" }
+        require(cap >= 0) { "cap must be >= 0" }
+        val ip = intPart.trim()
+        require(ip.isNotEmpty()) { "invalid intPart: $intPart" }
+        var digits = ip
+        var neg = false
+        if (digits.startsWith("+") || digits.startsWith("-")) {
+            neg = digits.startsWith("-")
+            digits = digits.drop(1)
+            require(digits.isNotEmpty()) { "invalid intPart: $intPart" }
+        }
+        require(digits.all { Character.digit(it, from) >= 0 }) { "invalid digit for base $from: $intPart" }
+        val fp = fracPart.trim()
+        require(fp.all { Character.digit(it, from) >= 0 }) { "invalid fracPart: $fracPart" }
+        val absInt = if (digits.all { it == '0' }) BigInteger.ZERO else BigInteger(digits, from)
+        val intStr = absInt.toString(to).uppercase()
+        val intIsZero = absInt == BigInteger.ZERO
+        if (fp.isEmpty() || cap == 0) {
+            if (intIsZero) return "0"
+            return (if (neg) "-" else "") + intStr
+        }
+        var num = BigInteger.ZERO
+        if (fp.any { it != '0' }) {
+            num = BigInteger(fp, from)
+        }
+        if (num == BigInteger.ZERO) {
+            if (intIsZero) return "0"
+            return (if (neg) "-" else "") + intStr
+        }
+        val den = BigInteger.valueOf(from.toLong()).pow(fp.length)
+        val sb = StringBuilder()
+        var cur = num
+        for (i in 0 until cap) {
+            cur = cur.multiply(BigInteger.valueOf(to.toLong()))
+            val q = cur.divide(den)
+            sb.append(Character.forDigit(q.toInt(), to).uppercaseChar())
+            cur = cur.remainder(den)
+            if (cur == BigInteger.ZERO) break
+        }
+        if (sb.isEmpty()) {
+            if (intIsZero) return "0"
+            return (if (neg) "-" else "") + intStr
+        }
+        val signed = (if (neg) "-" else "") + intStr
+        return "$signed.${sb}"
+    }
+
+    fun formatPercentMode(value: Double, mode: String): String {
+        require(value.isFinite()) { "value must be finite" }
+        val m = mode.trim().lowercase()
+        val factor = when (m) {
+            "percent" -> BigDecimal(100)
+            "permille" -> BigDecimal(1000)
+            "permyriad" -> BigDecimal(10000)
+            else -> throw IllegalArgumentException("unknown mode: $mode")
+        }
+        val suffix = when (m) {
+            "percent" -> "%"
+            "permille" -> "‰"
+            "permyriad" -> "‱"
+            else -> throw IllegalArgumentException("unknown mode: $mode")
+        }
+        val scaled = BigDecimal.valueOf(value).multiply(factor).stripTrailingZeros()
+        if (scaled.compareTo(BigDecimal.ZERO) == 0) return "0$suffix"
+        return scaled.toPlainString() + suffix
+    }
 }

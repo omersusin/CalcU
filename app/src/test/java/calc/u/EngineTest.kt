@@ -356,4 +356,12 @@ class EngineTest {
         val out = Engine.format(BigDecimal("1234.56"))
         assertEquals(1234.56, java.text.NumberFormat.getInstance().parse(out)!!.toDouble(), 1e-9)
     }
+
+    @Test fun repeatingRadixPercent() {
+        assertEquals("0.(3)", Engine.repeatingToDecimal(1L, 3L))
+        assertEquals("1/3", Engine.decimalToFraction("0.(3)"))
+        assertEquals("255", Engine.radixConvert("FF", "", 16, 10, 12))
+        assertTrue(Engine.radixConvert("0", "1", 10, 2, 12).startsWith("0.00011"))
+        assertEquals("50%", Engine.formatPercentMode(0.5, "percent"))
+    }
 }

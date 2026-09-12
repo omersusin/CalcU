@@ -270,4 +270,39 @@ object Finance {
         if (net < nisabThreshold) return 0.0
         return net * 2.5 / 100
     }
+
+    // Date-range ROI, re-implemented from scratch.
+    // Returns Triple(profit, marginPct, annualizedPct).
+    fun investRoi(invested: Double, settled: Double, days: Int): Triple<Double, Double, Double> {
+        require(invested > 0.0) { "invested must be > 0" }
+        require(days > 0) { "days must be > 0" }
+        require(settled >= 0.0) { "settled must be >= 0" }
+        val profit = settled - invested
+        val marginPct = profit / invested * 100
+        val annualizedPct = (settled / invested).pow(365.0 / days) - 1.0
+        return Triple(profit, marginPct, annualizedPct * 100)
+    }
+
+    fun investRoi(invested: Double, settled: Double, days: Double): Triple<Double, Double, Double> {
+        require(days > 0.0) { "days must be > 0" }
+        require(days <= Int.MAX_VALUE) { "days must be <= Int.MAX" }
+        return investRoi(invested, settled, days.toInt())
+    }
+
+    // GST forward: Triple(net, tax, gross). If intra is true the tax splits
+    // equally into CGST/SGST, otherwise it is all IGST; returned tax is the total.
+    fun gstForward(net: Double, ratePct: Double, intra: Boolean): Triple<Double, Double, Double> {
+        require(net >= 0.0) { "net must be >= 0" }
+        require(ratePct >= 0.0) { "ratePct must be >= 0" }
+        val tax = net * ratePct / 100
+        return Triple(net, tax, net + tax)
+    }
+
+    // GST reverse: Triple(net, tax, gross).
+    fun gstReverse(gross: Double, ratePct: Double): Triple<Double, Double, Double> {
+        require(gross >= 0.0) { "gross must be >= 0" }
+        require(ratePct >= 0.0) { "ratePct must be >= 0" }
+        val net = gross / (1 + ratePct / 100)
+        return Triple(net, gross - net, gross)
+    }
 }

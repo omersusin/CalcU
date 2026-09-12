@@ -32,4 +32,20 @@ object HealthPlus {
         val fraction = if (intensityPct > 1.0) intensityPct / 100.0 else intensityPct
         return (220 - age) * fraction
     }
+
+    // Kg to reach healthy BMI band: current minus 24.9 ceiling if above,
+    // current minus 18.5 floor if below, else 0.0. Positive = excess to lose,
+    // negative = deficit to gain.
+    fun bmiDelta(weightKg: Double, heightCm: Double): Double {
+        require(weightKg > 0.0) { "weightKg must be > 0" }
+        require(heightCm > 0.0) { "heightCm must be > 0" }
+        val hM = heightCm / 100.0
+        val h2 = hM * hM
+        val bmi = weightKg / h2
+        return when {
+            bmi > 24.9 -> weightKg - 24.9 * h2
+            bmi < 18.5 -> weightKg - 18.5 * h2
+            else -> 0.0
+        }
+    }
 }
