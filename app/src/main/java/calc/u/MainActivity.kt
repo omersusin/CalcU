@@ -12,6 +12,8 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Apps
 import androidx.compose.material.icons.filled.AttachMoney
@@ -171,16 +173,17 @@ class MainActivity : ComponentActivity() {
                                     )
                                 }
                                 HorizontalDivider(Modifier.padding(vertical = 8.dp))
-                                ToolDests.forEach { d ->
-                                    NavigationDrawerItem(
-                                        label = { Text(d.label) },
-                                        icon = { Icon(d.icon, contentDescription = null) },
-                                        selected = route == d.route,
-                                        onClick = { go(d.route); scope.launch { drawer.close() } },
-                                        modifier = Modifier.padding(NavigationDrawerItemDefaults.ItemPadding)
-                                    )
+                                LazyColumn(Modifier.weight(1f)) {
+                                    items(ToolDests, key = { it.route }) { d ->
+                                        NavigationDrawerItem(
+                                            label = { Text(d.label) },
+                                            icon = { Icon(d.icon, contentDescription = null) },
+                                            selected = route == d.route,
+                                            onClick = { go(d.route); scope.launch { drawer.close() } },
+                                            modifier = Modifier.padding(NavigationDrawerItemDefaults.ItemPadding)
+                                        )
+                                    }
                                 }
-                                Spacer(Modifier.weight(1f))
                                 HorizontalDivider(Modifier.padding(vertical = 8.dp))
                                 NavigationDrawerItem(
                                     label = { Text(SettingsDest.label) },
