@@ -96,4 +96,85 @@ object Finance {
         }
         return out
     }
+
+    // Finance Pro tools — formulas inspired by CalcHub (MIT Licensed), re-implemented from scratch.
+    fun stockAverage(shares1: Double, price1: Double, shares2: Double, price2: Double): Triple<Double, Double, Double> {
+        require(shares1 >= 0.0) { "shares1 must be >= 0" }
+        require(shares2 >= 0.0) { "shares2 must be >= 0" }
+        require(price1 >= 0.0) { "price1 must be >= 0" }
+        require(price2 >= 0.0) { "price2 must be >= 0" }
+        val totalShares = shares1 + shares2
+        val totalCost = shares1 * price1 + shares2 * price2
+        val avgPrice = if (totalShares == 0.0) 0.0 else totalCost / totalShares
+        return Triple(totalShares, avgPrice, totalCost)
+    }
+
+    fun depreciationSL(cost: Double, salvage: Double, lifeYears: Double): Double {
+        require(cost >= 0.0) { "cost must be >= 0" }
+        require(salvage >= 0.0) { "salvage must be >= 0" }
+        require(lifeYears > 0.0) { "lifeYears must be > 0" }
+        return (cost - salvage) / lifeYears
+    }
+
+    fun depreciationSL(cost: Double, salvage: Double, lifeYears: Int): Double =
+        depreciationSL(cost, salvage, lifeYears.toDouble())
+
+    fun depreciationDB(cost: Double, ratePct: Double, year: Int): Double {
+        require(cost >= 0.0) { "cost must be >= 0" }
+        require(ratePct >= 0.0) { "ratePct must be >= 0" }
+        require(year >= 0) { "year must be >= 0" }
+        return cost * (1 - ratePct / 100).pow(year)
+    }
+
+    fun depreciationDB(cost: Double, ratePct: Double, year: Double): Double {
+        require(cost >= 0.0) { "cost must be >= 0" }
+        require(ratePct >= 0.0) { "ratePct must be >= 0" }
+        require(year >= 0.0) { "year must be >= 0" }
+        return cost * (1 - ratePct / 100).pow(year)
+    }
+
+    fun savingsGoal(monthly: Double, annualPct: Double, years: Double): Double {
+        require(monthly >= 0.0) { "monthly must be >= 0" }
+        require(years > 0.0) { "years must be > 0" }
+        val n = (years * 12).toInt()
+        require(n > 0) { "years must be > 0" }
+        val r = annualPct / 1200
+        return if (r == 0.0) monthly * n else monthly * ((1 + r).pow(n) - 1) / r
+    }
+
+    fun savingsGoal(monthly: Double, annualPct: Double, years: Int): Double =
+        savingsGoal(monthly, annualPct, years.toDouble())
+
+    fun rentVsBuy(monthlyRent: Double, rentGrowthPct: Double, homePrice: Double, downPct: Double, mortgageRatePct: Double, years: Int): Pair<Double, Double> {
+        require(monthlyRent >= 0.0) { "monthlyRent must be >= 0" }
+        require(homePrice >= 0.0) { "homePrice must be >= 0" }
+        require(downPct >= 0.0) { "downPct must be >= 0" }
+        require(years > 0) { "years must be > 0" }
+        val g = rentGrowthPct / 100
+        var totalRent = 0.0
+        for (y in 0 until years) {
+            totalRent += monthlyRent * 12 * (1 + g).pow(y)
+        }
+        val down = homePrice * downPct / 100
+        val principal = homePrice - down
+        val months = years * 12
+        val payment = emi(principal, mortgageRatePct, months)
+        val totalBuy = down + payment * months
+        return Pair(totalRent, totalBuy)
+    }
+
+    fun rentVsBuy(monthlyRent: Double, rentGrowthPct: Double, homePrice: Double, downPct: Double, mortgageRatePct: Double, years: Double): Pair<Double, Double> {
+        require(monthlyRent >= 0.0) { "monthlyRent must be >= 0" }
+        require(homePrice >= 0.0) { "homePrice must be >= 0" }
+        require(downPct >= 0.0) { "downPct must be >= 0" }
+        require(years > 0.0) { "years must be > 0" }
+        val nYears = years.toInt()
+        require(nYears > 0) { "years must be > 0" }
+        return rentVsBuy(monthlyRent, rentGrowthPct, homePrice, downPct, mortgageRatePct, nYears)
+    }
+
+    fun rule72(ratePct: Double): Double {
+        require(ratePct > 0.0) { "ratePct must be > 0" }
+        return 72 / ratePct
+    }
 }

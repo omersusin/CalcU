@@ -87,4 +87,5 @@ dependencies {
     implementation(libs.coil.compose)
     coreLibraryDesugaring(libs.desugar.jdk.libs)
     testImplementation(libs.junit)
+    implementation(libs.zxing.core)
 }

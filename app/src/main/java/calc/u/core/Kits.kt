@@ -245,3 +245,40 @@ object ClockKit {
         return java.time.ZonedDateTime.now(zone).format(java.time.format.DateTimeFormatter.ofPattern("HH:mm"))
     }
 }
+
+object VectorKit {
+    fun dot(a: List<Double>, b: List<Double>): Double {
+        require(a.size == b.size) { "vectors must have same size" }
+        return a.indices.sumOf { a[it] * b[it] }
+    }
+    fun cross(a: List<Double>, b: List<Double>): List<Double> {
+        require(a.size == 3 && b.size == 3) { "cross requires 3D vectors" }
+        return listOf(
+            a[1] * b[2] - a[2] * b[1],
+            a[2] * b[0] - a[0] * b[2],
+            a[0] * b[1] - a[1] * b[0]
+        )
+    }
+    fun magnitude(a: List<Double>): Double {
+        require(a.isNotEmpty()) { "vector must not be empty" }
+        return sqrt(a.sumOf { it * it })
+    }
+    fun angleDeg(a: List<Double>, b: List<Double>): Double {
+        val ma = magnitude(a)
+        val mb = magnitude(b)
+        require(ma > 0 && mb > 0) { "vectors must be non-zero" }
+        val cosv = (dot(a, b) / (ma * mb)).coerceIn(-1.0, 1.0)
+        return Math.toDegrees(acos(cosv))
+    }
+}
+
+object ClockAngle {
+    fun angle(hour: Int, min: Int): Double {
+        require(hour in 0..23) { "hour must be in 0..23" }
+        require(min in 0..59) { "min must be in 0..59" }
+        val hourA = (hour % 12) * 30.0 + min * 0.5
+        val minA = min * 6.0
+        val d = kotlin.math.abs(hourA - minA) % 360.0
+        return if (d > 180.0) 360.0 - d else d
+    }
+}

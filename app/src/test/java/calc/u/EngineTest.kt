@@ -191,4 +191,17 @@ class EngineTest {
         assertEquals(90.0, tri["angleC"]!!, 0.01)
         assertEquals("Friday", ClockKit.weekdayName(2026, 9, 11))
     }
+    @Test fun solve3x3Identity() {
+        val id = listOf(listOf(1.0, 0.0, 0.0), listOf(0.0, 1.0, 0.0), listOf(0.0, 0.0, 1.0))
+        assertEquals(listOf("1", "2", "3"), Engine.solve3x3(id, listOf(1.0, 2.0, 3.0)))
+    }
+    @Test fun vectorDot() {
+        assertEquals(32.0, calc.u.core.VectorKit.dot(listOf(1.0, 2.0, 3.0), listOf(4.0, 5.0, 6.0)), 1e-9)
+    }
+    @Test fun vectorCross() {
+        assertEquals(listOf(0.0, 0.0, 1.0), calc.u.core.VectorKit.cross(listOf(1.0, 0.0, 0.0), listOf(0.0, 1.0, 0.0)))
+    }
+    @Test fun clockAngle3() {
+        assertEquals(90.0, calc.u.core.ClockAngle.angle(3, 0), 1e-9)
+    }
 }

@@ -9,12 +9,16 @@ object Units {
         "mm" to UnitDef("mm", 0.001), "cm" to UnitDef("cm", 0.01),
         "m" to UnitDef("m", 1.0), "km" to UnitDef("km", 1000.0),
         "in" to UnitDef("in", 0.0254), "ft" to UnitDef("ft", 0.3048),
-        "yd" to UnitDef("yd", 0.9144), "mi" to UnitDef("mi", 1609.344)
+        "yd" to UnitDef("yd", 0.9144), "mi" to UnitDef("mi", 1609.344),
+        "Å" to UnitDef("Å", 1e-10), "ly" to UnitDef("ly", 9.4607304725808e15),
+        "pc" to UnitDef("pc", 3.08567758149137e16), "nmi" to UnitDef("nmi", 1852.0)
     )
     val mass = mapOf(
         "mg" to UnitDef("mg", 1e-6), "g" to UnitDef("g", 0.001),
         "kg" to UnitDef("kg", 1.0), "t" to UnitDef("t", 1000.0),
-        "oz" to UnitDef("oz", 0.028349523125), "lb" to UnitDef("lb", 0.45359237)
+        "oz" to UnitDef("oz", 0.028349523125), "lb" to UnitDef("lb", 0.45359237),
+        "gr" to UnitDef("gr", 6.479891e-5), "st" to UnitDef("st", 6.35029318),
+        "slug" to UnitDef("slug", 14.59390294)
     )
     val volume = mapOf(
         "mL" to UnitDef("mL", 0.001), "L" to UnitDef("L", 1.0),
@@ -127,6 +131,43 @@ object Units {
         "Bps" to UnitDef("Bps", 8.0), "KBps" to UnitDef("KBps", 8000.0),
         "MBps" to UnitDef("MBps", 8000000.0)
     )
+    val viscosity = mapOf(
+        "Pa·s" to UnitDef("Pa·s", 1.0), "mPa·s" to UnitDef("mPa·s", 0.001),
+        "cP" to UnitDef("cP", 0.001), "P" to UnitDef("P", 0.1),
+        "lb/(ft·s)" to UnitDef("lb/(ft·s)", 1.4881639),
+        "lbf·s/ft²" to UnitDef("lbf·s/ft²", 47.880258)
+    )
+    // Gy and Sv share the J/kg dimension here; biological weighting is not modeled.
+    val radiation = mapOf(
+        "Sv" to UnitDef("Sv", 1.0), "mSv" to UnitDef("mSv", 0.001),
+        "uSv" to UnitDef("uSv", 1e-6), "rem" to UnitDef("rem", 0.01),
+        "mrem" to UnitDef("mrem", 1e-5), "Gy" to UnitDef("Gy", 1.0),
+        "mGy" to UnitDef("mGy", 0.001), "rad" to UnitDef("rad", 0.01)
+    )
+    val illuminance = mapOf(
+        "lux" to UnitDef("lux", 1.0), "mlx" to UnitDef("mlx", 0.001),
+        "klx" to UnitDef("klx", 1000.0), "fc" to UnitDef("fc", 10.76391041671),
+        "ph" to UnitDef("ph", 10000.0)
+    )
+    val magnetic = mapOf(
+        "T" to UnitDef("T", 1.0), "mT" to UnitDef("mT", 0.001),
+        "uT" to UnitDef("uT", 1e-6), "G" to UnitDef("G", 1e-4),
+        "kG" to UnitDef("kG", 0.1), "mG" to UnitDef("mG", 1e-7)
+    )
+    val density = mapOf(
+        "kg/m³" to UnitDef("kg/m³", 1.0), "g/cm³" to UnitDef("g/cm³", 1000.0),
+        "g/mL" to UnitDef("g/mL", 1000.0), "kg/L" to UnitDef("kg/L", 1000.0),
+        "g/L" to UnitDef("g/L", 1.0), "lb/ft³" to UnitDef("lb/ft³", 16.01846337395),
+        "lb/in³" to UnitDef("lb/in³", 27679.90471)
+    )
+    val specificenergy = mapOf(
+        "J/kg" to UnitDef("J/kg", 1.0), "kJ/kg" to UnitDef("kJ/kg", 1000.0),
+        "Wh/kg" to UnitDef("Wh/kg", 3600.0), "cal/g" to UnitDef("cal/g", 4184.0),
+        "kcal/kg" to UnitDef("kcal/kg", 4184.0), "BTU/lb" to UnitDef("BTU/lb", 2326.0)
+    )
+
+    // Sound level (dB) intentionally absent: decibels are logarithmic and need a
+    // reference quantity, so they cannot use the linear toBase model above.
 
     private val fuelIds = fuel.keys
     private const val MPG_US_CONST = 235.214583

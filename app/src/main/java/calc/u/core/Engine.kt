@@ -292,4 +292,19 @@ object Engine {
         }
         return sum * h / 3.0
     }
+
+    fun solve3x3(a: List<List<Double>>, b: List<Double>): List<String> {
+        require(a.size == 3 && a.all { it.size == 3 }) { "a must be 3x3" }
+        require(b.size == 3) { "b must have 3 entries" }
+        fun detOf(grid: List<List<Double>>): Double {
+            val flat = DoubleArray(9) { grid[it / 3][it % 3] }
+            return Matrix(3, 3, flat).determinant()
+        }
+        val det = detOf(a)
+        if (abs(det) < 1e-12) return listOf("no unique solution")
+        return (0..2).map { col ->
+            val replaced = List(3) { r -> List(3) { c -> if (c == col) b[r] else a[r][c] } }
+            format(BigDecimal.valueOf(detOf(replaced) / det))
+        }
+    }
 }

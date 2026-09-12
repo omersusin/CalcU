@@ -17,6 +17,7 @@ hiltNavCompose = "1.2.0"
 evalex = "3.3.0"
 coil = "2.6.0"
 junit = "4.13.2"
+zxing = "3.5.3"
 
 [libraries]
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
@@ -47,6 +48,7 @@ evalex = { group = "com.ezylang", name = "EvalEx", version.ref = "evalex" }
 coil-compose = { group = "io.coil-kt", name = "coil-compose", version.ref = "coil" }
 desugar-jdk-libs = { group = "com.android.tools", name = "desugar_jdk_libs", version = "2.1.4" }
 junit = { group = "junit", name = "junit", version.ref = "junit" }
+zxing-core = { group = "com.google.zxing", name = "core", version.ref = "zxing" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }
