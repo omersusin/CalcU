@@ -959,6 +959,118 @@ fun FinanceScreen() {
                 ResultLine("Years to double", dbl?.let { fmt(it, 2) } ?: "—")
             }
         }
+        item {
+            var gpaG1 by remember { mutableStateOf("4") }
+            var gpaC1 by remember { mutableStateOf("3") }
+            var gpaG2 by remember { mutableStateOf("3") }
+            var gpaC2 by remember { mutableStateOf("3") }
+            var gpaG3 by remember { mutableStateOf("3") }
+            var gpaC3 by remember { mutableStateOf("3") }
+            val gpa = runCatching {
+                Finance.gpa(listOf(num(gpaG1) to num(gpaC1), num(gpaG2) to num(gpaC2), num(gpaG3) to num(gpaC3)))
+            }.getOrNull()
+            SectionCard("GPA") {
+                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Box(Modifier.weight(1f)) { NumField(gpaG1, { gpaG1 = it }, "Grade 1") }
+                    Box(Modifier.weight(1f)) { NumField(gpaC1, { gpaC1 = it }, "Credits 1") }
+                }
+                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Box(Modifier.weight(1f)) { NumField(gpaG2, { gpaG2 = it }, "Grade 2") }
+                    Box(Modifier.weight(1f)) { NumField(gpaC2, { gpaC2 = it }, "Credits 2") }
+                }
+                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Box(Modifier.weight(1f)) { NumField(gpaG3, { gpaG3 = it }, "Grade 3") }
+                    Box(Modifier.weight(1f)) { NumField(gpaC3, { gpaC3 = it }, "Credits 3") }
+                }
+                HorizontalDivider()
+                ResultLine("GPA", gpa?.let { fmt(it, 2) } ?: "—")
+            }
+        }
+        item {
+            var gnCur by remember { mutableStateOf("85") }
+            var gnDone by remember { mutableStateOf("60") }
+            var gnTarget by remember { mutableStateOf("90") }
+            val needed = runCatching { Finance.gradeNeeded(num(gnCur), num(gnDone), num(gnTarget)) }.getOrNull()
+            SectionCard("Grade needed") {
+                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Box(Modifier.weight(1f)) { NumField(gnCur, { gnCur = it }, "Current %") }
+                    Box(Modifier.weight(1f)) { NumField(gnDone, { gnDone = it }, "Weight done %") }
+                    Box(Modifier.weight(1f)) { NumField(gnTarget, { gnTarget = it }, "Target %") }
+                }
+                HorizontalDivider()
+                ResultLine("Needed on remainder", needed?.let { fmt(it, 2) + " %" } ?: "—")
+            }
+        }
+        item {
+            var pcRate by remember { mutableStateOf("20") }
+            var pcHours by remember { mutableStateOf("40") }
+            var pcTax by remember { mutableStateOf("20") }
+            val res = runCatching { Finance.paycheck(num(pcRate), num(pcHours), num(pcTax)) }.getOrNull()
+            SectionCard("Paycheck") {
+                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Box(Modifier.weight(1f)) { NumField(pcRate, { pcRate = it }, "Hourly rate") }
+                    Box(Modifier.weight(1f)) { NumField(pcHours, { pcHours = it }, "Hours/week") }
+                    Box(Modifier.weight(1f)) { NumField(pcTax, { pcTax = it }, "Tax %") }
+                }
+                HorizontalDivider()
+                ResultLine("Gross / month", res?.let { fmt(it.first, 2) } ?: "—")
+                ResultLine("Tax / month", res?.let { fmt(it.second, 2) } ?: "—")
+                ResultLine("Net / month", res?.let { fmt(it.third, 2) } ?: "—")
+            }
+        }
+        item {
+            var poBal by remember { mutableStateOf("1000") }
+            var poApr by remember { mutableStateOf("12") }
+            var poPay by remember { mutableStateOf("100") }
+            val res = runCatching { Finance.creditPayoff(num(poBal), num(poApr), num(poPay)) }.getOrNull()
+            SectionCard("Credit payoff") {
+                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Box(Modifier.weight(1f)) { NumField(poBal, { poBal = it }, "Balance") }
+                    Box(Modifier.weight(1f)) { NumField(poApr, { poApr = it }, "APR %") }
+                    Box(Modifier.weight(1f)) { NumField(poPay, { poPay = it }, "Monthly pay") }
+                }
+                HorizontalDivider()
+                ResultLine("Months", res?.first?.toString() ?: "—")
+                ResultLine("Total interest", res?.let { fmt(it.second, 2) } ?: "—")
+                ResultLine("Total paid", res?.let { fmt(it.third, 2) } ?: "—")
+            }
+        }
+        item {
+            var lcP by remember { mutableStateOf("10000") }
+            var lcRa by remember { mutableStateOf("5") }
+            var lcRb by remember { mutableStateOf("8") }
+            var lcM by remember { mutableStateOf("24") }
+            val res = runCatching {
+                Finance.loanCompare(num(lcP), num(lcRa), num(lcRb), lcM.toIntOrNull() ?: 0)
+            }.getOrNull()
+            SectionCard("Loan compare") {
+                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Box(Modifier.weight(1f)) { NumField(lcP, { lcP = it }, "Principal") }
+                    Box(Modifier.weight(1f)) { NumField(lcM, { lcM = it }, "Months", integer = true) }
+                }
+                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Box(Modifier.weight(1f)) { NumField(lcRa, { lcRa = it }, "Rate A %") }
+                    Box(Modifier.weight(1f)) { NumField(lcRb, { lcRb = it }, "Rate B %") }
+                }
+                HorizontalDivider()
+                ResultLine("EMI A", res?.let { fmt(it.first, 2) } ?: "—")
+                ResultLine("EMI B", res?.let { fmt(it.second, 2) } ?: "—")
+                ResultLine("Savings total (B-A)", res?.let { fmt(it.third, 2) } ?: "—")
+            }
+        }
+        item {
+            var mgCost by remember { mutableStateOf("50") }
+            var mgPrice by remember { mutableStateOf("100") }
+            val margin = runCatching { Finance.profitMargin(num(mgCost), num(mgPrice)) }.getOrNull()
+            SectionCard("Profit margin") {
+                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Box(Modifier.weight(1f)) { NumField(mgCost, { mgCost = it }, "Cost") }
+                    Box(Modifier.weight(1f)) { NumField(mgPrice, { mgPrice = it }, "Price") }
+                }
+                HorizontalDivider()
+                ResultLine("Margin", margin?.let { fmt(it, 2) + " %" } ?: "—")
+            }
+        }
     }
 }
 

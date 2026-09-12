@@ -42,6 +42,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import calc.u.ui.theme.FluentElevation
 import calc.u.ui.theme.FluentMotion
 
@@ -55,23 +56,23 @@ fun SectionCard(title: String, modifier: Modifier = Modifier, content: @Composab
     ) {
         Column(
             Modifier.fillMaxWidth(),
-            verticalArrangement = Arrangement.spacedBy(8.dp)
+            verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             Text(
                 title,
-                style = MaterialTheme.typography.titleLarge,
-                color = MaterialTheme.colorScheme.onSurface,
+                style = MaterialTheme.typography.labelLarge.copy(letterSpacing = 0.4.sp),
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.padding(horizontal = 4.dp).semantics { heading() }
             )
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 shape = MaterialTheme.shapes.large,
                 colors = CardDefaults.cardColors(
-                    containerColor = MaterialTheme.colorScheme.surfaceContainerLow
+                    containerColor = MaterialTheme.colorScheme.surfaceContainerLowest
                 )
             ) {
                 Column(
-                    Modifier.padding(16.dp),
+                    Modifier.padding(20.dp),
                     verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
                     content()
@@ -96,10 +97,10 @@ fun ResultLine(label: String, value: String, modifier: Modifier = Modifier) {
         )
         Text(
             value,
-            style = MaterialTheme.typography.titleMedium,
+            style = MaterialTheme.typography.titleMedium.copy(fontFeatureSettings = "tnum"),
             color = MaterialTheme.colorScheme.onSurface,
             textAlign = TextAlign.End,
-            maxLines = 2,
+            maxLines = 1,
             overflow = TextOverflow.Ellipsis
         )
     }
@@ -178,7 +179,7 @@ fun FluentCalcKey(
             interactionSource = interactions,
             shape = shape,
             colors = ButtonDefaults.buttonColors(
-                containerColor = MaterialTheme.colorScheme.surfaceContainerHighest,
+                containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
                 contentColor = MaterialTheme.colorScheme.onSurface
             ),
             elevation = ButtonDefaults.buttonElevation(

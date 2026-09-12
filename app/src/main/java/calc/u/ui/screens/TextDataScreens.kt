@@ -44,7 +44,14 @@ fun TextDataScreen() {
                     "base64" to "Base64",
                     "stats" to "Stats",
                     "qr" to "QR",
-                    "uuid" to "UUID"
+                    "uuid" to "UUID",
+                    "case" to "Case",
+                    "url" to "URL",
+                    "morse" to "Morse",
+                    "binary" to "Binary",
+                    "json" to "JSON",
+                    "regex" to "Regex",
+                    "unix" to "Unix"
                 )
             ) { (id, label) ->
                 FilterChip(selected = tab == id, onClick = { tab = id }, label = { Text(label) })
@@ -56,6 +63,13 @@ fun TextDataScreen() {
                 "stats" -> TextStatsScreen()
                 "qr" -> QrScreen()
                 "uuid" -> UuidScreen()
+                "case" -> CaseConverterCard()
+                "url" -> UrlCodecCard()
+                "morse" -> MorseCard()
+                "binary" -> BinaryHexCard()
+                "json" -> JsonFormatterCard()
+                "regex" -> RegexTesterCard()
+                "unix" -> UnixTimeCard()
                 else -> HashScreen()
             }
         }
@@ -217,5 +231,190 @@ fun UuidScreen() {
                 }
             }
         }
+    }
+}
+
+@Composable
+fun CaseConverterCard() {
+    var input by remember { mutableStateOf("") }
+    val upper = remember(input) { TextData.toUpper(input) }
+    val lower = remember(input) { TextData.toLower(input) }
+    val title = remember(input) { TextData.titleCase(input) }
+    SectionCard("Case converter") {
+        OutlinedTextField(
+            value = input,
+            onValueChange = { input = it },
+            label = { Text("Text") },
+            modifier = Modifier.fillMaxWidth()
+        )
+        HorizontalDivider()
+        ResultLine("UPPER", upper)
+        ResultLine("lower", lower)
+        ResultLine("Title", title)
+    }
+}
+
+@Composable
+fun UrlCodecCard() {
+    var input by remember { mutableStateOf("") }
+    var decode by remember { mutableStateOf(false) }
+    val output = remember(input, decode) {
+        runCatching {
+            if (decode) TextData.urlDecode(input) else TextData.urlEncode(input)
+        }.getOrDefault("—")
+    }
+    SectionCard("URL codec") {
+        LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            item { FilterChip(selected = !decode, onClick = { decode = false }, label = { Text("Encode") }) }
+            item { FilterChip(selected = decode, onClick = { decode = true }, label = { Text("Decode") }) }
+        }
+        OutlinedTextField(
+            value = input,
+            onValueChange = { input = it },
+            label = { Text(if (decode) "Encoded" else "Plain text") },
+            modifier = Modifier.fillMaxWidth()
+        )
+        HorizontalDivider()
+        ResultLine("Result", output)
+    }
+}
+
+@Composable
+fun MorseCard() {
+    var plain by remember { mutableStateOf("") }
+    var code by remember { mutableStateOf("") }
+    val encoded = remember(plain) { runCatching { TextData.morseEncode(plain) }.getOrDefault("—") }
+    val decoded = remember(code) { runCatching { TextData.morseDecode(code) }.getOrDefault("—") }
+    SectionCard("Morse") {
+        OutlinedTextField(
+            value = plain,
+            onValueChange = { plain = it },
+            label = { Text("Text to encode") },
+            modifier = Modifier.fillMaxWidth()
+        )
+        ResultLine("Encoded", encoded)
+        HorizontalDivider()
+        OutlinedTextField(
+            value = code,
+            onValueChange = { code = it },
+            label = { Text("Code to decode") },
+            modifier = Modifier.fillMaxWidth()
+        )
+        ResultLine("Decoded", decoded)
+    }
+}
+
+@Composable
+fun BinaryHexCard() {
+    var text by remember { mutableStateOf("") }
+    var bin by remember { mutableStateOf("") }
+    val binOut = remember(text) { runCatching { TextData.textToBinary(text) }.getOrDefault("—") }
+    val textOut = remember(bin) { runCatching { TextData.binaryToText(bin) }.getOrDefault("—") }
+    val hexOut = remember(text) { runCatching { TextData.textToHex(text) }.getOrDefault("—") }
+    SectionCard("Binary / Hex") {
+        OutlinedTextField(
+            value = text,
+            onValueChange = { text = it },
+            label = { Text("Text") },
+            modifier = Modifier.fillMaxWidth()
+        )
+        ResultLine("Binary", binOut)
+        ResultLine("Hex", hexOut)
+        HorizontalDivider()
+        OutlinedTextField(
+            value = bin,
+            onValueChange = { bin = it },
+            label = { Text("Binary to decode") },
+            modifier = Modifier.fillMaxWidth()
+        )
+        ResultLine("Text", textOut)
+    }
+}
+
+@Composable
+fun JsonFormatterCard() {
+    var input by remember { mutableStateOf("") }
+    var error by remember { mutableStateOf<String?>(null) }
+    val output = remember(input) {
+        if (input.isBlank()) {
+            error = null
+            ""
+        } else {
+            runCatching { TextData.jsonPretty(input) }.onFailure { error = it.message }
+                .onSuccess { error = null }.getOrDefault("")
+        }
+    }
+    SectionCard("JSON formatter") {
+        OutlinedTextField(
+            value = input,
+            onValueChange = { input = it },
+            label = { Text("JSON") },
+            modifier = Modifier.fillMaxWidth(),
+            minLines = 4
+        )
+        HorizontalDivider()
+        if (error != null) {
+            Text(error ?: "")
+        } else {
+            ResultLine("Pretty", if (output.isEmpty()) "—" else output)
+        }
+    }
+}
+
+@Composable
+fun RegexTesterCard() {
+    var pattern by remember { mutableStateOf("") }
+    var input by remember { mutableStateOf("") }
+    var error by remember { mutableStateOf<String?>(null) }
+    val matches = remember(pattern, input) {
+        if (pattern.isEmpty() || input.isEmpty()) {
+            error = null
+            emptyList()
+        } else {
+            runCatching { TextData.regexTest(pattern, input) }.onFailure { error = it.message }
+                .onSuccess { error = null }.getOrDefault(emptyList())
+        }
+    }
+    SectionCard("Regex tester") {
+        OutlinedTextField(
+            value = pattern,
+            onValueChange = { pattern = it },
+            label = { Text("Pattern") },
+            modifier = Modifier.fillMaxWidth()
+        )
+        OutlinedTextField(
+            value = input,
+            onValueChange = { input = it },
+            label = { Text("Input") },
+            modifier = Modifier.fillMaxWidth()
+        )
+        HorizontalDivider()
+        if (error != null) {
+            Text(error ?: "")
+        } else {
+            ResultLine("Matches", if (matches.isEmpty()) "—" else matches.joinToString(", "))
+        }
+    }
+}
+
+@Composable
+fun UnixTimeCard() {
+    var now by remember { mutableStateOf(TextData.unixNow()) }
+    var input by remember { mutableStateOf("") }
+    val converted = remember(input) {
+        if (input.isBlank()) "—"
+        else runCatching { TextData.unixToDate(input.trim().toLong()) }.getOrDefault("—")
+    }
+    SectionCard("Unix time") {
+        ResultLine("Now", "$now")
+        Button(onClick = { now = TextData.unixNow() }) { Text("Refresh now") }
+        HorizontalDivider()
+        OutlinedTextField(
+            value = input,
+            onValueChange = { input = it },
+            label = { Text("Timestamp (seconds)") },
+            modifier = Modifier.fillMaxWidth()
+        )
+        ResultLine("Date", converted)
     }
 }

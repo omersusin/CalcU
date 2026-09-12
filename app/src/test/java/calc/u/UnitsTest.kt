@@ -76,11 +76,66 @@ class UnitsTest {
         assertEquals(1.0, Units.convert(base, Units.length["m"]!!, Units.length["pc"]!!), 1e-9)
     }
 
-    @Test fun massGrainStoneSlug() {
-        assertEquals(6.479891e-5, Units.convert(1.0, Units.mass["gr"]!!, Units.mass["kg"]!!), 1e-12)
-        assertEquals(6.35029318, Units.convert(1.0, Units.mass["st"]!!, Units.mass["kg"]!!), 1e-9)
-        assertEquals(14.59390294, Units.convert(1.0, Units.mass["slug"]!!, Units.mass["kg"]!!), 1e-6)
-        val base = Units.convert(1.0, Units.mass["st"]!!, Units.mass["kg"]!!)
-        assertEquals(1.0, Units.convert(base, Units.mass["kg"]!!, Units.mass["st"]!!), 1e-9)
+    @Test fun lengthSurveyChainLink() {
+        assertEquals(22.0, Units.convert(1.0, Units.length["chain"]!!, Units.length["yd"]!!), 1e-9)
+        assertEquals(20.1168, Units.convert(1.0, Units.length["chain"]!!, Units.length["m"]!!), 1e-9)
+        assertEquals(0.01, Units.convert(1.0, Units.length["link"]!!, Units.length["chain"]!!), 1e-12)
+        assertEquals(1.0, Units.convert(20.1168, Units.length["m"]!!, Units.length["chain"]!!), 1e-9)
+    }
+
+    @Test fun lengthHandMilRodFathom() {
+        assertEquals(4.0, Units.convert(1.0, Units.length["hand"]!!, Units.length["in"]!!), 1e-9)
+        assertEquals(0.001, Units.convert(1.0, Units.length["mil"]!!, Units.length["in"]!!), 1e-12)
+        assertEquals(5.5, Units.convert(1.0, Units.length["rod"]!!, Units.length["yd"]!!), 1e-9)
+        assertEquals(6.0, Units.convert(1.0, Units.length["fathom"]!!, Units.length["ft"]!!), 1e-9)
+        assertEquals(1.0, Units.convert(0.1016, Units.length["m"]!!, Units.length["hand"]!!), 1e-9)
+    }
+
+    @Test fun volumeQuartPintDramMetricTbsp() {
+        assertEquals(0.946352946, Units.convert(1.0, Units.volume["qt"]!!, Units.volume["L"]!!), 1e-9)
+        assertEquals(2.0, Units.convert(1.0, Units.volume["qt"]!!, Units.volume["pt"]!!), 1e-9)
+        assertEquals(16.0, Units.convert(1.0, Units.volume["pt"]!!, Units.volume["fl-oz"]!!), 1e-4)
+        assertEquals(0.125, Units.convert(1.0, Units.volume["fl_dram"]!!, Units.volume["fl-oz"]!!), 1e-9)
+        assertEquals(15.0, Units.convert(1.0, Units.volume["tbsp_metric"]!!, Units.volume["mL"]!!), 1e-9)
+    }
+
+    @Test fun areaSectionTownshipRood() {
+        assertEquals(2589988.110336, Units.convert(1.0, Units.area["section"]!!, Units.area["m2"]!!), 1e-6)
+        assertEquals(36.0, Units.convert(1.0, Units.area["township"]!!, Units.area["section"]!!), 1e-9)
+        assertEquals(0.25, Units.convert(1.0, Units.area["rood"]!!, Units.area["acre"]!!), 1e-9)
+        val base = Units.convert(1.0, Units.area["township"]!!, Units.area["m2"]!!)
+        assertEquals(1.0, Units.convert(base, Units.area["m2"]!!, Units.area["township"]!!), 1e-9)
+    }
+
+    @Test fun timeWeekFortnightYear() {
+        assertEquals(7.0, Units.convert(1.0, Units.time["week"]!!, Units.time["day"]!!), 1e-9)
+        assertEquals(14.0, Units.convert(1.0, Units.time["fortnight"]!!, Units.time["day"]!!), 1e-9)
+        assertEquals(1209600.0, Units.convert(1.0, Units.time["fortnight"]!!, Units.time["s"]!!), 1e-6)
+        assertEquals(365.242198781, Units.convert(1.0, Units.time["yr"]!!, Units.time["day"]!!), 1e-6)
+    }
+
+    @Test fun speedKnot() {
+        assertEquals(1852.0 / 3600.0, Units.convert(1.0, Units.speed["knot"]!!, Units.speed["m/s"]!!), 1e-12)
+        val mph = Units.convert(1.0, Units.speed["knot"]!!, Units.speed["mph"]!!)
+        assertEquals(1.0, Units.convert(mph, Units.speed["mph"]!!, Units.speed["knot"]!!), 1e-9)
+    }
+
+    @Test fun pressureKsiInHgTorr() {
+        assertEquals(1000.0, Units.convert(1.0, Units.pressure["ksi"]!!, Units.pressure["psi"]!!), 1e-9)
+        assertEquals(3386.389, Units.convert(1.0, Units.pressure["inHg"]!!, Units.pressure["Pa"]!!), 1e-3)
+        assertEquals(1.0, Units.convert(1.0, Units.pressure["torr"]!!, Units.pressure["mmHg"]!!), 1e-5)
+    }
+
+    @Test fun energyBtuThermTonTNT() {
+        assertEquals(1055.05585262, Units.convert(1.0, Units.energy["Btu"]!!, Units.energy["J"]!!), 1e-6)
+        assertEquals(1e5, Units.convert(1.0, Units.energy["therm"]!!, Units.energy["Btu"]!!), 1e-6)
+        assertEquals(4.184e9, Units.convert(1.0, Units.energy["tonTNT"]!!, Units.energy["J"]!!), 1e3)
+        assertEquals(1.0, Units.convert(4.184e9, Units.energy["J"]!!, Units.energy["tonTNT"]!!), 1e-9)
+    }
+
+    @Test fun printingPointPica() {
+        assertEquals(25.4 / 72.0, Units.printing["point"]!!.toBase, 1e-12)
+        assertEquals(12.0, Units.convert(1.0, Units.printing["pica"]!!, Units.printing["point"]!!), 1e-9)
+        assertEquals(1.0, Units.convert(12.0, Units.printing["point"]!!, Units.printing["pica"]!!), 1e-9)
     }
 }

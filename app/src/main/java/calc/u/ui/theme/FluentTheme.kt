@@ -94,11 +94,11 @@ object FluentElevation {
 object FluentExpressive {
     val HeroCardShape = RoundedCornerShape(28.dp)
     val GroupCardShape = RoundedCornerShape(16.dp)
-    // Group headers follow titleLarge spec (token-only, no behavior).
-    val GroupHeaderFontSize = 20.sp
-    val GroupHeaderLineHeight = 28.sp
-    val GroupHeaderWeight = FontWeight.SemiBold
-    val GroupHeaderLetterSpacing = 0.sp
+    // Group headers follow labelLarge spec (token-only, no behavior).
+    val GroupHeaderFontSize = 12.sp
+    val GroupHeaderLineHeight = 16.sp
+    val GroupHeaderWeight = FontWeight.Bold
+    val GroupHeaderLetterSpacing = 0.4.sp
 }
 
 private fun fluentType(): Typography {
@@ -153,8 +153,8 @@ private val FluentLight = lightColorScheme(
     surfaceContainerLowest = Color.White,
     surfaceContainerLow = Color(0xFFF6F6F6),
     surfaceContainer = Color(0xFFEFEFEF),
-    surfaceContainerHigh = Color(0xFFE5E5E5),
-    surfaceContainerHighest = Color(0xFFDCDCDC),
+    surfaceContainerHigh = Color(0xFFE8E8E8),
+    surfaceContainerHighest = Color(0xFFE0E0E0),
     outline = Color(0xFF73777F),
     outlineVariant = Color(0xFFC3C7CF),
     scrim = Color(0x52000000)

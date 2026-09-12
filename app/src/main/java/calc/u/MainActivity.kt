@@ -70,6 +70,7 @@ import calc.u.ui.screens.StepsScreen
 import calc.u.ui.screens.TextDataScreen
 import calc.u.ui.screens.TimeLabScreen
 import calc.u.ui.screens.ElectroScreen
+import calc.u.ui.screens.EverydayScreen
 import calc.u.ui.screens.ToolsHub
 import calc.u.ui.theme.CalcUTheme
 import dagger.hilt.android.AndroidEntryPoint
@@ -91,6 +92,7 @@ private val ToolDests = listOf(
     Dest("time", "Time Lab", Icons.Filled.Timer),
     Dest("electro", "Electro", Icons.Filled.Build),
     Dest("textdata", "Text+Data", Icons.Filled.ShortText),
+    Dest("everyday", "Everyday", Icons.Filled.Apps),
     Dest("tools", "Tools", Icons.Filled.Apps)
 )
 
@@ -112,7 +114,7 @@ class MainActivity : ComponentActivity() {
                     val drawer = rememberDrawerState(DrawerValue.Closed)
                     val scope = rememberCoroutineScope()
                     val startRoute = intent?.getStringExtra("dest")?.takeIf {
-                        it in setOf("graph", "time", "electro", "textdata", "tools")
+                        it in setOf("graph", "time", "electro", "textdata", "everyday", "tools")
                     } ?: "calc"
                     var route by remember { mutableStateOf(startRoute) }
                     fun go(r: String) {
@@ -213,6 +215,7 @@ class MainActivity : ComponentActivity() {
                                         composable("time") { Centered { TimeLabScreen() } }
                                         composable("electro") { Centered { ElectroScreen() } }
                                         composable("textdata") { Centered { TextDataScreen() } }
+                                        composable("everyday") { Centered { EverydayScreen() } }
                                         composable("tools") { Centered { ToolsHub(onOpen = { go(it) }) } }
                                         composable("settings") { Centered { SettingsScreen() } }
                                     }

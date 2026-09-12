@@ -177,4 +177,83 @@ object Finance {
         require(ratePct > 0.0) { "ratePct must be > 0" }
         return 72 / ratePct
     }
+
+    fun gpa(grades: List<Pair<Double, Double>>): Double {
+        var points = 0.0
+        var credits = 0.0
+        for ((grade, credit) in grades) {
+            require(grade >= 0.0) { "grade must be >= 0" }
+            require(credit >= 0.0) { "credits must be >= 0" }
+            points += grade * credit
+            credits += credit
+        }
+        if (credits == 0.0) return 0.0
+        return points / credits
+    }
+
+    fun gradeNeeded(currentPct: Double, weightDonePct: Double, targetPct: Double): Double {
+        require(weightDonePct >= 0.0) { "weightDonePct must be >= 0" }
+        require(weightDonePct < 100.0) { "weightDonePct must be < 100" }
+        val done = weightDonePct / 100
+        val left = 1 - done
+        return (targetPct - currentPct * done) / left
+    }
+
+    fun paycheck(hourlyRate: Double, hoursPerWeek: Double, taxPct: Double): Triple<Double, Double, Double> {
+        require(hourlyRate >= 0.0) { "hourlyRate must be >= 0" }
+        require(hoursPerWeek >= 0.0) { "hoursPerWeek must be >= 0" }
+        require(taxPct >= 0.0) { "taxPct must be >= 0" }
+        val gross = hourlyRate * hoursPerWeek * 52 / 12
+        val tax = gross * taxPct / 100
+        return Triple(gross, tax, gross - tax)
+    }
+
+    fun creditPayoff(balance: Double, aprPct: Double, monthlyPayment: Double): Triple<Int, Double, Double> {
+        require(balance >= 0.0) { "balance must be >= 0" }
+        require(aprPct >= 0.0) { "aprPct must be >= 0" }
+        require(monthlyPayment > 0.0) { "monthlyPayment must be > 0" }
+        if (balance == 0.0) return Triple(0, 0.0, 0.0)
+        val r = aprPct / 1200
+        if (r == 0.0) {
+            val months = kotlin.math.ceil(balance / monthlyPayment).toInt()
+            return Triple(months, 0.0, balance)
+        }
+        var bal = balance
+        var months = 0
+        var totalInterest = 0.0
+        var totalPaid = 0.0
+        var guard = 0
+        while (bal > 0) {
+            val interest = bal * r
+            require(monthlyPayment > interest) { "payment must exceed monthly interest" }
+            months += 1
+            totalInterest += interest
+            if (bal + interest <= monthlyPayment) {
+                totalPaid += bal + interest
+                bal = 0.0
+            } else {
+                bal = bal + interest - monthlyPayment
+                totalPaid += monthlyPayment
+            }
+            guard += 1
+            require(guard <= 10000) { "payoff did not converge" }
+        }
+        return Triple(months, totalInterest, totalPaid)
+    }
+
+    fun loanCompare(principal: Double, rateA: Double, rateB: Double, months: Int): Triple<Double, Double, Double> {
+        require(principal >= 0.0) { "principal must be >= 0" }
+        require(months > 0) { "months must be > 0" }
+        val emiA = emi(principal, rateA, months)
+        val emiB = emi(principal, rateB, months)
+        val savingsTotal = (emiB - emiA) * months
+        return Triple(emiA, emiB, savingsTotal)
+    }
+
+    fun profitMargin(cost: Double, price: Double): Double {
+        require(cost >= 0.0) { "cost must be >= 0" }
+        require(price >= 0.0) { "price must be >= 0" }
+        if (price == 0.0) return 0.0
+        return (price - cost) / price * 100
+    }
 }

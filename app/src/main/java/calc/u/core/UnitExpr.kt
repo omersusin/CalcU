@@ -33,6 +33,14 @@ object UnitExpr {
         "ft" to UnitDef(0.3048, d(l = 1)),
         "yd" to UnitDef(0.9144, d(l = 1)),
         "mi" to UnitDef(1609.344, d(l = 1)),
+        "mil" to UnitDef(2.54e-5, d(l = 1)),
+        "hand" to UnitDef(0.1016, d(l = 1)),
+        "link" to UnitDef(0.201168, d(l = 1)),
+        "chain" to UnitDef(20.1168, d(l = 1)),
+        "rod" to UnitDef(5.0292, d(l = 1)),
+        "fathom" to UnitDef(1.8288, d(l = 1)),
+        "point" to UnitDef(3.527777777777778e-4, d(l = 1)),
+        "pica" to UnitDef(0.004233333333333333, d(l = 1)),
         "kg" to UnitDef(1.0, d(m = 1)),
         "g" to UnitDef(0.001, d(m = 1)),
         "mg" to UnitDef(1e-6, d(m = 1)),
@@ -43,6 +51,9 @@ object UnitExpr {
         "min" to UnitDef(60.0, d(t = 1)),
         "hr" to UnitDef(3600.0, d(t = 1)),
         "day" to UnitDef(86400.0, d(t = 1)),
+        "week" to UnitDef(604800.0, d(t = 1)),
+        "fortnight" to UnitDef(1209600.0, d(t = 1)),
+        "yr" to UnitDef(31556925.9746784, d(t = 1)),
         "ms" to UnitDef(0.001, d(t = 1)),
         "N" to UnitDef(1.0, d(l = 1, m = 1, t = -2)),
         "lbf" to UnitDef(4.4482216152605, d(l = 1, m = 1, t = -2)),
@@ -53,6 +64,9 @@ object UnitExpr {
         "cal" to UnitDef(4.184, d(l = 2, m = 1, t = -2)),
         "kcal" to UnitDef(4184.0, d(l = 2, m = 1, t = -2)),
         "kWh" to UnitDef(3.6e6, d(l = 2, m = 1, t = -2)),
+        "Btu" to UnitDef(1055.05585262, d(l = 2, m = 1, t = -2)),
+        "therm" to UnitDef(105505585.262, d(l = 2, m = 1, t = -2)),
+        "tonTNT" to UnitDef(4.184e9, d(l = 2, m = 1, t = -2)),
         "eV" to UnitDef(1.602176634e-19, d(l = 2, m = 1, t = -2)),
         "W" to UnitDef(1.0, d(l = 2, m = 1, t = -3)),
         "kW" to UnitDef(1000.0, d(l = 2, m = 1, t = -3)),
@@ -61,6 +75,9 @@ object UnitExpr {
         "kPa" to UnitDef(1000.0, d(l = -1, m = 1, t = -2)),
         "bar" to UnitDef(1e5, d(l = -1, m = 1, t = -2)),
         "psi" to UnitDef(6894.757293178, d(l = -1, m = 1, t = -2)),
+        "ksi" to UnitDef(6894757.293178, d(l = -1, m = 1, t = -2)),
+        "inHg" to UnitDef(3386.389, d(l = -1, m = 1, t = -2)),
+        "torr" to UnitDef(133.322368, d(l = -1, m = 1, t = -2)),
         "atm" to UnitDef(101325.0, d(l = -1, m = 1, t = -2)),
         "V" to UnitDef(1.0, d(l = 2, m = 1, t = -3, i = -1)),
         "A" to UnitDef(1.0, d(i = 1)),
@@ -72,10 +89,21 @@ object UnitExpr {
         "L" to UnitDef(0.001, d(l = 3)),
         "mL" to UnitDef(1e-6, d(l = 3)),
         "gal" to UnitDef(0.003785411784, d(l = 3)),
+        "qt" to UnitDef(9.46352946e-4, d(l = 3)),
+        "pt" to UnitDef(4.73176473e-4, d(l = 3)),
+        "floz" to UnitDef(2.95735e-5, d(l = 3)),
+        "fldram" to UnitDef(3.6966875e-6, d(l = 3)),
+        "tbsp_metric" to UnitDef(1.5e-5, d(l = 3)),
         "mph" to UnitDef(0.44704, d(l = 1, t = -1)),
+        "knot" to UnitDef(0.5144444444444445, d(l = 1, t = -1)),
         "kph" to UnitDef(1.0 / 3.6, d(l = 1, t = -1)),
         "rad" to UnitDef(1.0, d()),
-        "deg" to UnitDef(0.017453292519943295, d())
+        "deg" to UnitDef(0.017453292519943295, d()),
+        "turn" to UnitDef(6.283185307179586, d()),
+        "rev" to UnitDef(6.283185307179586, d()),
+        "grad" to UnitDef(0.015707963267948967, d()),
+        "arcmin" to UnitDef(2.908882086657216e-4, d()),
+        "arcsec" to UnitDef(4.84813681109536e-6, d())
     )
 
     private val aliases: Map<String, String> = mapOf(
@@ -87,6 +115,14 @@ object UnitExpr {
         "foot" to "ft", "feet" to "ft",
         "yard" to "yd", "yards" to "yd",
         "mile" to "mi", "miles" to "mi",
+        "mils" to "mil",
+        "hands" to "hand",
+        "links" to "link",
+        "chains" to "chain",
+        "rods" to "rod",
+        "fathoms" to "fathom",
+        "points" to "point",
+        "picas" to "pica",
         "kilogram" to "kg", "kilograms" to "kg", "kilo" to "kg", "kilos" to "kg",
         "gram" to "g", "grams" to "g",
         "milligram" to "mg", "milligrams" to "mg",
@@ -97,6 +133,9 @@ object UnitExpr {
         "minute" to "min", "minutes" to "min",
         "hour" to "hr", "hours" to "hr", "h" to "hr",
         "days" to "day",
+        "weeks" to "week", "wk" to "week", "wks" to "week",
+        "fortnights" to "fortnight",
+        "year" to "yr", "years" to "yr",
         "millisecond" to "ms", "milliseconds" to "ms",
         "newton" to "N", "newtons" to "N",
         "dyne" to "dyn", "dynes" to "dyn",
@@ -105,12 +144,18 @@ object UnitExpr {
         "calorie" to "cal", "calories" to "cal",
         "kilocalorie" to "kcal", "kilocalories" to "kcal",
         "kilowatthour" to "kWh", "kilowatthours" to "kWh",
+        "britishthermalunit" to "Btu", "britishthermalunits" to "Btu", "btus" to "Btu",
+        "therms" to "therm",
+        "tontnt" to "tonTNT", "tonsoftnt" to "tonTNT",
         "electronvolt" to "eV", "electronvolts" to "eV",
         "watt" to "W", "watts" to "W",
         "kilowatt" to "kW", "kilowatts" to "kW",
         "horsepower" to "hp",
         "pascal" to "Pa", "pascals" to "Pa",
         "kilopascal" to "kPa", "kilopascals" to "kPa",
+        "ksis" to "ksi",
+        "inchhg" to "inHg", "incheshg" to "inHg",
+        "torrs" to "torr",
         "bars" to "bar",
         "atmosphere" to "atm", "atmospheres" to "atm",
         "volt" to "V", "volts" to "V",
@@ -123,8 +168,20 @@ object UnitExpr {
         "liter" to "L", "liters" to "L", "litre" to "L", "litres" to "L", "l" to "L",
         "milliliter" to "mL", "milliliters" to "mL", "millilitre" to "mL", "millilitres" to "mL", "ml" to "mL",
         "gallon" to "gal", "gallons" to "gal",
+        "quart" to "qt", "quarts" to "qt",
+        "pint" to "pt", "pints" to "pt",
+        "fluidounce" to "floz", "fluidounces" to "floz", "fl_oz" to "floz",
+        "fluidram" to "fldram", "fluidrams" to "fldram",
+        "fluiddram" to "fldram", "fluiddrams" to "fldram", "fl_dram" to "fldram",
+        "tbspmetric" to "tbsp_metric", "metrictablespoon" to "tbsp_metric",
         "radian" to "rad", "radians" to "rad",
         "degree" to "deg", "degrees" to "deg",
+        "turns" to "turn", "circle" to "turn", "circles" to "turn",
+        "revolution" to "turn", "revolutions" to "turn", "revs" to "rev",
+        "grads" to "grad", "gradian" to "grad", "gradians" to "grad",
+        "arcminute" to "arcmin", "arcminutes" to "arcmin",
+        "arcsecond" to "arcsec", "arcseconds" to "arcsec",
+        "knots" to "knot", "kt" to "knot",
         "mileperhour" to "mph", "milesperhour" to "mph",
         "kilometerperhour" to "kph", "kilometreperhour" to "kph"
     )
@@ -165,6 +222,13 @@ object UnitExpr {
             .replace("·", "*").replace("•", "*").replace("×", "*")
             .replace("÷", "/").replace("−", "-")
             .replace("²", "^2").replace("³", "^3").replace("¹", "^1")
+        // ConvertAll-style multi-word spellings collapse to single tokens
+        // (tokenizer splits on whitespace with implicit multiplication).
+        s = s.replace(Regex("fluid[ -]?drams?", RegexOption.IGNORE_CASE), "fldram")
+        s = s.replace(Regex("fluid[ -]?ounces?", RegexOption.IGNORE_CASE), "floz")
+        s = s.replace(Regex("fl[ -]?oz", RegexOption.IGNORE_CASE), "floz")
+        s = s.replace(Regex("in(ch)?[ -]?hg", RegexOption.IGNORE_CASE), "inHg")
+        s = s.replace(Regex("tons?\\s+tnt", RegexOption.IGNORE_CASE), "tonTNT")
         s = s.replace(Regex("([A-Za-z_)Ωµμ])\\s*(\\d+)"), "\$1^\$2")
         return s
     }

@@ -307,4 +307,55 @@ object Engine {
             format(BigDecimal.valueOf(detOf(replaced) / det))
         }
     }
+
+    fun diceRoll(sides: Int, rng: SecureRandom = SecureRandom()): Int {
+        require(sides >= 2) { "sides must be >= 2" }
+        return rng.nextInt(sides) + 1
+    }
+
+    fun coinFlip(rng: SecureRandom = SecureRandom()): String {
+        return if (rng.nextBoolean()) "Heads" else "Tails"
+    }
+
+    fun numberToWords(n: Long): String {
+        require(n in 0..999_999_999_999L) { "n must be in 0..999_999_999_999" }
+        if (n == 0L) return "zero"
+        val below20 = listOf(
+            "", "one", "two", "three", "four", "five", "six", "seven", "eight", "nine",
+            "ten", "eleven", "twelve", "thirteen", "fourteen", "fifteen", "sixteen",
+            "seventeen", "eighteen", "nineteen"
+        )
+        val tens = listOf("", "", "twenty", "thirty", "forty", "fifty", "sixty", "seventy", "eighty", "ninety")
+        fun underThousand(v: Long): String {
+            val parts = mutableListOf<String>()
+            val h = v / 100
+            val rest = v % 100
+            if (h > 0) parts.add("${below20[h.toInt()]} hundred")
+            if (rest > 0) {
+                val tail = if (rest < 20) below20[rest.toInt()]
+                else {
+                    val t = tens[(rest / 10).toInt()]
+                    val o = (rest % 10).toInt()
+                    if (o == 0) t else "$t-${below20[o]}"
+                }
+                parts.add(tail)
+            }
+            return parts.joinToString(" ")
+        }
+        val chunks = mutableListOf<String>()
+        var rem = n
+        val scales = listOf("", "thousand", "million", "billion")
+        var scaleIdx = 0
+        while (rem > 0) {
+            val cur = rem % 1000
+            if (cur > 0) {
+                val words = underThousand(cur)
+                val scale = scales[scaleIdx]
+                chunks.add(if (scale.isEmpty()) words else "$words $scale")
+            }
+            rem /= 1000
+            scaleIdx += 1
+        }
+        return chunks.reversed().joinToString(" ")
+    }
 }

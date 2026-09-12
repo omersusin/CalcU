@@ -1,6 +1,8 @@
 package calc.u.core
 
 // Conversion factors retyped from unitconverterultimate (Apache-2.0).
+// Coverage cross-checked against ConvertAll's unit list (GPL); all values
+// below were retyped from standard definitions, not copied from its data files.
 
 object Units {
     data class UnitDef(val id: String, val toBase: Double, val offset: Double = 0.0)
@@ -11,7 +13,10 @@ object Units {
         "in" to UnitDef("in", 0.0254), "ft" to UnitDef("ft", 0.3048),
         "yd" to UnitDef("yd", 0.9144), "mi" to UnitDef("mi", 1609.344),
         "Å" to UnitDef("Å", 1e-10), "ly" to UnitDef("ly", 9.4607304725808e15),
-        "pc" to UnitDef("pc", 3.08567758149137e16), "nmi" to UnitDef("nmi", 1852.0)
+        "pc" to UnitDef("pc", 3.08567758149137e16), "nmi" to UnitDef("nmi", 1852.0),
+        "mil" to UnitDef("mil", 2.54e-5), "hand" to UnitDef("hand", 0.1016),
+        "link" to UnitDef("link", 0.201168), "chain" to UnitDef("chain", 20.1168),
+        "rod" to UnitDef("rod", 5.0292), "fathom" to UnitDef("fathom", 1.8288)
     )
     val mass = mapOf(
         "mg" to UnitDef("mg", 1e-6), "g" to UnitDef("g", 0.001),
@@ -24,27 +29,44 @@ object Units {
         "mL" to UnitDef("mL", 0.001), "L" to UnitDef("L", 1.0),
         "m3" to UnitDef("m3", 1000.0), "tsp" to UnitDef("tsp", 0.00492892),
         "tbsp" to UnitDef("tbsp", 0.0147868), "cup" to UnitDef("cup", 0.24),
-        "fl-oz" to UnitDef("fl-oz", 0.0295735), "gal" to UnitDef("gal", 3.78541)
+        "fl-oz" to UnitDef("fl-oz", 0.0295735), "gal" to UnitDef("gal", 3.78541),
+        "qt" to UnitDef("qt", 0.946352946), "pt" to UnitDef("pt", 0.473176473),
+        "fl_dram" to UnitDef("fl_dram", 0.0036966875), "tbsp_metric" to UnitDef("tbsp_metric", 0.015)
     )
     val temperature = listOf("C", "F", "K")
     val area = mapOf(
         "m2" to UnitDef("m2", 1.0), "km2" to UnitDef("km2", 1e6),
         "ft2" to UnitDef("ft2", 0.092903), "acre" to UnitDef("acre", 4046.86),
-        "ha" to UnitDef("ha", 10000.0)
+        "ha" to UnitDef("ha", 10000.0), "rood" to UnitDef("rood", 1011.715),
+        "section" to UnitDef("section", 2589988.110336), "township" to UnitDef("township", 93239571.972096)
+    )
+    val time = mapOf(
+        "s" to UnitDef("s", 1.0), "min" to UnitDef("min", 60.0),
+        "hr" to UnitDef("hr", 3600.0), "day" to UnitDef("day", 86400.0),
+        "week" to UnitDef("week", 604800.0), "fortnight" to UnitDef("fortnight", 1209600.0),
+        "yr" to UnitDef("yr", 31556925.9746784)
+    )
+    val printing = mapOf(
+        "point" to UnitDef("point", 0.3527777777777778),
+        "pica" to UnitDef("pica", 4.233333333333333)
     )
     val speed = mapOf(
         "m/s" to UnitDef("m/s", 1.0), "km/h" to UnitDef("km/h", 1.0 / 3.6),
-        "mph" to UnitDef("mph", 0.44704), "ft/s" to UnitDef("ft/s", 0.3048)
+        "mph" to UnitDef("mph", 0.44704), "ft/s" to UnitDef("ft/s", 0.3048),
+        "knot" to UnitDef("knot", 0.5144444444444445)
     )
     val pressure = mapOf(
         "Pa" to UnitDef("Pa", 1.0), "kPa" to UnitDef("kPa", 1000.0),
         "bar" to UnitDef("bar", 1e5), "psi" to UnitDef("psi", 6894.76),
-        "atm" to UnitDef("atm", 101325.0), "mmHg" to UnitDef("mmHg", 133.322)
+        "atm" to UnitDef("atm", 101325.0), "mmHg" to UnitDef("mmHg", 133.322),
+        "inHg" to UnitDef("inHg", 3386.389), "torr" to UnitDef("torr", 133.322368),
+        "ksi" to UnitDef("ksi", 6894760.0)
     )
     val energy = mapOf(
         "J" to UnitDef("J", 1.0), "kJ" to UnitDef("kJ", 1000.0),
         "cal" to UnitDef("cal", 4.184), "kcal" to UnitDef("kcal", 4184.0),
-        "kWh" to UnitDef("kWh", 3.6e6)
+        "kWh" to UnitDef("kWh", 3.6e6), "Btu" to UnitDef("Btu", 1055.05585262),
+        "therm" to UnitDef("therm", 105505585.262), "tonTNT" to UnitDef("tonTNT", 4.184e9)
     )
     val power = mapOf(
         "W" to UnitDef("W", 1.0), "kW" to UnitDef("kW", 1000.0),

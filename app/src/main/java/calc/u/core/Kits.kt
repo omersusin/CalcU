@@ -282,3 +282,35 @@ object ClockAngle {
         return if (d > 180.0) 360.0 - d else d
     }
 }
+
+object PaintKit {
+    fun paintLiters(areaM2: Double, coats: Int, coveragePerLiter: Double): Double {
+        require(areaM2 >= 0) { "areaM2 must be >= 0" }
+        require(coats > 0) { "coats must be > 0" }
+        require(coveragePerLiter > 0) { "coveragePerLiter must be > 0" }
+        return areaM2 * coats / coveragePerLiter
+    }
+    fun tilesNeeded(areaM2: Double, tileLenCm: Double, tileWidCm: Double, wastePct: Double): Long {
+        require(areaM2 >= 0) { "areaM2 must be >= 0" }
+        require(tileLenCm > 0) { "tileLenCm must be > 0" }
+        require(tileWidCm > 0) { "tileWidCm must be > 0" }
+        require(wastePct >= 0) { "wastePct must be >= 0" }
+        val tileM2 = (tileLenCm / 100.0) * (tileWidCm / 100.0)
+        val raw = areaM2 / tileM2 * (1.0 + wastePct / 100.0)
+        return kotlin.math.ceil(raw).toLong()
+    }
+}
+
+object IdealWeight {
+    fun devine(heightCm: Double, male: Boolean): Double {
+        require(heightCm > 0) { "heightCm must be > 0" }
+        return if (male) 50.0 + 0.91 * (heightCm - 152.4)
+        else 45.5 + 0.91 * (heightCm - 152.4)
+    }
+    fun robinson(heightCm: Double, male: Boolean): Double {
+        require(heightCm > 0) { "heightCm must be > 0" }
+        val inches = heightCm / 2.54
+        return if (male) 52.0 + 1.9 * (inches - 60.0)
+        else 49.0 + 1.7 * (inches - 60.0)
+    }
+}

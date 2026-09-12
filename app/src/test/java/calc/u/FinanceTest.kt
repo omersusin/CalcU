@@ -81,4 +81,26 @@ class FinanceTest {
     @Test fun inflationThreePctTenYears() {
         assertEquals(134.39, Finance.inflation(100.0, 3.0, 10.0), 0.01)
     }
+
+    @Test fun gpaWeighted() {
+        assertEquals(3.5, Finance.gpa(listOf(4.0 to 3.0, 3.0 to 3.0)), 1e-9)
+    }
+
+    @Test fun paycheckMonthly() {
+        val (gross, tax, net) = Finance.paycheck(20.0, 40.0, 20.0)
+        assertEquals(3466.67, gross, 0.01)
+        assertEquals(gross * 0.2, tax, 1e-6)
+        assertEquals(gross - tax, net, 1e-6)
+    }
+
+    @Test fun creditPayoffBasic() {
+        val (months, interest, total) = Finance.creditPayoff(1000.0, 12.0, 100.0)
+        assertTrue(months <= 12)
+        assertTrue(interest > 0)
+        assertTrue(total > 1000.0)
+    }
+
+    @Test fun profitMarginHalf() {
+        assertEquals(50.0, Finance.profitMargin(50.0, 100.0), 1e-9)
+    }
 }

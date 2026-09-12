@@ -173,17 +173,17 @@ fun CalculatorScreen(vm: CalcViewModel = hiltViewModel()) {
                     shape = MaterialTheme.shapes.extraLarge
                 ) {
                     Column(
-                        Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 16.dp).animateContentSize(),
+                        Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 20.dp).animateContentSize(),
                         verticalArrangement = Arrangement.spacedBy(8.dp),
                         horizontalAlignment = Alignment.End
                     ) {
                         Text(
                             tintExpression(
                                 st.input.ifBlank { "0" },
-                                MaterialTheme.colorScheme.onSurface,
+                                MaterialTheme.colorScheme.onSurfaceVariant,
                                 MaterialTheme.colorScheme.primary
                             ),
-                            style = MaterialTheme.typography.titleMedium,
+                            style = MaterialTheme.typography.bodyMedium,
                             maxLines = 3,
                             overflow = TextOverflow.Ellipsis,
                             textAlign = TextAlign.End,
@@ -550,7 +550,7 @@ private fun Keypad(
                             onClick = { onKey(k) },
                             modifier = Modifier.weight(1f),
                             kind = FluentKeyKind.Sci,
-                            keyHeight = 64.dp
+                            keyHeight = 56.dp
                         )
                     }
                 }
@@ -586,10 +586,10 @@ private fun Keypad(
                     onClick = onClear,
                     modifier = Modifier.weight(1f),
                     kind = FluentKeyKind.Sci,
-                    keyHeight = 64.dp
+                    keyHeight = 56.dp
                 )
                 Box(
-                    modifier = Modifier.weight(1f).height(64.dp)
+                    modifier = Modifier.weight(1f).height(56.dp)
                         .graphicsLayer(scaleX = backScale, scaleY = backScale)
                         .clip(MaterialTheme.shapes.large)
                         .border(1.dp, MaterialTheme.colorScheme.outlineVariant, MaterialTheme.shapes.large)

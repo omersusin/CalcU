@@ -40,4 +40,30 @@ class TextDataTest {
         assertEquals(200, matrix.width)
         assertEquals(200, matrix.height)
     }
+
+    @Test fun morseSos() {
+        assertEquals("... --- ...", TextData.morseEncode("SOS"))
+        assertEquals("SOS", TextData.morseDecode("... --- ..."))
+    }
+
+    @Test fun binaryA() {
+        assertEquals("01000001", TextData.textToBinary("A"))
+        assertEquals("A", TextData.binaryToText("01000001"))
+    }
+
+    @Test fun jsonPrettyIndent() {
+        val pretty = TextData.jsonPretty("{\"a\":[1,2]}")
+        assertTrue(pretty.contains("\n"))
+        assertTrue(pretty.contains("  "))
+    }
+
+    @Test fun regexDigits() {
+        assertEquals(listOf("1", "22"), TextData.regexTest("\\d+", "a1b22"))
+    }
+
+    @Test fun urlRoundTrip() {
+        val original = "a b&c"
+        assertEquals(original, TextData.urlDecode(TextData.urlEncode(original)))
+        assertTrue(TextData.urlEncode("a b").contains("%20"))
+    }
 }
