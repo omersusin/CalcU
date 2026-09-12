@@ -155,21 +155,22 @@ fun CompassScreen() {
                         )
                     }
                 }
-                rotate(degrees = -azimuth, pivot = Offset(cx, cy)) {
-                    drawLine(
-                        color = northRed,
-                        start = Offset(cx, cy + 8.dp.toPx()),
-                        end = Offset(cx, cy - radius + 44.dp.toPx()),
-                        strokeWidth = 6.dp.toPx()
-                    )
-                    drawLine(
-                        color = onSurfaceVariant,
-                        start = Offset(cx, cy - 8.dp.toPx()),
-                        end = Offset(cx, cy + radius - 44.dp.toPx()),
-                        strokeWidth = 6.dp.toPx()
-                    )
-                    drawCircle(color = primary, radius = 6.dp.toPx())
-                }
+                val needle = Math.toRadians((-azimuth).toDouble())
+                val nx = kotlin.math.sin(needle).toFloat()
+                val ny = -kotlin.math.cos(needle).toFloat()
+                drawLine(
+                    color = northRed,
+                    start = Offset(cx - nx * 8.dp.toPx(), cy - ny * 8.dp.toPx()),
+                    end = Offset(cx + nx * (radius - 44.dp.toPx()), cy + ny * (radius - 44.dp.toPx())),
+                    strokeWidth = 6.dp.toPx()
+                )
+                drawLine(
+                    color = onSurfaceVariant,
+                    start = Offset(cx + nx * 8.dp.toPx(), cy + ny * 8.dp.toPx()),
+                    end = Offset(cx - nx * (radius - 44.dp.toPx()), cy - ny * (radius - 44.dp.toPx())),
+                    strokeWidth = 6.dp.toPx()
+                )
+                drawCircle(color = primary, radius = 6.dp.toPx())
             }
         }
         Text(
