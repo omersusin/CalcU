@@ -97,7 +97,9 @@ class CalcViewModel @Inject constructor(
             val ids = mgr.getAppWidgetIds(ComponentName(appContext, CalcUWidget::class.java))
             if (ids.isNotEmpty()) {
                 appContext.sendBroadcast(
-                    Intent(AppWidgetManager.ACTION_APPWIDGET_UPDATE).putExtra(AppWidgetManager.EXTRA_APPWIDGET_IDS, ids)
+                    Intent(AppWidgetManager.ACTION_APPWIDGET_UPDATE)
+                        .setClass(appContext, CalcUWidget::class.java)
+                        .putExtra(AppWidgetManager.EXTRA_APPWIDGET_IDS, ids)
                 )
             }
         } catch (_: Exception) {
