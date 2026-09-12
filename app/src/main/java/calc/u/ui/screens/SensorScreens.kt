@@ -118,8 +118,7 @@ fun CompassScreen() {
     SectionCard("Compass") {
         Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
             Canvas(
-                Modifier.size(240.dp),
-                contentDescription = "Compass"
+                Modifier.size(240.dp)
             ) {
                 val cx = size.width / 2f
                 val cy = size.height / 2f
@@ -221,8 +220,7 @@ fun LevelScreen() {
     SectionCard("Spirit level") {
         Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
             Canvas(
-                Modifier.size(200.dp),
-                contentDescription = "Spirit level"
+                Modifier.size(200.dp)
             ) {
                 val cx = size.width / 2f
                 val cy = size.height / 2f

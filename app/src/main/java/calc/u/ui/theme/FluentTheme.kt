@@ -22,8 +22,7 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.google.android.material.color.utilities.Hct
-import com.google.android.material.color.utilities.SchemeTonalSpot
+import com.google.android.material.color.utilities.TonalPalette
 
 object FluentAccent {
     val LightDefault = Color(0xFF005FB8)
@@ -254,66 +253,67 @@ fun infoSeverityColor(kind: Int): Color {
 
 @Composable
 fun seedScheme(seedArgb: Int, dark: Boolean): ColorScheme {
-    val s = SchemeTonalSpot(Hct.fromInt(seedArgb), dark, 0.0)
+    val p = TonalPalette.fromInt(seedArgb)
+    fun c(tone: Double) = Color(p.tone(tone))
     return if (dark) {
         darkColorScheme(
-            primary = Color(s.primary),
-            onPrimary = Color(s.onPrimary),
-            primaryContainer = Color(s.primaryContainer),
-            onPrimaryContainer = Color(s.onPrimaryContainer),
-            secondary = Color(s.secondary),
-            onSecondary = Color(s.onSecondary),
-            secondaryContainer = Color(s.secondaryContainer),
-            onSecondaryContainer = Color(s.onSecondaryContainer),
-            tertiary = Color(s.tertiary),
-            onTertiary = Color(s.onTertiary),
-            tertiaryContainer = Color(s.tertiaryContainer),
-            onTertiaryContainer = Color(s.onTertiaryContainer),
-            error = Color(s.error),
-            onError = Color(s.onError),
-            background = Color(s.background),
-            onBackground = Color(s.onBackground),
-            surface = Color(s.surface),
-            onSurface = Color(s.onSurface),
-            surfaceVariant = Color(s.surfaceVariant),
-            onSurfaceVariant = Color(s.onSurfaceVariant),
-            surfaceContainerLowest = Color(s.surfaceContainerLowest),
-            surfaceContainerLow = Color(s.surfaceContainerLow),
-            surfaceContainer = Color(s.surfaceContainer),
-            surfaceContainerHigh = Color(s.surfaceContainerHigh),
-            surfaceContainerHighest = Color(s.surfaceContainerHighest),
-            outline = Color(s.outline),
-            outlineVariant = Color(s.outlineVariant)
+            primary = c(80.0),
+            onPrimary = c(20.0),
+            primaryContainer = c(30.0),
+            onPrimaryContainer = c(90.0),
+            secondary = c(80.0),
+            onSecondary = c(20.0),
+            secondaryContainer = c(30.0),
+            onSecondaryContainer = c(90.0),
+            tertiary = c(80.0),
+            onTertiary = c(20.0),
+            tertiaryContainer = c(30.0),
+            onTertiaryContainer = c(90.0),
+            error = Color(0xFFFFB4AB),
+            onError = Color(0xFF690005),
+            background = c(6.0),
+            onBackground = c(90.0),
+            surface = c(6.0),
+            onSurface = c(90.0),
+            surfaceVariant = c(30.0),
+            onSurfaceVariant = c(80.0),
+            surfaceContainerLowest = c(0.0),
+            surfaceContainerLow = c(10.0),
+            surfaceContainer = c(12.0),
+            surfaceContainerHigh = c(17.0),
+            surfaceContainerHighest = c(22.0),
+            outline = c(60.0),
+            outlineVariant = c(30.0)
         )
     } else {
         lightColorScheme(
-            primary = Color(s.primary),
-            onPrimary = Color(s.onPrimary),
-            primaryContainer = Color(s.primaryContainer),
-            onPrimaryContainer = Color(s.onPrimaryContainer),
-            secondary = Color(s.secondary),
-            onSecondary = Color(s.onSecondary),
-            secondaryContainer = Color(s.secondaryContainer),
-            onSecondaryContainer = Color(s.onSecondaryContainer),
-            tertiary = Color(s.tertiary),
-            onTertiary = Color(s.onTertiary),
-            tertiaryContainer = Color(s.tertiaryContainer),
-            onTertiaryContainer = Color(s.onTertiaryContainer),
-            error = Color(s.error),
-            onError = Color(s.onError),
-            background = Color(s.background),
-            onBackground = Color(s.onBackground),
-            surface = Color(s.surface),
-            onSurface = Color(s.onSurface),
-            surfaceVariant = Color(s.surfaceVariant),
-            onSurfaceVariant = Color(s.onSurfaceVariant),
-            surfaceContainerLowest = Color(s.surfaceContainerLowest),
-            surfaceContainerLow = Color(s.surfaceContainerLow),
-            surfaceContainer = Color(s.surfaceContainer),
-            surfaceContainerHigh = Color(s.surfaceContainerHigh),
-            surfaceContainerHighest = Color(s.surfaceContainerHighest),
-            outline = Color(s.outline),
-            outlineVariant = Color(s.outlineVariant)
+            primary = c(40.0),
+            onPrimary = c(100.0),
+            primaryContainer = c(90.0),
+            onPrimaryContainer = c(10.0),
+            secondary = c(40.0),
+            onSecondary = c(100.0),
+            secondaryContainer = c(90.0),
+            onSecondaryContainer = c(10.0),
+            tertiary = c(40.0),
+            onTertiary = c(100.0),
+            tertiaryContainer = c(90.0),
+            onTertiaryContainer = c(10.0),
+            error = Color(0xFFBA1A1A),
+            onError = Color.White,
+            background = c(95.0),
+            onBackground = c(10.0),
+            surface = c(93.0),
+            onSurface = c(10.0),
+            surfaceVariant = c(90.0),
+            onSurfaceVariant = c(30.0),
+            surfaceContainerLowest = c(100.0),
+            surfaceContainerLow = c(96.0),
+            surfaceContainer = c(94.0),
+            surfaceContainerHigh = c(92.0),
+            surfaceContainerHighest = c(90.0),
+            outline = c(50.0),
+            outlineVariant = c(80.0)
         )
     }
 }
