@@ -223,7 +223,7 @@ object UnitExpr {
         return Quantity(a.factor.pow(exp), dim)
     }
 
-    private inner class Parser(private val tokens: List<Token>) {
+    private class Parser(private val tokens: List<Token>) {
         private var pos = 0
 
         private fun peek(): Token? = tokens.getOrNull(pos)
