@@ -35,6 +35,22 @@ Local-only forever. JSON backup covers portability. No accounts, no cloud.
 English + Turkish first. (Fluent refs purged 2026-09-12; fork deletion needs
 owner action: Settings → Danger Zone → Delete omersusin/fluentui-android.)
 
+## Crash reports (locked)
+In-app reporter: copy crash + system info. No analytics/tracking.
+
+## Widget (locked)
+Full keypad widget (target-app style), not just last-result.
+
+## Permissions (locked)
+Camera + mic allowed for QR scan and sound meter. No GPS, no accounts.
+
+## UI autonomy (locked)
+Polish freely, user judges by installing. Tools still need scope votes.
+
+## Defaults (locked)
+Theme: follow system. History cap: user setting in Settings (default 200).
+Turkish: informal (sen). Numbers: follow phone locale.
+
 ## Backlog (user-ranked)
 1. Unfinished ideas: foreground-service timer + notifications, engine
    variables, remaining kimon/ConvertAll ideas.
