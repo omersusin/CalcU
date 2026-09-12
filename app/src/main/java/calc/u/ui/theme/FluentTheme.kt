@@ -76,17 +76,17 @@ object FluentStroke {
 }
 
 object FluentMotion {
-    val Short: Int = 150
+    val Short: Int = 100
     val Medium: Int = 300
     val Long: Int = 500
-    val Standard: Easing = CubicBezierEasing(0.1f, 0.9f, 0.2f, 1.0f)
+    val Standard: Easing = CubicBezierEasing(0.05f, 0.7f, 0.1f, 1.0f)
 }
 
 object FluentElevation {
-    val Display = 4.dp
-    val Key = 2.dp
-    val KeyPressed = 1.dp
-    val AccentKey = 4.dp
+    val Display = 1.dp
+    val Key = 1.dp
+    val KeyPressed = 0.dp
+    val AccentKey = 2.dp
 }
 
 private fun fluentType(): Typography {
@@ -97,10 +97,10 @@ private fun fluentType(): Typography {
     val semi = FontWeight.SemiBold
     val reg = FontWeight.Normal
     return Typography(
-        displayLarge = s(68, 92, semi),
-        displayMedium = s(40, 52, semi),
-        displaySmall = s(28, 36, semi),
-        headlineLarge = s(28, 36, semi),
+        displayLarge = s(57, 64, semi),
+        displayMedium = s(45, 52, semi),
+        displaySmall = s(32, 40, semi),
+        headlineLarge = s(32, 40, semi),
         headlineMedium = s(20, 28, semi),
         headlineSmall = s(20, 26, semi),
         titleLarge = s(20, 28, semi),
@@ -210,10 +210,10 @@ private val FluentContrast = darkColorScheme(
 )
 
 val FluentShapes = Shapes(
-    extraSmall = RoundedCornerShape(2.dp),
-    small = RoundedCornerShape(4.dp),
-    medium = RoundedCornerShape(8.dp),
-    large = RoundedCornerShape(12.dp),
+    extraSmall = RoundedCornerShape(4.dp),
+    small = RoundedCornerShape(8.dp),
+    medium = RoundedCornerShape(12.dp),
+    large = RoundedCornerShape(16.dp),
     extraLarge = RoundedCornerShape(28.dp)
 )
 

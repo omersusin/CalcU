@@ -108,7 +108,7 @@ fun CalcUNumberBox(
             placeholder = { if (placeholder != null) Text(placeholder) },
             singleLine = true,
             isError = isError,
-            shape = MaterialTheme.shapes.small,
+            shape = MaterialTheme.shapes.medium,
             keyboardOptions = KeyboardOptions(
                 keyboardType = if (integer) KeyboardType.Number else KeyboardType.Decimal
             ),
@@ -169,12 +169,12 @@ fun FluentInfoBar(
     }
     Card(
         modifier = modifier.fillMaxWidth(),
-        shape = MaterialTheme.shapes.medium,
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
+        shape = MaterialTheme.shapes.large,
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerHigh),
         border = null
     ) {
         Row(
-            Modifier.padding(FluentSpace.X12),
+            Modifier.padding(16.dp),
             horizontalArrangement = Arrangement.spacedBy(FluentSpace.X12),
             verticalAlignment = Alignment.Top
         ) {
@@ -213,7 +213,7 @@ fun FluentExpander(
     }
     Card(
         modifier = modifier.fillMaxWidth(),
-        shape = MaterialTheme.shapes.medium,
+        shape = MaterialTheme.shapes.large,
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow)
     ) {
         Column {
@@ -228,7 +228,7 @@ fun FluentExpander(
             ) {
                 Text(
                     header,
-                    style = MaterialTheme.typography.titleSmall,
+                    style = MaterialTheme.typography.titleMedium,
                     modifier = Modifier.weight(1f)
                 )
                 Icon(
@@ -275,7 +275,7 @@ fun FluentTeachingTip(
 ) {
     val card = @Composable {
         Card(
-            shape = MaterialTheme.shapes.medium,
+            shape = MaterialTheme.shapes.large,
             colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerHigh)
         ) {
             Row(

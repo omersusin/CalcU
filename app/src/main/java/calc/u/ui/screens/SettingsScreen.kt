@@ -12,6 +12,8 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.RadioButton
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -26,8 +28,6 @@ import androidx.lifecycle.viewModelScope
 import calc.u.data.SettingsRepository
 import calc.u.ui.FluentExpander
 import calc.u.ui.SectionCard
-import com.microsoft.fluentui.tokenized.controls.RadioButton
-import com.microsoft.fluentui.tokenized.controls.ToggleSwitch
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import kotlinx.coroutines.flow.SharingStarted
@@ -93,8 +93,8 @@ fun SettingsScreen(vm: SettingsViewModel = hiltViewModel()) {
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             RadioButton(
-                                onClick = { vm.setTheme(id) },
-                                selected = theme == id
+                                selected = theme == id,
+                                onClick = { vm.setTheme(id) }
                             )
                             Text(
                                 label,
@@ -113,9 +113,9 @@ fun SettingsScreen(vm: SettingsViewModel = hiltViewModel()) {
                                 style = MaterialTheme.typography.bodyLarge,
                                 modifier = Modifier.weight(1f)
                             )
-                            ToggleSwitch(
-                                onValueChange = { vm.setDynamicColor(it) },
-                                checkedState = dynamicColor
+                            Switch(
+                                checked = dynamicColor,
+                                onCheckedChange = { vm.setDynamicColor(it) }
                             )
                         }
                     }
@@ -133,9 +133,9 @@ fun SettingsScreen(vm: SettingsViewModel = hiltViewModel()) {
                         style = MaterialTheme.typography.bodyLarge,
                         modifier = Modifier.weight(1f)
                     )
-                    ToggleSwitch(
-                        onValueChange = { vm.setVibration(it) },
-                        checkedState = vibration
+                    Switch(
+                        checked = vibration,
+                        onCheckedChange = { vm.setVibration(it) }
                     )
                 }
             }

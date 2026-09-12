@@ -28,13 +28,16 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExposedDropdownMenuBox
 import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.FilterChip
+import androidx.compose.material3.FilledTonalIconButton
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Text
+import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -54,6 +57,7 @@ import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import calc.u.core.ClockKit
 import calc.u.core.ColorKit
@@ -69,9 +73,6 @@ import calc.u.core.TripKit
 import calc.u.core.Units
 import calc.u.data.CurrencyRepository
 import calc.u.data.UnitPrefsRepository
-import com.microsoft.fluentui.tokenized.bottomsheet.BottomSheet
-import com.microsoft.fluentui.tokenized.bottomsheet.BottomSheetValue
-import com.microsoft.fluentui.tokenized.bottomsheet.rememberBottomSheetState
 import calc.u.ui.CalcUNumberBox
 import calc.u.ui.FluentStagger
 import calc.u.ui.ResultLine
@@ -269,7 +270,27 @@ private fun CurrencyCard() {
             Button(onClick = { scope.launch { repo.refresh() } }) { Text("Refresh") }
         }
         HorizontalDivider()
-        ResultLine("Result", "${fmt(result, 2)} $safeTo")
+        Column(
+            Modifier.fillMaxWidth()
+                .background(
+                    MaterialTheme.colorScheme.surfaceContainerHighest,
+                    MaterialTheme.shapes.medium
+                )
+                .padding(horizontal = 16.dp, vertical = 12.dp)
+        ) {
+            Text(
+                safeTo,
+                style = MaterialTheme.typography.labelLarge,
+                color = MaterialTheme.colorScheme.primary
+            )
+            Text(
+                fmt(result, 2),
+                style = MaterialTheme.typography.displaySmall,
+                color = MaterialTheme.colorScheme.onSurface,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis
+            )
+        }
     }
 }
 
@@ -309,7 +330,7 @@ fun ConvertersScreen() {
     val appCtx = LocalContext.current.applicationContext
     val prefs = remember { UnitPrefsRepository(appCtx) }
     val scope = rememberCoroutineScope()
-    val sheetState = rememberBottomSheetState(BottomSheetValue.Hidden)
+    var pickerOpen by remember { mutableStateOf(false) }
     var sheetTarget by remember { mutableStateOf<String?>(null) }
     var query by remember { mutableStateOf("") }
     var swapped by remember { mutableStateOf(false) }
@@ -342,20 +363,26 @@ fun ConvertersScreen() {
     fun openPicker(target: String) {
         sheetTarget = target
         query = ""
-        scope.launch { sheetState.show() }
+        pickerOpen = true
     }
     fun pick(unit: String) {
         if (sheetTarget == "from") from = unit else to = unit
-        scope.launch { sheetState.hide() }
+        pickerOpen = false
         sheetTarget = null
         query = ""
     }
     val visible = units
         .filter { query.isBlank() || it.contains(query, ignoreCase = true) }
         .sortedWith(compareBy({ it !in favorites }, { it }))
-    BottomSheet(
-        sheetContent = {
-            Column(Modifier.fillMaxWidth().padding(16.dp)) {
+    if (pickerOpen) {
+        ModalBottomSheet(
+            onDismissRequest = { pickerOpen = false; query = "" },
+            sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+        ) {
+            Column(
+                Modifier.fillMaxWidth().padding(16.dp),
+                verticalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
                 OutlinedTextField(
                     value = query,
                     onValueChange = { query = it },
@@ -366,13 +393,24 @@ fun ConvertersScreen() {
                     items(visible) { u ->
                         Row(
                             verticalAlignment = Alignment.CenterVertically,
-                            modifier = Modifier.fillMaxWidth().clickable { pick(u) }.padding(vertical = 4.dp)
+                            modifier = Modifier.fillMaxWidth().clickable { pick(u) }
+                                .padding(horizontal = 4.dp, vertical = 8.dp)
                         ) {
-                            Column(Modifier.weight(1f)) {
+                            Column(
+                                Modifier.weight(1f),
+                                verticalArrangement = Arrangement.spacedBy(2.dp)
+                            ) {
                                 Text(u, style = MaterialTheme.typography.bodyLarge)
-                                Text(previewFor(u), style = MaterialTheme.typography.bodySmall)
+                                Text(
+                                    previewFor(u),
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
                             }
-                            IconButton(onClick = { scope.launch { prefs.toggleFavorite(cat, u) } }) {
+                            IconButton(
+                                onClick = { scope.launch { prefs.toggleFavorite(cat, u) } },
+                                modifier = Modifier.size(48.dp)
+                            ) {
                                 Icon(
                                     if (u in favorites) Icons.Filled.Star else Icons.Filled.StarBorder,
                                     contentDescription = if (u in favorites) "Unfavorite $u" else "Favorite $u"
@@ -382,17 +420,11 @@ fun ConvertersScreen() {
                     }
                 }
             }
-        },
-        sheetState = sheetState,
-        expandable = true,
-        peekHeight = 420.dp,
-        scrimVisible = true,
-        enableSwipeDismiss = true,
-        onDismiss = { sheetTarget = null; query = "" }
-    ) {
+        }
+    }
     LazyColumn(
         Modifier.fillMaxSize().padding(vertical = 16.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp)
+        verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
         item {
             SectionCard("Value") {
@@ -415,12 +447,12 @@ fun ConvertersScreen() {
                             modifier = Modifier.fillMaxWidth()
                         )
                     }
-                    IconButton(onClick = {
+                    FilledTonalIconButton(onClick = {
                         val f = from
                         from = to
                         to = f
                         swapped = !swapped
-                    }) {
+                    }, modifier = Modifier.size(48.dp)) {
                         Icon(
                             Icons.Filled.SwapVert,
                             contentDescription = "Swap units",
@@ -439,8 +471,26 @@ fun ConvertersScreen() {
                 }
                 HorizontalDivider()
                 FluentStagger(0) {
-                    Column {
-                        ResultLine("Result", "$result $safeTo")
+                    Column(
+                        Modifier.fillMaxWidth()
+                            .background(
+                                MaterialTheme.colorScheme.surfaceContainerHighest,
+                                MaterialTheme.shapes.medium
+                            )
+                            .padding(horizontal = 16.dp, vertical = 12.dp)
+                    ) {
+                        Text(
+                            safeTo.ifBlank { "Result" },
+                            style = MaterialTheme.typography.labelLarge,
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                        Text(
+                            result,
+                            style = MaterialTheme.typography.displaySmall,
+                            color = MaterialTheme.colorScheme.onSurface,
+                            maxLines = 2,
+                            overflow = TextOverflow.Ellipsis
+                        )
                     }
                 }
             }
@@ -554,7 +604,6 @@ fun ConvertersScreen() {
                 Box(Modifier.fillMaxWidth().height(48.dp).background(swatch))
             }
         }
-        }
     }
 }
 
@@ -600,7 +649,7 @@ fun FinanceScreen() {
     }
     LazyColumn(
         Modifier.fillMaxSize().padding(vertical = 16.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp)
+        verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
         item {
             SectionCard("Tip and split") {
@@ -829,7 +878,7 @@ fun MathScreen() {
     val tabs = listOf("numbers" to "Numbers", "geometry" to "Geometry", "health" to "Health")
     Column(
         Modifier.fillMaxSize().padding(vertical = 16.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp)
+        verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
         LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             items(tabs) { (id, label) ->
@@ -903,7 +952,7 @@ private fun NumbersContent() {
         val sign = if (rd < 0) "-" else ""
         "$sign${kotlin.math.abs(rn)}/${kotlin.math.abs(rd)} = ${fmt(fn.toDouble() / fd.toDouble(), 6)}"
     }
-    LazyColumn(Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+    LazyColumn(Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(16.dp)) {
         item {
             SectionCard("Number theory") {
                 Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -1158,7 +1207,7 @@ fun GeometryScreen() {
         "ellipse" -> listOf("Area" to fmt(Geometry.ellipseArea(x, y), 2))
         else -> emptyList()
     }
-    LazyColumn(Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+    LazyColumn(Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(16.dp)) {
         item {
             SectionCard("Shape") {
                 LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -1234,7 +1283,7 @@ fun HealthScreen() {
         1.725 to "Active",
         1.9 to "Athlete"
     )
-    LazyColumn(Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+    LazyColumn(Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(16.dp)) {
         item {
             SectionCard("BMI") {
                 Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -1356,7 +1405,7 @@ fun StepsScreen() {
     val tabs = listOf("quad" to "Quadratic", "emi" to "EMI", "gcd" to "GCD", "units" to "Units")
     Column(
         Modifier.fillMaxSize().padding(vertical = 16.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp)
+        verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
         LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             items(tabs) { (id, label) ->
@@ -1369,7 +1418,7 @@ fun StepsScreen() {
                     val p = ep.toDoubleOrNull()
                     val annual = er.toDoubleOrNull()
                     val months = en.toIntOrNull()
-                    LazyColumn(Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    LazyColumn(Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(16.dp)) {
                         item {
                             SectionCard("Inputs") {
                                 NumField(ep, { ep = it }, "Principal")
@@ -1410,7 +1459,7 @@ fun StepsScreen() {
                 "gcd" -> {
                     val a = g1.toLongOrNull()
                     val b = g2.toLongOrNull()
-                    LazyColumn(Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    LazyColumn(Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(16.dp)) {
                         item {
                             SectionCard("Inputs") {
                                 NumField(g1, { g1 = it }, "a", integer = true)
@@ -1459,7 +1508,7 @@ fun StepsScreen() {
                     val f = Units.length[cf.trim()]
                     val t = Units.length[ct.trim()]
                     val names = Units.length.keys.sorted().joinToString(", ")
-                    LazyColumn(Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    LazyColumn(Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(16.dp)) {
                         item {
                             SectionCard("Inputs") {
                                 NumField(cv, { cv = it }, "Value")
@@ -1505,7 +1554,7 @@ fun StepsScreen() {
                     val a = qa.toDoubleOrNull()
                     val b = qb.toDoubleOrNull()
                     val c = qc.toDoubleOrNull()
-                    LazyColumn(Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    LazyColumn(Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(16.dp)) {
                         item {
                             SectionCard("Inputs") {
                                 NumField(qa, { qa = it }, "a")
@@ -1586,7 +1635,7 @@ fun ProgrammerScreen() {
     val av = parse(aStr)
     val bv = parse(bStr)
     val bases = listOf(10 to "dec", 16 to "hex", 8 to "oct", 2 to "bin")
-    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+    Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
         SectionCard("Programmer & random") {
             LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 items(bases) { (b, label) ->

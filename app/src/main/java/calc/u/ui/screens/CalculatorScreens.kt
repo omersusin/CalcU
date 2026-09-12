@@ -10,7 +10,6 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.animation.togetherWith
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.LocalIndication
@@ -19,7 +18,6 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
-import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -32,7 +30,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Backspace
 import androidx.compose.material.icons.filled.Close
@@ -43,25 +40,26 @@ import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.NoteAdd
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.AssistChip
-import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.ElevatedCard
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
+import androidx.compose.material3.FilledTonalIconButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
@@ -91,15 +89,9 @@ import calc.u.ui.FluentStagger
 import calc.u.ui.FluentTeachingTip
 import calc.u.ui.SectionCard
 import calc.u.ui.WARNING
-import calc.u.ui.theme.FluentElevation
 import calc.u.ui.theme.FluentMotion
-import calc.u.ui.theme.FluentStroke
 import calc.u.ui.tintExpression
-import com.microsoft.fluentui.tokenized.bottomsheet.BottomSheet
-import com.microsoft.fluentui.tokenized.bottomsheet.BottomSheetValue
-import com.microsoft.fluentui.tokenized.bottomsheet.rememberBottomSheetState
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.launch
 import android.content.Intent
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.gestures.detectTransformGestures
@@ -128,6 +120,7 @@ private fun historyBody(entry: String): String {
 private fun historyNote(entry: String): String =
     if (entry.count { it == '|' } >= 2) entry.substringAfterLast("|") else ""
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun CalculatorScreen(vm: CalcViewModel = hiltViewModel()) {
     val st by vm.uiState.collectAsStateWithLifecycle()
@@ -150,46 +143,37 @@ fun CalculatorScreen(vm: CalcViewModel = hiltViewModel()) {
     }
     var noteIndex by remember { mutableStateOf<Int?>(null) }
     var noteDraft by remember { mutableStateOf("") }
-    val scope = rememberCoroutineScope()
-    val historySheet = rememberBottomSheetState(BottomSheetValue.Hidden)
-    BottomSheet(
-        sheetContent = {
+    var historyOpen by remember { mutableStateOf(false) }
+    if (historyOpen) {
+        ModalBottomSheet(
+            onDismissRequest = { historyOpen = false },
+            sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+        ) {
             HistorySheetContent(
                 history = st.history,
                 query = st.query,
                 onQuery = { vm.onQueryChange(it) },
                 onClear = { vm.onClearHistory() },
-                onTap = { h -> vm.onHistoryTap(h); scope.launch { historySheet.hide() } },
+                onTap = { h -> vm.onHistoryTap(h); historyOpen = false },
                 onNote = { i, n -> noteIndex = i; noteDraft = n },
                 onDelete = { vm.onDeleteHistoryAt(it) }
             )
-        },
-        sheetState = historySheet,
-        expandable = true,
-        peekHeight = 480.dp,
-        scrimVisible = true,
-        enableSwipeDismiss = true,
-        onDismiss = {}
-    ) {
+        }
+    }
     Box(Modifier.fillMaxSize()) {
         LazyColumn(
             Modifier.fillMaxSize().padding(vertical = 16.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
+            verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
             item {
-                val stroke = if (isSystemInDarkTheme()) FluentStroke.CardDark else FluentStroke.CardLight
-                ElevatedCard(
-                    colors = CardDefaults.elevatedCardColors(
-                        containerColor = MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = 0.72f)
+                Card(
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.surfaceContainerHigh
                     ),
-                    elevation = CardDefaults.elevatedCardElevation(defaultElevation = FluentElevation.Display),
-                    shape = MaterialTheme.shapes.medium
+                    shape = MaterialTheme.shapes.extraLarge
                 ) {
-                    Box(
-                        Modifier.border(BorderStroke(1.dp, stroke), MaterialTheme.shapes.medium)
-                    ) {
                     Column(
-                        Modifier.fillMaxWidth().padding(20.dp).animateContentSize(),
+                        Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 20.dp).animateContentSize(),
                         verticalArrangement = Arrangement.spacedBy(4.dp),
                         horizontalAlignment = Alignment.End
                     ) {
@@ -215,8 +199,8 @@ fun CalculatorScreen(vm: CalcViewModel = hiltViewModel()) {
                         ) { target ->
                             Text(
                                 target.ifBlank { "" },
-                                style = MaterialTheme.typography.displayMedium,
-                                color = MaterialTheme.colorScheme.primary,
+                                style = MaterialTheme.typography.displayLarge,
+                                color = MaterialTheme.colorScheme.onSurface,
                                 maxLines = 2,
                                 overflow = TextOverflow.Ellipsis,
                                 textAlign = TextAlign.End,
@@ -224,18 +208,18 @@ fun CalculatorScreen(vm: CalcViewModel = hiltViewModel()) {
                             )
                         }
                         Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.End,
+                            modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            IconButton(
-                                onClick = { scope.launch { historySheet.show() } },
+                            FilledTonalIconButton(
+                                onClick = { historyOpen = true },
                                 modifier = Modifier.size(48.dp)
                             ) {
                                 Icon(Icons.Filled.History, contentDescription = "Open history")
                             }
                             if (st.result.isNotBlank()) {
-                                IconButton(
+                                FilledTonalIconButton(
                                     onClick = { vm.onCopyResult() },
                                     modifier = Modifier.size(48.dp)
                                 ) {
@@ -244,7 +228,6 @@ fun CalculatorScreen(vm: CalcViewModel = hiltViewModel()) {
                             }
                         }
                     }
-                }
                 }
             }
             item {
@@ -306,7 +289,6 @@ fun CalculatorScreen(vm: CalcViewModel = hiltViewModel()) {
         }
         SnackbarHost(hostState = snackbar, modifier = Modifier.align(Alignment.BottomCenter))
     }
-    }
 }
 
 @OptIn(ExperimentalFoundationApi::class)
@@ -336,13 +318,13 @@ private fun HistorySheetContent(
     val indexed = history.mapIndexed { i, h -> i to h }.filter { (_, h) ->
         query.isBlank() || h.contains(query, ignoreCase = true)
     }.take(50)
-    Column(Modifier.fillMaxWidth().padding(16.dp)) {
+    Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         Row(
             Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Text("History", style = MaterialTheme.typography.titleMedium, modifier = Modifier.semantics { heading() })
+            Text("History", style = MaterialTheme.typography.headlineSmall, modifier = Modifier.semantics { heading() })
             if (history.isNotEmpty()) {
                 TextButton(onClick = onClear) { Text("Clear") }
             }
@@ -352,15 +334,21 @@ private fun HistorySheetContent(
             enter = slideInVertically(tween(FluentMotion.Medium, easing = FluentMotion.Standard)) + fadeIn(),
             modifier = Modifier.fillMaxWidth()
         ) {
+            Card(
+                colors = CardDefaults.cardColors(
+                    containerColor = MaterialTheme.colorScheme.primaryContainer
+                ),
+                shape = MaterialTheme.shapes.large
+            ) {
             Row(
-                Modifier.fillMaxWidth(),
+                Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
                     "${selected.size} selected",
                     style = MaterialTheme.typography.titleMedium,
-                    color = MaterialTheme.colorScheme.primary
+                    color = MaterialTheme.colorScheme.onPrimaryContainer
                 )
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     IconButton(
@@ -380,6 +368,7 @@ private fun HistorySheetContent(
                     }
                 }
             }
+            }
         }
         OutlinedTextField(
             value = query,
@@ -388,9 +377,9 @@ private fun HistorySheetContent(
             singleLine = true,
             modifier = Modifier.fillMaxWidth()
         )
-        Box(Modifier.fillMaxWidth().padding(vertical = 8.dp), contentAlignment = Alignment.Center) {
+        Box(Modifier.fillMaxWidth().padding(vertical = 4.dp), contentAlignment = Alignment.Center) {
             Box(
-                Modifier.background(MaterialTheme.colorScheme.surfaceContainerHigh, RoundedCornerShape(50.dp))
+                Modifier.background(MaterialTheme.colorScheme.surfaceContainerHighest, CircleShape)
                     .padding(horizontal = 16.dp, vertical = 8.dp)
             ) {
                 Text(
@@ -426,8 +415,9 @@ private fun HistorySheetContent(
                     Card(
                         colors = CardDefaults.cardColors(
                             containerColor = if (isSelected) MaterialTheme.colorScheme.primaryContainer
-                            else MaterialTheme.colorScheme.surfaceContainerLow
-                        )
+                            else MaterialTheme.colorScheme.surfaceContainerHigh
+                        ),
+                        shape = MaterialTheme.shapes.large
                     ) {
                         Row(
                             modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp)
@@ -512,17 +502,17 @@ private fun Keypad(
         animationSpec = tween(FluentMotion.Short, easing = FluentMotion.Standard),
         label = "back-press"
     )
-    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
         sciRows.forEachIndexed { i, row ->
             AnimatedVisibility(visible = true, enter = rowEnter(i * 40)) {
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                     row.forEach { k ->
                         FluentCalcKey(
                             label = k,
                             onClick = { onKey(k) },
                             modifier = Modifier.weight(1f),
                             kind = FluentKeyKind.Sci,
-                            keyHeight = 48.dp
+                            keyHeight = 52.dp
                         )
                     }
                 }
@@ -530,7 +520,7 @@ private fun Keypad(
         }
         digitRows.forEachIndexed { j, row ->
             AnimatedVisibility(visible = true, enter = rowEnter((j + sciRows.size) * 40)) {
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                     row.forEach { k ->
                         val isOp = k in setOf("÷", "×", "−", "+")
                         FluentCalcKey(
@@ -542,7 +532,7 @@ private fun Keypad(
                                 isOp -> FluentKeyKind.Operator
                                 else -> FluentKeyKind.Digit
                             },
-                            keyHeight = 60.dp
+                            keyHeight = 64.dp
                         )
                     }
                 }
@@ -552,19 +542,19 @@ private fun Keypad(
             visible = true,
             enter = rowEnter((sciRows.size + digitRows.size) * 40)
         ) {
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 FluentCalcKey(
                     label = "C",
                     onClick = onClear,
                     modifier = Modifier.weight(1f),
                     kind = FluentKeyKind.Sci,
-                    keyHeight = 48.dp
+                    keyHeight = 52.dp
                 )
                 Box(
-                    modifier = Modifier.weight(1f).height(48.dp)
+                    modifier = Modifier.weight(1f).height(52.dp)
                         .graphicsLayer(scaleX = backScale, scaleY = backScale)
-                        .clip(ButtonDefaults.outlinedShape)
-                        .border(1.dp, MaterialTheme.colorScheme.outline, ButtonDefaults.outlinedShape)
+                        .clip(MaterialTheme.shapes.large)
+                        .border(1.dp, MaterialTheme.colorScheme.outlineVariant, MaterialTheme.shapes.large)
                         .combinedClickable(
                             interactionSource = backInteractions,
                             indication = LocalIndication.current,
@@ -641,7 +631,7 @@ fun GraphScreen() {
     val noneValid = (fOn || gOn) && !fValid && !gValid
     LazyColumn(
         Modifier.fillMaxSize().padding(vertical = 16.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp)
+        verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
         item {
             SectionCard("Functions") {
@@ -676,8 +666,13 @@ fun GraphScreen() {
             }
         }
         item {
-            ElevatedCard {
-                Column(Modifier.padding(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Card(
+                colors = CardDefaults.cardColors(
+                    containerColor = MaterialTheme.colorScheme.surfaceContainerLow
+                ),
+                shape = MaterialTheme.shapes.extraLarge
+            ) {
+                Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                     Box {
                         Canvas(
                             Modifier.fillMaxWidth().height(300.dp)
@@ -770,8 +765,10 @@ fun GraphScreen() {
                         if (chip != null) {
                             Card(
                                 colors = CardDefaults.cardColors(
-                                    containerColor = MaterialTheme.colorScheme.surfaceContainerHigh
+                                    containerColor = MaterialTheme.colorScheme.primaryContainer,
+                                    contentColor = MaterialTheme.colorScheme.onPrimaryContainer
                                 ),
+                                shape = MaterialTheme.shapes.medium,
                                 modifier = Modifier.align(Alignment.TopCenter).padding(8.dp)
                             ) {
                                 Text(
@@ -782,9 +779,13 @@ fun GraphScreen() {
                             }
                         }
                     }
+                    Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
                     Row(
-                        Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        Modifier.background(
+                            MaterialTheme.colorScheme.surfaceContainerHighest,
+                            CircleShape
+                        ).padding(horizontal = 8.dp, vertical = 4.dp),
+                        horizontalArrangement = Arrangement.spacedBy(4.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         IconButton(
@@ -824,6 +825,7 @@ fun GraphScreen() {
                         ) {
                             Icon(Icons.Filled.Share, contentDescription = "Share expressions")
                         }
+                    }
                     }
                     if (noneValid) {
                         FluentInfoBar(

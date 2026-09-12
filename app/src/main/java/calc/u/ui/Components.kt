@@ -19,7 +19,8 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.ElevatedCard
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
@@ -27,6 +28,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
@@ -35,27 +37,45 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import calc.u.ui.theme.FluentElevation
 import calc.u.ui.theme.FluentMotion
-import calc.u.ui.theme.FluentSpace
 
 @Composable
 fun SectionCard(title: String, modifier: Modifier = Modifier, content: @Composable () -> Unit) {
     AnimatedVisibility(
         visible = true,
         enter = fadeIn(tween(FluentMotion.Medium, easing = FluentMotion.Standard)) +
-            slideInVertically(tween(FluentMotion.Medium, easing = FluentMotion.Standard)) { it / 8 },
+            slideInVertically(tween(FluentMotion.Medium, easing = FluentMotion.Standard)) { it / 10 },
         modifier = modifier
     ) {
-        ElevatedCard(modifier = Modifier.fillMaxWidth()) {
-            Column(
-                Modifier.padding(FluentSpace.X16),
-                verticalArrangement = Arrangement.spacedBy(FluentSpace.X12)
+        Column(
+            Modifier.fillMaxWidth(),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            Text(
+                title,
+                style = MaterialTheme.typography.titleLarge,
+                color = MaterialTheme.colorScheme.onSurface,
+                modifier = Modifier.padding(horizontal = 4.dp).semantics { heading() }
+            )
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                shape = MaterialTheme.shapes.large,
+                colors = CardDefaults.cardColors(
+                    containerColor = MaterialTheme.colorScheme.surfaceContainerLow
+                )
             ) {
-                Text(title, style = MaterialTheme.typography.titleMedium, modifier = Modifier.semantics { heading() })
-                content()
+                Column(
+                    Modifier.padding(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    content()
+                }
             }
         }
     }
@@ -63,9 +83,25 @@ fun SectionCard(title: String, modifier: Modifier = Modifier, content: @Composab
 
 @Composable
 fun ResultLine(label: String, value: String, modifier: Modifier = Modifier) {
-    Row(modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-        Text(label, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        Text(value, style = MaterialTheme.typography.titleMedium)
+    Row(
+        modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text(
+            label,
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.weight(1f).padding(end = 12.dp)
+        )
+        Text(
+            value,
+            style = MaterialTheme.typography.titleMedium,
+            color = MaterialTheme.colorScheme.onSurface,
+            textAlign = TextAlign.End,
+            maxLines = 2,
+            overflow = TextOverflow.Ellipsis
+        )
     }
 }
 
@@ -83,11 +119,11 @@ fun tintExpression(input: String, number: Color, operator: Color): AnnotatedStri
 
 @Composable
 fun FluentStagger(index: Int, content: @Composable () -> Unit) {
-    val delay = minOf(index * 45, 300)
+    val delay = minOf(index * 40, 240)
     AnimatedVisibility(
         visible = true,
         enter = fadeIn(tween(FluentMotion.Medium, delayMillis = delay, easing = FluentMotion.Standard)) +
-            slideInVertically(tween(FluentMotion.Medium, delayMillis = delay, easing = FluentMotion.Standard)) { it / 6 }
+            slideInVertically(tween(FluentMotion.Medium, delayMillis = delay, easing = FluentMotion.Standard)) { it / 8 }
     ) { content() }
 }
 
@@ -97,42 +133,45 @@ fun FluentCalcKey(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
     kind: FluentKeyKind = FluentKeyKind.Digit,
-    keyHeight: Dp = 60.dp
+    keyHeight: Dp = 64.dp
 ) {
     val interactions = remember { MutableInteractionSource() }
     val pressed by interactions.collectIsPressedAsState()
     val scale by animateFloatAsState(
-        if (pressed) 0.95f else 1f,
+        if (pressed) 0.96f else 1f,
         animationSpec = tween(FluentMotion.Short, easing = FluentMotion.Standard),
         label = "fluent-press"
     )
     val pressSpec = spring<Float>(stiffness = Spring.StiffnessMediumLow, dampingRatio = Spring.DampingRatioMediumBouncy)
     val equalsScale by animateFloatAsState(
-        if (pressed) 0.91f else 1f,
+        if (pressed) 0.93f else 1f,
         animationSpec = pressSpec,
         label = "fluent-equals-press"
     )
     val equalsCorner by animateDpAsState(
-        if (pressed) 12.dp else 50.dp,
+        if (pressed) 16.dp else 28.dp,
         animationSpec = spring(stiffness = Spring.StiffnessMediumLow, dampingRatio = Spring.DampingRatioMediumBouncy),
         label = "fluent-equals-morph"
     )
     val pressModifier = modifier.graphicsLayer(scaleX = scale, scaleY = scale)
-    val shape = MaterialTheme.shapes.small
+    val shape = MaterialTheme.shapes.large
     when (kind) {
         FluentKeyKind.Equals -> Button(
             onClick = onClick,
             modifier = modifier.graphicsLayer(scaleX = equalsScale, scaleY = equalsScale).height(keyHeight),
             interactionSource = interactions,
             shape = RoundedCornerShape(equalsCorner),
-            elevation = ButtonDefaults.buttonElevation(defaultElevation = 4.dp, pressedElevation = 2.dp)
-        ) { Text(label, style = MaterialTheme.typography.titleMedium) }
+            elevation = ButtonDefaults.buttonElevation(
+                defaultElevation = FluentElevation.AccentKey,
+                pressedElevation = FluentElevation.KeyPressed
+            )
+        ) { Text(label, style = MaterialTheme.typography.headlineSmall) }
         FluentKeyKind.Operator -> FilledTonalButton(
             onClick = onClick,
             modifier = pressModifier.height(keyHeight),
             interactionSource = interactions,
             shape = shape
-        ) { Text(label, style = MaterialTheme.typography.titleMedium) }
+        ) { Text(label, style = MaterialTheme.typography.titleLarge) }
         FluentKeyKind.Digit -> Button(
             onClick = onClick,
             modifier = pressModifier.height(keyHeight),
@@ -142,7 +181,10 @@ fun FluentCalcKey(
                 containerColor = MaterialTheme.colorScheme.surfaceContainerHighest,
                 contentColor = MaterialTheme.colorScheme.onSurface
             ),
-            elevation = ButtonDefaults.buttonElevation(defaultElevation = 2.dp, pressedElevation = 1.dp)
+            elevation = ButtonDefaults.buttonElevation(
+                defaultElevation = FluentElevation.Key,
+                pressedElevation = FluentElevation.KeyPressed
+            )
         ) { Text(label, style = MaterialTheme.typography.titleLarge) }
         FluentKeyKind.Sci -> OutlinedButton(
             onClick = onClick,
