@@ -194,7 +194,7 @@ object UnitExpr {
         "qt" to UnitDef(9.46352946e-4, d(l = 3)),
         "pt" to UnitDef(4.73176473e-4, d(l = 3)),
         "floz" to UnitDef(2.95735295625e-5, d(l = 3)),
-        "fldram" to UnitDef(3.6966875e-6, d(l = 3)),
+        "fldram" to UnitDef(3.6966911953125e-6, d(l = 3)),
         "tbsp_metric" to UnitDef(1.5e-5, d(l = 3)),
         "dL" to UnitDef(1e-4, d(l = 3)),
         "cL" to UnitDef(1e-5, d(l = 3)),

@@ -116,7 +116,10 @@ class EngineTest {
         assertEquals(201.168, Units.convert(1.0, Units.historic["furlong"]!!, Units.length["m"]!!), 1e-6)
     }
     @Test fun currencyConvertMath() {
-        assertEquals(0.0, Currency.convert(100.0, 0.0, 0.92), 0.0)
+        try {
+            Currency.convert(100.0, 0.0, 0.92)
+            fail("expected IAE")
+        } catch (e: IllegalArgumentException) { }
         assertEquals(100.0, Currency.convert(100.0, 1.0, 1.0), 1e-9)
         assertEquals(50.0, Currency.convert(100.0, 2.0, 1.0), 1e-9)
         assertEquals(184.0, Currency.convert(100.0, 0.5, 0.92), 1e-9)

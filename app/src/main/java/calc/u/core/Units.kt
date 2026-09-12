@@ -48,7 +48,7 @@ object Units {
         "tbsp" to UnitDef("tbsp", 0.01478676478125), "cup" to UnitDef("cup", 0.24),
         "fl-oz" to UnitDef("fl-oz", 0.0295735295625), "gal" to UnitDef("gal", 3.785411784),
         "qt" to UnitDef("qt", 0.946352946), "pt" to UnitDef("pt", 0.473176473),
-        "fl_dram" to UnitDef("fl_dram", 0.0036966875), "tbsp_metric" to UnitDef("tbsp_metric", 0.015),
+        "fl_dram" to UnitDef("fl_dram", 0.0036966911953125), "tbsp_metric" to UnitDef("tbsp_metric", 0.015),
         "dL" to UnitDef("dL", 0.1), "cL" to UnitDef("cL", 0.01),
         "uL" to UnitDef("uL", 1e-6), "daL" to UnitDef("daL", 10.0),
         "hL" to UnitDef("hL", 100.0), "kL" to UnitDef("kL", 1000.0),
@@ -72,7 +72,7 @@ object Units {
     val area = mapOf(
         "m2" to UnitDef("m2", 1.0), "km2" to UnitDef("km2", 1e6),
         "ft2" to UnitDef("ft2", 0.09290304), "acre" to UnitDef("acre", 4046.8564224),
-        "ha" to UnitDef("ha", 10000.0), "rood" to UnitDef("rood", 1011.715),
+        "ha" to UnitDef("ha", 10000.0), "rood" to UnitDef("rood", 1011.7141056),
         "section" to UnitDef("section", 2589988.110336), "township" to UnitDef("township", 93239571.972096),
         "barn" to UnitDef("barn", 1e-28), "are" to UnitDef("are", 100.0),
         "decare" to UnitDef("decare", 1000.0), "stremma" to UnitDef("stremma", 1000.0),
