@@ -117,4 +117,33 @@ class SettingsRepository @Inject constructor(@ApplicationContext private val ctx
     suspend fun setMemoryRow(value: Boolean) {
         runCatching { ctx.settingsDataStore.edit { it[memoryRowKey] = value } }
     }
+
+    private val engineeringKey = booleanPreferencesKey("engineering")
+
+    val engineering: Flow<Boolean> = ctx.settingsDataStore.data.map { it[engineeringKey] ?: false }.catch { emit(false) }
+
+    suspend fun setEngineering(value: Boolean) {
+        runCatching { ctx.settingsDataStore.edit { it[engineeringKey] = value } }
+    }
+
+    private val precisionSliderKey = androidx.datastore.preferences.core.intPreferencesKey("precision_slider")
+
+    val precisionSlider: Flow<Int> = ctx.settingsDataStore.data.map { (it[precisionSliderKey] ?: 10).coerceIn(0, 16) }.catch { emit(10) }
+
+    suspend fun setPrecisionSlider(value: Int) {
+        val coerced = value.coerceIn(0, 16)
+        runCatching { ctx.settingsDataStore.edit { it[precisionSliderKey] = coerced } }
+    }
+
+    private val keypadLayoutKey = stringPreferencesKey("keypad_layout")
+
+    val keypadLayout: Flow<String> = ctx.settingsDataStore.data.map {
+        val raw = it[keypadLayoutKey] ?: "simple"
+        if (raw in setOf("simple", "classic", "modern")) raw else "simple"
+    }.catch { emit("simple") }
+
+    suspend fun setKeypadLayout(value: String) {
+        val coerced = if (value in setOf("simple", "classic", "modern")) value else "simple"
+        runCatching { ctx.settingsDataStore.edit { it[keypadLayoutKey] = coerced } }
+    }
 }

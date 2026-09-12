@@ -39,6 +39,105 @@ object Geometry {
         val area = sqrt(s * (s - a) * (s - b) * (s - c))
         return mapOf("angleA" to angleA, "angleB" to angleB, "angleC" to angleC, "perimeter" to perimeter, "area" to area)
     }
+    fun rightTriangle(a: Double, b: Double): Triple<Double, Double, Double> {
+        require(a > 0 && b > 0) { "sides must be > 0" }
+        val hyp = sqrt(a * a + b * b)
+        return Triple(hyp, a * b / 2, a + b + hyp)
+    }
+    fun square(s: Double): Triple<Double, Double, Double> {
+        require(s > 0) { "s must be > 0" }
+        return Triple(s * s, 4 * s, s * sqrt(2.0))
+    }
+    fun trapezoidPerim(a: Double, b: Double, c: Double, d: Double): Double {
+        require(a > 0 && b > 0 && c > 0 && d > 0) { "sides must be > 0" }
+        return a + b + c + d
+    }
+    fun rhombusAreaD(d1: Double, d2: Double): Double {
+        require(d1 > 0 && d2 > 0) { "diagonals must be > 0" }
+        return d1 * d2 / 2
+    }
+    fun pentagonArea(s: Double): Double {
+        require(s > 0) { "s must be > 0" }
+        return 0.25 * sqrt(5 * (5 + 2 * sqrt(5.0))) * s * s
+    }
+    fun hexagonArea(s: Double): Double {
+        require(s > 0) { "s must be > 0" }
+        return 3 * sqrt(3.0) / 2 * s * s
+    }
+    fun arcLength(r: Double, deg: Double): Double {
+        require(r > 0) { "r must be > 0" }
+        require(deg >= 0) { "deg must be >= 0" }
+        return PI * r * deg / 180
+    }
+    fun sectorArea(r: Double, deg: Double): Double {
+        require(r > 0) { "r must be > 0" }
+        require(deg >= 0 && deg <= 360) { "deg must be in 0..360" }
+        return PI * r * r * deg / 360
+    }
+    fun chord(r: Double, deg: Double): Double {
+        require(r > 0) { "r must be > 0" }
+        require(deg >= 0 && deg <= 360) { "deg must be in 0..360" }
+        return 2 * r * kotlin.math.sin(deg * PI / 360)
+    }
+    fun segmentArea(r: Double, deg: Double): Double {
+        require(r > 0) { "r must be > 0" }
+        require(deg > 0 && deg <= 180) { "deg must be in (0, 180]" }
+        val t = Math.toRadians(deg)
+        return r * r / 2 * (t - kotlin.math.sin(t))
+    }
+    fun ellipsePerim(a: Double, b: Double): Double {
+        require(a > 0 && b > 0) { "axes must be > 0" }
+        val h = ((a - b) / (a + b)).pow(2)
+        return PI * (a + b) * (1 + 3 * h / (10 + sqrt(4 - 3 * h)))
+    }
+    fun pyramidFrustum(a: Double, b: Double, h: Double): Triple<Double, Double, Double> {
+        require(a > 0 && b > 0 && h > 0) { "dims must be > 0" }
+        val slant = sqrt(h * h + ((a - b) / 2).pow(2))
+        val vol = h / 3 * (a * a + b * b + a * b)
+        return Triple(slant, vol, 2 * (a + b) * slant)
+    }
+    fun conicalFrustum(R: Double, r: Double, h: Double): Triple<Double, Double, Double> {
+        require(R > 0 && r > 0 && h > 0) { "dims must be > 0" }
+        val slant = sqrt((R - r) * (R - r) + h * h)
+        val vol = PI * h / 3 * (R * R + r * r + R * r)
+        return Triple(slant, vol, PI * (R + r) * slant)
+    }
+    fun sphereCap(R: Double, h: Double): Triple<Double, Double, Double> {
+        require(R > 0) { "R must be > 0" }
+        require(h > 0 && h <= 2 * R) { "h must be in (0, 2R]" }
+        val baseR = sqrt(h * (2 * R - h))
+        val vol = PI * h * h * (R - h / 3)
+        return Triple(baseR, vol, 2 * PI * R * h)
+    }
+    fun sphereZone(R: Double, h: Double): Double {
+        require(R > 0) { "R must be > 0" }
+        require(h > 0 && h <= 2 * R) { "h must be in (0, 2R]" }
+        return 2 * PI * R * h
+    }
+    fun zoneCurved(R: Double, h: Double): Double = sphereZone(R, h)
+    fun ellipsoidVol(a: Double, b: Double, c: Double): Double {
+        require(a > 0 && b > 0 && c > 0) { "axes must be > 0" }
+        return 4.0 / 3 * PI * a * b * c
+    }
+    fun ellipsoidSurf(a: Double, b: Double, c: Double): Double {
+        require(a > 0 && b > 0 && c > 0) { "axes must be > 0" }
+        val p = 1.6075
+        val term = (a.pow(p) * b.pow(p) + a.pow(p) * c.pow(p) + b.pow(p) * c.pow(p)) / 3
+        return 4 * PI * term.pow(1 / p)
+    }
+    fun cubeSideFromVol(v: Double): Double {
+        require(v >= 0) { "v must be >= 0" }
+        return v.pow(1.0 / 3.0)
+    }
+    fun sphereRFromVol(v: Double): Double {
+        require(v >= 0) { "v must be >= 0" }
+        return (3 * v / (4 * PI)).pow(1.0 / 3.0)
+    }
+    fun coneHFromVol(r: Double, v: Double): Double {
+        require(r > 0) { "r must be > 0" }
+        require(v >= 0) { "v must be >= 0" }
+        return 3 * v / (PI * r * r)
+    }
 }
 
 object HealthDate {

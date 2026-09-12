@@ -338,6 +338,16 @@ fun CalcUTheme(
             "forest" -> seedScheme(0xFF1B6B4A.toInt(), dark)
             "sunset" -> seedScheme(0xFFB23C17.toInt(), dark)
             "grape" -> seedScheme(0xFF6B4DAB.toInt(), dark)
+            "nord" -> seedScheme(0xFF5E81AC.toInt(), dark)
+            "dracula" -> seedScheme(0xFFBD93F9.toInt(), dark)
+            "tokyo" -> seedScheme(0xFF7AA2F7.toInt(), dark)
+            "gruvbox" -> seedScheme(0xFFD79921.toInt(), dark)
+            "catppuccin" -> seedScheme(0xFFCBA6F7.toInt(), dark)
+            "kanagawa" -> seedScheme(0xFF7E9CD8.toInt(), dark)
+            "rosepine" -> seedScheme(0xFFEBBCBA.toInt(), dark)
+            "mono" -> seedScheme(0xFF9AA0A6.toInt(), dark)
+            "amber" -> seedScheme(0xFFFF8F00.toInt(), dark)
+            "slate" -> seedScheme(0xFF78909C.toInt(), dark)
             else -> if (dark) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context)
         }
     } else when (theme) {
@@ -349,6 +359,16 @@ fun CalcUTheme(
         "forest" -> seedScheme(0xFF1B6B4A.toInt(), dark)
         "sunset" -> seedScheme(0xFFB23C17.toInt(), dark)
         "grape" -> seedScheme(0xFF6B4DAB.toInt(), dark)
+        "nord" -> seedScheme(0xFF5E81AC.toInt(), dark)
+        "dracula" -> seedScheme(0xFFBD93F9.toInt(), dark)
+        "tokyo" -> seedScheme(0xFF7AA2F7.toInt(), dark)
+        "gruvbox" -> seedScheme(0xFFD79921.toInt(), dark)
+        "catppuccin" -> seedScheme(0xFFCBA6F7.toInt(), dark)
+        "kanagawa" -> seedScheme(0xFF7E9CD8.toInt(), dark)
+        "rosepine" -> seedScheme(0xFFEBBCBA.toInt(), dark)
+        "mono" -> seedScheme(0xFF9AA0A6.toInt(), dark)
+        "amber" -> seedScheme(0xFFFF8F00.toInt(), dark)
+        "slate" -> seedScheme(0xFF78909C.toInt(), dark)
         else -> if (dark) FluentDark else FluentLight
     }
     MaterialTheme(colorScheme = scheme, shapes = FluentShapes, typography = fluentType(), content = content)

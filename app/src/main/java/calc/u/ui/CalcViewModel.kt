@@ -64,6 +64,8 @@ class CalcViewModel @Inject constructor(
         settingsRepo.fractions.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), true)
     val memoryRow: StateFlow<Boolean> =
         settingsRepo.memoryRow.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), true)
+    val keypadLayout: StateFlow<String> =
+        settingsRepo.keypadLayout.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), "simple")
 
     private fun fmt(v: BigDecimal): String =
         Engine.format(v, decimals.value, numberFormat.value, fractions.value)
@@ -230,5 +232,8 @@ class CalcViewModel @Inject constructor(
     fun onDismissGraphTip() {
         _uiState.update { it.copy(showGraphTip = false) }
         viewModelScope.launch { runCatching { settingsRepo.setGraphTipSeen() } }
+    }
+    fun onKeypadLayout(value: String) {
+        viewModelScope.launch { runCatching { settingsRepo.setKeypadLayout(value) } }
     }
 }

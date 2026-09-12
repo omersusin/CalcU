@@ -157,6 +157,58 @@ class UnitsTest {
         } catch (e: IllegalArgumentException) { }
     }
 
+    @Test fun megaLengthAu() {
+        assertEquals(1.495978707e11, Units.convert(1.0, Units.length["au"]!!, Units.length["m"]!!), 1e5)
+        assertEquals(42194.988, Units.convert(1.0, Units.length["marathon"]!!, Units.length["m"]!!), 1e-6)
+        assertEquals(22.0, Units.convert(1.0, Units.length["chain"]!!, Units.length["yd"]!!), 1e-9)
+    }
+
+    @Test fun megaMassAmu() {
+        assertEquals(1.660539066605e-27, Units.convert(1.0, Units.mass["amu"]!!, Units.mass["kg"]!!), 1e-33)
+        assertEquals(2e-4, Units.convert(1.0, Units.mass["carat"]!!, Units.mass["kg"]!!), 1e-12)
+        assertEquals(907.18474, Units.convert(1.0, Units.mass["ton_us"]!!, Units.mass["kg"]!!), 1e-6)
+    }
+
+    @Test fun megaTimeMonth() {
+        assertEquals(2629743.8312232, Units.convert(1.0, Units.time["month"]!!, Units.time["s"]!!), 1e-3)
+        assertEquals(3.15569259746784e9, Units.convert(1.0, Units.time["century"]!!, Units.time["s"]!!), 1e3)
+    }
+
+    @Test fun megaTempRankine() {
+        assertEquals(273.15, Units.convertTemp(0.0, "C", "K"), 1e-9)
+        assertEquals(491.67, Units.convertTemp(0.0, "C", "R"), 1e-9)
+        assertEquals(459.67, Units.convertTemp(0.0, "F", "R"), 1e-9)
+    }
+
+    @Test fun megaAreaVolume() {
+        assertEquals(1e-28, Units.convert(1.0, Units.area["barn"]!!, Units.area["m2"]!!), 1e-38)
+        assertEquals(1600.0, Units.convert(1.0, Units.area["rai"]!!, Units.area["m2"]!!), 1e-9)
+        assertEquals(158.987294928, Units.convert(1.0, Units.volume["barrel"]!!, Units.volume["L"]!!), 1e-6)
+        assertEquals(0.75, Units.convert(1.0, Units.volume["winebottle"]!!, Units.volume["L"]!!), 1e-9)
+    }
+
+    @Test fun megaDataQuantityConcentration() {
+        assertEquals(1024.0, Units.convert(1.0, Units.data["KiB"]!!, Units.data["B"]!!), 1e-9)
+        assertEquals(0.125, Units.convert(1.0, Units.data["bit"]!!, Units.data["B"]!!), 1e-12)
+        assertEquals(1e-6, Units.convert(1.0, Units.concentration["ppm"]!!, Units.concentration["fraction"]!!), 1e-12)
+        assertEquals(12.0, Units.convert(1.0, Units.quantity["dozen"]!!, Units.quantity["count"]!!), 1e-9)
+    }
+
+    @Test fun megaEnergyRadioactivityRotation() {
+        assertEquals(1.602176634e-19, Units.convert(1.0, Units.energy["eV"]!!, Units.energy["J"]!!), 1e-28)
+        assertEquals(3.7e10, Units.convert(1.0, Units.radioactivity["Ci"]!!, Units.radioactivity["Bq"]!!), 1e3)
+        assertEquals(0.10471975511965977, Units.convert(1.0, Units.rotational["rpm"]!!, Units.rotational["rad/s"]!!), 1e-12)
+        assertEquals(90.0, Units.convert(1.0, Units.angle["quadrant"]!!, Units.angle["deg"]!!), 1e-9)
+        assertEquals(0.01, Units.convert(1.0, Units.radiation["cGy"]!!, Units.radiation["Gy"]!!), 1e-12)
+    }
+
+    @Test fun megaElectricalFrequency() {
+        assertEquals(1000.0, Units.convert(1.0, Units.potential["kV"]!!, Units.potential["V"]!!), 1e-9)
+        assertEquals(3600.0, Units.convert(1.0, Units.charge["Ah"]!!, Units.charge["C"]!!), 1e-9)
+        assertEquals(1e9, Units.convert(1.0, Units.frequency["GHz"]!!, Units.frequency["Hz"]!!), 1e0)
+        assertEquals(12.566370614359172, Units.convert(1.0, Units.solidangle["sphere"]!!, Units.solidangle["sr"]!!), 1e-9)
+    }
+
     @Test fun crashHardeningEdges() {
         assertEquals(32.0, Units.convertTemp(0.0, "C", "F"), 1e-9)
         try {

@@ -26,6 +26,7 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.RadioButton
+import androidx.compose.material3.Slider
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -84,6 +85,10 @@ class SettingsViewModel @Inject constructor(
         repo.keepScreenOn.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
     val memoryRow: StateFlow<Boolean> =
         repo.memoryRow.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), true)
+    val engineering: StateFlow<Boolean> =
+        repo.engineering.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
+    val precisionSlider: StateFlow<Int> =
+        repo.precisionSlider.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 10)
 
     fun setTheme(value: String) {
         viewModelScope.launch { repo.setTheme(value) }
@@ -120,6 +125,14 @@ class SettingsViewModel @Inject constructor(
     fun setMemoryRow(value: Boolean) {
         viewModelScope.launch { repo.setMemoryRow(value) }
     }
+
+    fun setEngineering(value: Boolean) {
+        viewModelScope.launch { repo.setEngineering(value) }
+    }
+
+    fun setPrecisionSlider(value: Int) {
+        viewModelScope.launch { repo.setPrecisionSlider(value) }
+    }
 }
 
 @Composable
@@ -133,6 +146,8 @@ fun SettingsScreen(vm: SettingsViewModel = hiltViewModel()) {
     val fractions by vm.fractions.collectAsStateWithLifecycle()
     val keepScreenOn by vm.keepScreenOn.collectAsStateWithLifecycle()
     val memoryRow by vm.memoryRow.collectAsStateWithLifecycle()
+    val engineering by vm.engineering.collectAsStateWithLifecycle()
+    val precisionSlider by vm.precisionSlider.collectAsStateWithLifecycle()
     val options = listOf(
         "system" to "System",
         "light" to "Light",
@@ -142,7 +157,17 @@ fun SettingsScreen(vm: SettingsViewModel = hiltViewModel()) {
         "ocean" to "Ocean",
         "forest" to "Forest",
         "sunset" to "Sunset",
-        "grape" to "Grape"
+        "grape" to "Grape",
+        "nord" to "Nord",
+        "dracula" to "Dracula",
+        "tokyo" to "Tokyo",
+        "gruvbox" to "Gruvbox",
+        "catppuccin" to "Catppuccin",
+        "kanagawa" to "Kanagawa",
+        "rosepine" to "Rosé Pine",
+        "mono" to "Mono",
+        "amber" to "Amber",
+        "slate" to "Slate"
     )
     LazyColumn(
         Modifier.fillMaxSize().padding(vertical = 16.dp),
@@ -294,6 +319,31 @@ fun SettingsScreen(vm: SettingsViewModel = hiltViewModel()) {
                                 label = { Text("$scale") }
                             )
                         }
+                    }
+                    Text(
+                        "Precision: $precisionSlider",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Slider(
+                        value = precisionSlider.toFloat(),
+                        onValueChange = { vm.setPrecisionSlider(it.toInt().coerceIn(0, 16)) },
+                        valueRange = 0f..16f,
+                        steps = 15
+                    )
+                    Row(
+                        modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            "Engineering",
+                            style = MaterialTheme.typography.bodyLarge,
+                            modifier = Modifier.weight(1f)
+                        )
+                        Switch(
+                            checked = engineering,
+                            onCheckedChange = { vm.setEngineering(it) }
+                        )
                     }
                 }
             }

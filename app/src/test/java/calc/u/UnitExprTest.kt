@@ -150,6 +150,33 @@ class UnitExprTest {
         } catch (e: IllegalArgumentException) { }
     }
 
+    @Test fun megaAuMonthRankine() {
+        assertEquals(1.495978707e11, UnitExpr.convertExpr(1.0, "au", "m"), 1e5)
+        assertEquals(2629743.8312232, UnitExpr.convertExpr(1.0, "month", "s"), 1e-3)
+        assertEquals(273.15, UnitExpr.convertExpr(491.67, "R", "K"), 1e-9)
+    }
+
+    @Test fun megaRpmKibPpm() {
+        assertEquals(0.10471975511965977, UnitExpr.convertExpr(1.0, "rpm", "rad/s"), 1e-12)
+        assertEquals(6.283185307179586, UnitExpr.convertExpr(1.0, "rps", "rad/s"), 1e-12)
+        assertEquals(1024.0, UnitExpr.convertExpr(1.0, "KiB", "B"), 1e-9)
+        assertEquals(1e-6, UnitExpr.convertExpr(1.0, "ppm", "1"), 1e-12)
+    }
+
+    @Test fun megaCurieEvQuadrant() {
+        assertEquals(3.7e10, UnitExpr.convertExpr(1.0, "Ci", "Bq"), 1e3)
+        assertEquals(1.602176634e-19, UnitExpr.convertExpr(1.0, "eV", "J"), 1e-28)
+        assertEquals(90.0, UnitExpr.convertExpr(1.0, "quadrant", "deg"), 1e-9)
+        assertEquals(340.29, UnitExpr.convertExpr(1.0, "mach", "m/s"), 1e-9)
+    }
+
+    @Test fun megaElectricalFlow() {
+        assertEquals(1000.0, UnitExpr.convertExpr(1.0, "kV", "V"), 1e-9)
+        assertEquals(3600.0, UnitExpr.convertExpr(1.0, "Ah", "C"), 1e-9)
+        assertEquals(1e9, UnitExpr.convertExpr(1.0, "GHz", "Hz"), 1e0)
+        assertEquals(12.566370614359172, UnitExpr.convertExpr(1.0, "sphere", "sr"), 1e-9)
+    }
+
     @Test fun crashHardeningEdges() {
         assertEquals(1.0, UnitExpr.evaluate("1").factor, 0.0)
         assertEquals(1.0, UnitExpr.evaluate("unitless").factor, 0.0)

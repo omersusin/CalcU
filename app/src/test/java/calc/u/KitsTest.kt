@@ -132,4 +132,51 @@ class KitsTest {
             fail("expected IAE")
         } catch (e: IllegalArgumentException) { }
     }
+
+    @Test fun rightTriangle345() {
+        val t = Geometry.rightTriangle(3.0, 4.0)
+        assertEquals(5.0, t.first, 1e-9)
+        assertEquals(6.0, t.second, 1e-9)
+        assertEquals(12.0, t.third, 1e-9)
+    }
+
+    @Test fun square2() {
+        val s = Geometry.square(2.0)
+        assertEquals(4.0, s.first, 1e-9)
+        assertEquals(8.0, s.second, 1e-9)
+        assertEquals(2.8284271247461903, s.third, 1e-3)
+    }
+
+    @Test fun pentagonHexagonUnit() {
+        assertEquals(1.7205, Geometry.pentagonArea(1.0), 1e-4)
+        assertEquals(2.5981, Geometry.hexagonArea(1.0), 1e-4)
+    }
+
+    @Test fun arcAndSectorQuarter() {
+        assertEquals(kotlin.math.PI / 2, Geometry.arcLength(1.0, 90.0), 1e-9)
+        assertEquals(kotlin.math.PI / 4, Geometry.sectorArea(1.0, 90.0), 1e-9)
+    }
+
+    @Test fun frustumCubeCase() {
+        val p = Geometry.pyramidFrustum(2.0, 2.0, 3.0)
+        assertEquals(3.0, p.first, 1e-9)
+        assertEquals(12.0, p.second, 1e-9)
+        assertEquals(24.0, p.third, 1e-9)
+        val c = Geometry.conicalFrustum(2.0, 2.0, 3.0)
+        assertEquals(3.0, c.first, 1e-9)
+        assertEquals(12 * kotlin.math.PI, c.second, 1e-9)
+        assertEquals(12 * kotlin.math.PI, c.third, 1e-9)
+    }
+
+    @Test fun sphereCapHemisphere() {
+        val cap = Geometry.sphereCap(1.0, 1.0)
+        assertEquals(1.0, cap.first, 1e-9)
+        assertEquals(2.0 / 3 * kotlin.math.PI, cap.second, 1e-9)
+        assertEquals(2 * kotlin.math.PI, cap.third, 1e-9)
+    }
+
+    @Test fun ellipsoidSphereCase() {
+        assertEquals(Geometry.sphereVolume(2.0), Geometry.ellipsoidVol(2.0, 2.0, 2.0), 1e-9)
+        assertEquals(Geometry.sphereArea(2.0), Geometry.ellipsoidSurf(2.0, 2.0, 2.0), 1e-9)
+    }
 }
