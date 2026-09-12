@@ -90,6 +90,8 @@ import calc.u.core.Suggestion
 import calc.u.data.TapeHolder
 import calc.u.ui.CalcEffect
 import calc.u.ui.CalcViewModel
+import calc.u.ui.QuickOverlay
+import calc.u.ui.QuickSettings
 import calc.u.ui.FluentCalcKey
 import calc.u.ui.FluentInfoBar
 import calc.u.ui.FluentKeyKind
@@ -128,6 +130,63 @@ private fun historyBody(entry: String): String {
 private fun historyNote(entry: String): String =
     if (entry.count { it == '|' } >= 2) entry.substringAfterLast("|") else ""
 
+private val MiniGraphHint = Regex("(sin|cos|tan|asin|acos|atan|log|ln|sqrt|\\^|/|\\*|\\(|\\d)")
+
+@Composable
+private fun DisplayMiniGraph(input: String, modifier: Modifier = Modifier) {
+    val trimmed = input.trim()
+    if (trimmed.isEmpty()) return
+    if (!XSubst.containsMatchIn(trimmed)) return
+    if (!MiniGraphHint.containsMatchIn(trimmed)) return
+    if (trimmed.filter { !it.isWhitespace() }.length < 2) return
+    val gridColor = MaterialTheme.colorScheme.outlineVariant
+    val axesColor = MaterialTheme.colorScheme.outline
+    val lineColor = MaterialTheme.colorScheme.primary
+    Card(
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surfaceContainerLow
+        ),
+        shape = MaterialTheme.shapes.extraLarge,
+        modifier = modifier.fillMaxWidth()
+    ) {
+        Canvas(
+            modifier = Modifier.fillMaxWidth().height(120.dp).padding(12.dp)
+        ) {
+            val w = size.width
+            val h = size.height
+            if (w <= 0f || h <= 0f) return@Canvas
+            val ppu = 40f
+            var gx = -w / 2
+            while (gx <= w / 2) {
+                drawLine(gridColor, Offset(w / 2 + gx, 0f), Offset(w / 2 + gx, h))
+                gx += ppu
+            }
+            var gy = -h / 2
+            while (gy <= h / 2) {
+                drawLine(gridColor, Offset(0f, h / 2 + gy), Offset(w, h / 2 + gy))
+                gy += ppu
+            }
+            drawLine(axesColor, Offset(w / 2, 0f), Offset(w / 2, h), strokeWidth = 3f)
+            drawLine(axesColor, Offset(0f, h / 2), Offset(w, h / 2), strokeWidth = 3f)
+            var prev: Offset? = null
+            var px = 0f
+            while (px <= w) {
+                val mx = ((px - w / 2) / ppu).toDouble()
+                val y = evalGraphAt(trimmed, mx)
+                if (y.isFinite()) {
+                    val py = (h / 2 - y * ppu).toFloat()
+                    val p = Offset(px, py)
+                    if (prev != null) drawLine(lineColor, prev, p, strokeWidth = 5f)
+                    prev = p
+                } else {
+                    prev = null
+                }
+                px += 2f
+            }
+        }
+    }
+}
+
 @Composable
 private fun InlineTape(
     onRecall: (String) -> Unit,
@@ -163,11 +222,15 @@ private fun InlineTape(
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
 fun CalculatorScreen(vm: CalcViewModel = hiltViewModel()) {
     val st by vm.uiState.collectAsStateWithLifecycle()
     val vibration by vm.vibration.collectAsStateWithLifecycle()
+    val fractions by vm.fractions.collectAsStateWithLifecycle()
+    val memoryRow by vm.memoryRow.collectAsStateWithLifecycle()
+    val numberFormat by vm.numberFormat.collectAsStateWithLifecycle()
+    val keepScreenOn by vm.keepScreenOn.collectAsStateWithLifecycle()
     val haptics = LocalHapticFeedback.current
     fun tapFeedback() {
         if (vibration) haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
@@ -189,6 +252,7 @@ fun CalculatorScreen(vm: CalcViewModel = hiltViewModel()) {
     var noteIndex by remember { mutableStateOf<Int?>(null) }
     var noteDraft by remember { mutableStateOf("") }
     var historyOpen by remember { mutableStateOf(false) }
+    var quickOpen by remember { mutableStateOf(false) }
     var inverse by remember { mutableStateOf(false) }
     var percentMode by rememberSaveable { mutableStateOf("off") }
     remember {
@@ -233,11 +297,20 @@ fun CalculatorScreen(vm: CalcViewModel = hiltViewModel()) {
                 InlineTape(onRecall = { vm.onTapeRecall(it) })
             }
             item {
+                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 Card(
                     colors = CardDefaults.cardColors(
                         containerColor = MaterialTheme.colorScheme.surfaceContainerHighest
                     ),
-                    shape = MaterialTheme.shapes.extraLarge
+                    shape = MaterialTheme.shapes.extraLarge,
+                    modifier = Modifier.clip(MaterialTheme.shapes.extraLarge)
+                        .combinedClickable(
+                            onClick = {},
+                            onLongClick = {
+                                runCatching { haptics.performHapticFeedback(HapticFeedbackType.LongPress) }
+                                quickOpen = true
+                            }
+                        )
                 ) {
                     Column(
                         Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 20.dp).animateContentSize(),
@@ -327,6 +400,25 @@ fun CalculatorScreen(vm: CalcViewModel = hiltViewModel()) {
                         }
                     }
                 }
+                DisplayMiniGraph(input = st.input)
+                if (quickOpen) {
+                    QuickOverlay(
+                        expanded = true,
+                        onDismiss = { quickOpen = false },
+                        settings = QuickSettings(
+                            vibration = vibration,
+                            fractions = fractions,
+                            memoryRow = memoryRow,
+                            keepScreenOn = keepScreenOn,
+                            onVibration = { vm.onVibration(it) },
+                            onFractions = { vm.onFractions(it) },
+                            onMemoryRow = { vm.onMemoryRow(it) },
+                            onKeepScreenOn = { vm.onKeepScreenOn(it) }
+                        ),
+                        numberFormat = numberFormat
+                    )
+                }
+                }
             }
             item {
                 Row(
@@ -335,12 +427,17 @@ fun CalculatorScreen(vm: CalcViewModel = hiltViewModel()) {
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     FilterChip(
-                        selected = st.angleDeg,
+                        selected = st.angleMode == "DEG",
                         onClick = { vm.onToggleAngle() },
                         label = {
+                            val mode = when (st.angleMode) {
+                                "RAD" -> "RAD"
+                                "GRA" -> "GRA"
+                                else -> "DEG"
+                            }
                             Text(
-                                if (st.angleDeg) "DEG" else "RAD",
-                                fontWeight = if (st.angleDeg) FontWeight.SemiBold else FontWeight.Medium
+                                mode,
+                                fontWeight = if (mode == "DEG") FontWeight.SemiBold else FontWeight.Medium
                             )
                         }
                     )
@@ -387,6 +484,7 @@ fun CalculatorScreen(vm: CalcViewModel = hiltViewModel()) {
                 }
             }
             item {
+                val keypadLayout by vm.keypadLayout.collectAsStateWithLifecycle()
                 Keypad(
                     onKey = { k ->
                         tapFeedback()
@@ -403,7 +501,8 @@ fun CalculatorScreen(vm: CalcViewModel = hiltViewModel()) {
                         if (vibration) haptics.performHapticFeedback(HapticFeedbackType.LongPress)
                         vm.onClear()
                     },
-                    inverse = inverse
+                    inverse = inverse,
+                    layout = keypadLayout
                 )
             }
         }
@@ -717,26 +816,86 @@ private fun Keypad(
     onClear: () -> Unit,
     onBack: () -> Unit,
     onBackLong: () -> Unit,
-    inverse: Boolean = false
+    inverse: Boolean = false,
+    layout: String = "simple"
 ) {
-    val digitRows = listOf(
-        listOf("7", "8", "9", "÷"),
-        listOf("4", "5", "6", "×"),
-        listOf("1", "2", "3", "−"),
-        listOf("0", ".", "+", "=")
-    )
-    val sciRows = if (!inverse) listOf(
-        listOf("(", ")", "^", "√"),
-        listOf("sin(", "cos(", "tan(", "π"),
-        listOf("log(", "ln(", "x²", "1/(")
-    ) else listOf(
-        listOf("(", ")", "^", "x²"),
-        listOf("asin(", "acos(", "atan(", "π"),
-        listOf("10^(", "e^(", "√", "1/(")
-    )
-    fun rowEnter(delay: Int) =
-        fadeIn(tween(FluentMotion.Medium, delayMillis = delay, easing = FluentMotion.Standard)) +
-            slideInVertically(tween(FluentMotion.Medium, delayMillis = delay, easing = FluentMotion.Standard)) { it / 10 }
+    when (layout) {
+        "classic" -> ClassicKeypad(onKey, onClear, onBack, onBackLong, inverse)
+        "modern" -> ModernKeypad(onKey, onClear, onBack, onBackLong, inverse)
+        else -> SimpleKeypad(onKey, onClear, onBack, onBackLong, inverse)
+    }
+}
+
+private fun keypadRowEnter(delay: Int) =
+    fadeIn(tween(FluentMotion.Medium, delayMillis = delay, easing = FluentMotion.Standard)) +
+        slideInVertically(tween(FluentMotion.Medium, delayMillis = delay, easing = FluentMotion.Standard)) { it / 10 }
+
+private val DigitRows = listOf(
+    listOf("7", "8", "9", "÷"),
+    listOf("4", "5", "6", "×"),
+    listOf("1", "2", "3", "−"),
+    listOf("0", ".", "+", "=")
+)
+
+private fun sciRowsFor(inverse: Boolean) = if (!inverse) listOf(
+    listOf("(", ")", "^", "√"),
+    listOf("sin(", "cos(", "tan(", "π"),
+    listOf("log(", "ln(", "x²", "1/(")
+) else listOf(
+    listOf("(", ")", "^", "x²"),
+    listOf("asin(", "acos(", "atan(", "π"),
+    listOf("10^(", "e^(", "√", "1/(")
+)
+
+@OptIn(ExperimentalFoundationApi::class)
+@Composable
+private fun DigitKey(
+    label: String,
+    onKey: (String) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    // Long-press on a digit inserts plain "^n" text (never superscript
+    // characters); Engine evaluates "^" as power, guaranteed.
+    if (label.length != 1 || label[0] !in '0'..'9') {
+        FluentCalcKey(
+            label = label,
+            onClick = { onKey(label) },
+            modifier = modifier,
+            kind = FluentKeyKind.Digit,
+            keyHeight = 64.dp
+        )
+        return
+    }
+    val haptics = LocalHapticFeedback.current
+    Box(
+        modifier = modifier.height(64.dp)
+            .clip(CircleShape)
+            .background(MaterialTheme.colorScheme.secondaryContainer)
+            .combinedClickable(
+                onClick = { onKey(label) },
+                onLongClick = {
+                    runCatching { haptics.performHapticFeedback(HapticFeedbackType.LongPress) }
+                    onKey("^$label")
+                }
+            ),
+        contentAlignment = Alignment.Center
+    ) {
+        Text(
+            label,
+            style = MaterialTheme.typography.titleLarge,
+            color = MaterialTheme.colorScheme.onSecondaryContainer
+        )
+    }
+}
+
+@OptIn(ExperimentalFoundationApi::class)
+@Composable
+private fun BackKey(
+    onBack: () -> Unit,
+    onBackLong: () -> Unit,
+    modifier: Modifier = Modifier,
+    tall: Boolean = false
+) {
     val backInteractions = remember { MutableInteractionSource() }
     val backPressed by backInteractions.collectIsPressedAsState()
     val backScale by animateFloatAsState(
@@ -744,9 +903,37 @@ private fun Keypad(
         animationSpec = tween(FluentMotion.Short, easing = FluentMotion.Standard),
         label = "back-press"
     )
+    Box(
+        modifier = modifier.height(if (tall) 64.dp else 56.dp)
+            .graphicsLayer(scaleX = backScale, scaleY = backScale)
+            .clip(MaterialTheme.shapes.large)
+            .background(MaterialTheme.colorScheme.inverseSurface)
+            .combinedClickable(
+                interactionSource = backInteractions,
+                indication = LocalIndication.current,
+                onClick = onBack,
+                onLongClick = onBackLong
+            ),
+        contentAlignment = Alignment.Center
+    ) {
+        Icon(
+            Icons.Filled.Backspace,
+            contentDescription = "Backspace, long-press to clear",
+            tint = MaterialTheme.colorScheme.inverseOnSurface
+        )
+    }
+}
+
+@Composable
+private fun SciRowsGrid(
+    onKey: (String) -> Unit,
+    inverse: Boolean,
+    staggerBase: Int = 0
+) {
+    val sciRows = sciRowsFor(inverse)
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
         sciRows.forEachIndexed { i, row ->
-            AnimatedVisibility(visible = true, enter = rowEnter(i * 32)) {
+            AnimatedVisibility(visible = true, enter = keypadRowEnter((i + staggerBase) * 32)) {
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                     row.forEach { k ->
                         val alt = InverseLongPress[k]
@@ -760,57 +947,191 @@ private fun Keypad(
                 }
             }
         }
-        digitRows.forEachIndexed { j, row ->
-            AnimatedVisibility(visible = true, enter = rowEnter((j + sciRows.size) * 32)) {
+    }
+}
+
+@Composable
+private fun DigitRowsGrid(
+    onKey: (String) -> Unit,
+    staggerBase: Int = 3
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        DigitRows.forEachIndexed { j, row ->
+            AnimatedVisibility(visible = true, enter = keypadRowEnter((j + staggerBase) * 32)) {
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                     row.forEach { k ->
-                        val isOp = k in setOf("÷", "×", "−", "+")
-                        FluentCalcKey(
-                            label = k,
-                            onClick = { onKey(k) },
-                            modifier = Modifier.weight(1f),
-                            kind = when {
-                                k == "=" -> FluentKeyKind.Equals
-                                isOp -> FluentKeyKind.Operator
-                                else -> FluentKeyKind.Digit
-                            },
-                            keyHeight = 64.dp
-                        )
+                        if (k.length == 1 && k[0] in '0'..'9') {
+                            DigitKey(label = k, onKey = onKey, modifier = Modifier.weight(1f))
+                        } else {
+                            val isOp = k in setOf("÷", "×", "−", "+")
+                            FluentCalcKey(
+                                label = k,
+                                onClick = { onKey(k) },
+                                modifier = Modifier.weight(1f),
+                                kind = when {
+                                    k == "=" -> FluentKeyKind.Equals
+                                    isOp -> FluentKeyKind.Operator
+                                    else -> FluentKeyKind.Digit
+                                },
+                                keyHeight = 64.dp
+                            )
+                        }
                     }
                 }
             }
         }
-        AnimatedVisibility(
-            visible = true,
-            enter = rowEnter((sciRows.size + digitRows.size) * 32)
+    }
+}
+
+@Composable
+private fun ClearBackRow(
+    onClear: () -> Unit,
+    onBack: () -> Unit,
+    onBackLong: () -> Unit,
+    staggerDelay: Int = 224
+) {
+    AnimatedVisibility(visible = true, enter = keypadRowEnter(staggerDelay)) {
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            FluentCalcKey(
+                label = "C",
+                onClick = onClear,
+                modifier = Modifier.weight(1f),
+                kind = FluentKeyKind.Sci,
+                keyHeight = 56.dp
+            )
+            BackKey(onBack = onBack, onBackLong = onBackLong, modifier = Modifier.weight(1f))
+        }
+    }
+}
+
+@Composable
+private fun SimpleKeypad(
+    onKey: (String) -> Unit,
+    onClear: () -> Unit,
+    onBack: () -> Unit,
+    onBackLong: () -> Unit,
+    inverse: Boolean
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        SciRowsGrid(onKey = onKey, inverse = inverse, staggerBase = 0)
+        DigitRowsGrid(onKey = onKey, staggerBase = 3)
+        ClearBackRow(onClear = onClear, onBack = onBack, onBackLong = onBackLong)
+    }
+}
+
+@Composable
+private fun ClassicKeypad(
+    onKey: (String) -> Unit,
+    onClear: () -> Unit,
+    onBack: () -> Unit,
+    onBackLong: () -> Unit,
+    inverse: Boolean
+) {
+    var sciOpen by rememberSaveable { mutableStateOf(true) }
+    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.Start,
+            verticalAlignment = Alignment.CenterVertically
         ) {
+            TextButton(onClick = { sciOpen = !sciOpen }) {
+                Text(if (sciOpen) "Scientific ▾" else "Scientific ▸")
+            }
+        }
+        AnimatedVisibility(
+            visible = sciOpen,
+            enter = keypadRowEnter(0),
+            exit = fadeOut(tween(FluentMotion.Medium, easing = FluentMotion.Standard)) +
+                slideOutVertically(tween(FluentMotion.Medium, easing = FluentMotion.Standard)) { it / 10 }
+        ) {
+            SciRowsGrid(onKey = onKey, inverse = inverse, staggerBase = 0)
+        }
+        DigitRowsGrid(onKey = onKey, staggerBase = 0)
+        ClearBackRow(
+            onClear = onClear,
+            onBack = onBack,
+            onBackLong = onBackLong,
+            staggerDelay = 128
+        )
+    }
+}
+
+@OptIn(ExperimentalFoundationApi::class)
+@Composable
+private fun ModernKeypad(
+    onKey: (String) -> Unit,
+    onClear: () -> Unit,
+    onBack: () -> Unit,
+    onBackLong: () -> Unit,
+    inverse: Boolean
+) {
+    val mergedRows = listOf(
+        listOf("7", "8", "9", "(", "÷"),
+        listOf("4", "5", "6", ")", "×"),
+        listOf("1", "2", "3", "^", "−"),
+        listOf("0", ".", "ANS", "π", "+")
+    )
+    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        SciRowsGrid(onKey = onKey, inverse = inverse, staggerBase = 0)
+        mergedRows.forEachIndexed { j, row ->
+            AnimatedVisibility(visible = true, enter = keypadRowEnter((j + 3) * 32)) {
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    row.forEach { k ->
+                        when {
+                            k == "." || (k.length == 1 && k[0] in '0'..'9') ->
+                                DigitKey(label = k, onKey = onKey, modifier = Modifier.weight(1f))
+                            k in setOf("÷", "×", "−", "+") ->
+                                FluentCalcKey(
+                                    label = k,
+                                    onClick = { onKey(k) },
+                                    modifier = Modifier.weight(1f),
+                                    kind = FluentKeyKind.Operator,
+                                    keyHeight = 64.dp
+                                )
+                            else ->
+                                FluentCalcKey(
+                                    label = k,
+                                    onClick = { onKey(k) },
+                                    modifier = Modifier.weight(1f),
+                                    kind = FluentKeyKind.Sci,
+                                    keyHeight = 64.dp
+                                )
+                        }
+                    }
+                }
+            }
+        }
+        AnimatedVisibility(visible = true, enter = keypadRowEnter(7 * 32)) {
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 FluentCalcKey(
                     label = "C",
                     onClick = onClear,
                     modifier = Modifier.weight(1f),
                     kind = FluentKeyKind.Sci,
-                    keyHeight = 56.dp
+                    keyHeight = 64.dp
                 )
-                Box(
-                    modifier = Modifier.weight(1f).height(56.dp)
-                        .graphicsLayer(scaleX = backScale, scaleY = backScale)
-                        .clip(MaterialTheme.shapes.large)
-                        .background(MaterialTheme.colorScheme.inverseSurface)
-                        .combinedClickable(
-                            interactionSource = backInteractions,
-                            indication = LocalIndication.current,
-                            onClick = onBack,
-                            onLongClick = onBackLong
-                        ),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(
-                        Icons.Filled.Backspace,
-                        contentDescription = "Backspace, long-press to clear",
-                        tint = MaterialTheme.colorScheme.inverseOnSurface
-                    )
-                }
+                BackKey(onBack = onBack, onBackLong = onBackLong, modifier = Modifier.weight(1f), tall = true)
+                FluentCalcKey(
+                    label = "x²",
+                    onClick = { onKey("^2") },
+                    modifier = Modifier.weight(1f),
+                    kind = FluentKeyKind.Sci,
+                    keyHeight = 64.dp
+                )
+                FluentCalcKey(
+                    label = "√",
+                    onClick = { onKey("√") },
+                    modifier = Modifier.weight(1f),
+                    kind = FluentKeyKind.Sci,
+                    keyHeight = 64.dp
+                )
+                FluentCalcKey(
+                    label = "=",
+                    onClick = { onKey("=") },
+                    modifier = Modifier.weight(1f),
+                    kind = FluentKeyKind.Equals,
+                    keyHeight = 64.dp
+                )
             }
         }
     }

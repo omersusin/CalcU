@@ -3,6 +3,7 @@ package calc.u.ui.screens
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -22,8 +23,11 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AttachMoney
 import androidx.compose.material.icons.filled.DateRange
+import androidx.compose.material.icons.filled.DragHandle
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.filled.Percent
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Star
@@ -523,7 +527,7 @@ private fun UnitExprCard() {
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
 fun ConvertersScreen() {
     var input by remember { mutableStateOf("1") }
@@ -584,6 +588,20 @@ fun ConvertersScreen() {
         convertOrNull(parsed, rowUnit, safeFrom)?.let { back ->
             if (back.isFinite()) input = fmt(back)
         }
+    }
+    // Rows live in a Column (not a LazyColumn), so long-press drag reorder is
+    // fragile there; use robust up/down movers. Order stays in-memory for this
+    // round (no UnitPrefsRepository change) to avoid cross-agent conflicts.
+    fun moveRow(unit: String, delta: Int) {
+        val idx = effectiveRows.indexOf(unit)
+        if (idx < 0) return
+        val target = idx + delta
+        if (target !in effectiveRows.indices) return
+        val next = effectiveRows.toMutableList()
+        next.add(target, next.removeAt(idx))
+        toRows = next
+        rowOverrides = emptyMap()
+        if (idx == 0 || target == 0) to = next.firstOrNull() ?: to
     }
     val baseLong = baseInput.toLongOrNull()
     val appCtx = LocalContext.current.applicationContext
@@ -669,6 +687,23 @@ fun ConvertersScreen() {
     val visible = filtered.filterNot { it in hidden }
         .sortedWith(compareBy({ it !in favorites }, { it })) +
         filtered.filter { it in hidden }.sorted()
+    fun unitRegion(name: String): String {
+        if (name == "JP" || name.startsWith("JP_")) return "Japan"
+        if (name == "EU" || name.startsWith("EU_")) return "EU"
+        val lower = name.lowercase()
+        if (name == "UK" || name.startsWith("UK_") || lower.endsWith("_uk") ||
+            lower.startsWith("imp") || name == "longton" || name == "stone"
+        ) return "UK"
+        if (name == "US" || name.startsWith("US") || lower.endsWith("_us") ||
+            lower.contains("survey") || lower == "league" || lower == "cable"
+        ) return "US"
+        return "Standard"
+    }
+    val regionOrder = listOf("Standard", "UK", "US", "Japan", "EU")
+    val groupedVisible: List<Pair<String, List<String>>> = run {
+        val byRegion = visible.groupBy { unitRegion(it) }
+        regionOrder.filter { it in byRegion }.map { it to (byRegion[it] ?: emptyList()) }
+    }
     if (pickerOpen) {
         ModalBottomSheet(
             onDismissRequest = { pickerOpen = false; query = "" },
@@ -685,7 +720,18 @@ fun ConvertersScreen() {
                     modifier = Modifier.fillMaxWidth()
                 )
                 LazyColumn(Modifier.fillMaxWidth().height(360.dp)) {
-                    items(visible) { u ->
+                    groupedVisible.forEach { (region, regionUnits) ->
+                        stickyHeader(key = "region-$region") {
+                            Text(
+                                region,
+                                style = MaterialTheme.typography.labelLarge,
+                                color = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.fillMaxWidth()
+                                    .background(MaterialTheme.colorScheme.surfaceContainerHighest)
+                                    .padding(horizontal = 4.dp, vertical = 6.dp)
+                            )
+                        }
+                        items(regionUnits, key = { "$region-$it" }) { u ->
                         val isHidden = u in hidden
                         Row(
                             verticalAlignment = Alignment.CenterVertically,
@@ -730,6 +776,7 @@ fun ConvertersScreen() {
                                     contentDescription = if (u in favorites) "Unfavorite $u" else "Favorite $u"
                                 )
                             }
+                        }
                         }
                     }
                 }
@@ -808,12 +855,18 @@ fun ConvertersScreen() {
                 HorizontalDivider()
                 FluentStagger(0) {
                     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                        effectiveRows.forEach { u ->
+                        effectiveRows.forEachIndexed { index, u ->
                             Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                                 Row(
-                                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                    horizontalArrangement = Arrangement.spacedBy(4.dp),
                                     verticalAlignment = Alignment.CenterVertically
                                 ) {
+                                    Icon(
+                                        Icons.Filled.DragHandle,
+                                        contentDescription = "Reorder $u",
+                                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        modifier = Modifier.size(24.dp)
+                                    )
                                     Box(Modifier.weight(1f).clickable { openPicker("row:$u") }) {
                                         OutlinedTextField(
                                             value = u,
@@ -825,6 +878,26 @@ fun ConvertersScreen() {
                                     }
                                     Box(Modifier.weight(1f)) {
                                         NumField(rowText(u), { reverseFromRow(it, u) }, "Value in $u")
+                                    }
+                                    IconButton(
+                                        onClick = { moveRow(u, -1) },
+                                        enabled = index > 0,
+                                        modifier = Modifier.size(40.dp)
+                                    ) {
+                                        Icon(
+                                            Icons.Filled.KeyboardArrowUp,
+                                            contentDescription = "Move $u up"
+                                        )
+                                    }
+                                    IconButton(
+                                        onClick = { moveRow(u, 1) },
+                                        enabled = index < effectiveRows.size - 1,
+                                        modifier = Modifier.size(40.dp)
+                                    ) {
+                                        Icon(
+                                            Icons.Filled.KeyboardArrowDown,
+                                            contentDescription = "Move $u down"
+                                        )
                                     }
                                     TextButton(
                                         onClick = {
@@ -923,6 +996,11 @@ fun ConvertersScreen() {
                         val roman = if (baseLong == null || baseLong < 1 || baseLong > 3999) "—"
                         else runCatching { Units.toRoman(baseLong.toInt()) }.getOrDefault("—").ifEmpty { "—" }
                         ResultLine("Roman", roman)
+                        Text(
+                            "I=1 V=5 X=10 L=50 C=100 D=500 M=1000",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
                     }
                 }
             }
@@ -2172,19 +2250,43 @@ fun GeometryScreen() {
     var f1 by remember { mutableStateOf("5") }
     var f2 by remember { mutableStateOf("4") }
     var f3 by remember { mutableStateOf("3") }
+    var cubeSolve by remember { mutableStateOf("Volume & Surface") }
+    var sphereSolve by remember { mutableStateOf("Volume & Surface") }
+    var cylSolve by remember { mutableStateOf("Volume & Surface") }
+    var coneSolve by remember { mutableStateOf("Volume & Surface") }
     val shapes = listOf(
         "circle", "rectangle", "triangle", "sphere", "cylinder",
-        "cone", "cube", "prism", "pyramid", "ellipse"
+        "cone", "cube", "prism", "pyramid", "ellipse",
+        "rightTriangle", "square", "rhombus", "pentagon", "hexagon", "arc",
+        "pyramidFrustum", "conicalFrustum", "sphereCap", "sphereZone", "ellipsoid", "trapezoid"
     )
     val labels: List<String> = when (shape) {
-        "circle", "sphere" -> listOf("Radius")
+        "circle" -> listOf("Radius")
+        "sphere" -> if (sphereSolve == "Radius from Volume") listOf("Volume") else listOf("Radius")
         "rectangle" -> listOf("Width", "Height")
         "triangle" -> listOf("Base", "Height")
-        "cylinder", "cone" -> listOf("Radius", "Height")
-        "cube" -> listOf("Side")
+        "cylinder" -> if (cylSolve == "Height from Volume") listOf("Radius", "Volume") else listOf("Radius", "Height")
+        "cone" -> if (coneSolve == "Height from Volume") listOf("Radius", "Volume") else listOf("Radius", "Height")
+        "cube" -> when (cubeSolve) {
+            "Side from Volume" -> listOf("Volume")
+            "Side from Surface" -> listOf("Surface")
+            else -> listOf("Side")
+        }
         "prism" -> listOf("Width", "Height", "Depth")
         "pyramid" -> listOf("Base side", "Height")
         "ellipse" -> listOf("Semi-axis a", "Semi-axis b")
+        "rightTriangle" -> listOf("Leg a", "Leg b")
+        "square" -> listOf("Side")
+        "rhombus" -> listOf("Diagonal 1", "Diagonal 2")
+        "pentagon" -> listOf("Side")
+        "hexagon" -> listOf("Side")
+        "arc" -> listOf("Radius", "Degrees")
+        "pyramidFrustum" -> listOf("Base a", "Top b", "Height")
+        "conicalFrustum" -> listOf("Radius R", "Radius r", "Height")
+        "sphereCap" -> listOf("Radius R", "Height")
+        "sphereZone" -> listOf("Radius R", "Height")
+        "ellipsoid" -> listOf("Axis a", "Axis b", "Axis c")
+        "trapezoid" -> listOf("Base a", "Base b", "Height")
         else -> emptyList()
     }
     val dims = listOf(f1, f2, f3)
@@ -2203,22 +2305,45 @@ fun GeometryScreen() {
                 "Perimeter" to fmt(2 * (x + y), 2)
             )
             "triangle" -> listOf("Area" to fmt(Geometry.triangleArea(x, y), 2))
-            "sphere" -> listOf(
+            "sphere" -> if (sphereSolve == "Radius from Volume") {
+                val r = runCatching { Geometry.sphereRFromVol(x) }.getOrDefault(Double.NaN)
+                val surf = runCatching { Geometry.sphereArea(r) }.getOrDefault(Double.NaN)
+                listOf("Radius" to fmt(r, 2), "Surface" to fmt(surf, 2))
+            } else listOf(
                 "Volume" to fmt(Geometry.sphereVolume(x), 2),
                 "Surface" to fmt(Geometry.sphereArea(x), 2)
             )
-            "cylinder" -> listOf(
+            "cylinder" -> if (cylSolve == "Height from Volume") {
+                val h = runCatching {
+                    require(x > 0) { "r must be > 0" }
+                    y / (PI * x * x)
+                }.getOrDefault(Double.NaN)
+                listOf("Height" to fmt(h, 2))
+            } else listOf(
                 "Volume" to fmt(Geometry.cylinderVolume(x, y), 2),
                 "Surface" to fmt(2 * PI * x * (x + y), 2)
             )
-            "cone" -> listOf(
+            "cone" -> if (coneSolve == "Height from Volume") {
+                listOf("Height" to fmt(runCatching { Geometry.coneHFromVol(x, y) }.getOrDefault(Double.NaN), 2))
+            } else listOf(
                 "Volume" to fmt(Geometry.coneVolume(x, y), 2),
                 "Surface" to fmt(PI * x * (x + sqrt(x * x + y * y)), 2)
             )
-            "cube" -> listOf(
-                "Volume" to fmt(Geometry.cubeVolume(x), 2),
-                "Surface" to fmt(6 * x * x, 2)
-            )
+            "cube" -> when (cubeSolve) {
+                "Side from Volume" -> listOf(
+                    "Side" to fmt(runCatching { Geometry.cubeSideFromVol(x) }.getOrDefault(Double.NaN), 2)
+                )
+                "Side from Surface" -> listOf(
+                    "Side" to fmt(runCatching {
+                        require(x >= 0) { "area must be >= 0" }
+                        sqrt(x / 6)
+                    }.getOrDefault(Double.NaN), 2)
+                )
+                else -> listOf(
+                    "Volume" to fmt(Geometry.cubeVolume(x), 2),
+                    "Surface" to fmt(6 * x * x, 2)
+                )
+            }
             "prism" -> listOf(
                 "Volume" to fmt(Geometry.prismVolume(x, y, z), 2),
                 "Surface" to fmt(2 * (x * y + x * z + y * z), 2)
@@ -2228,6 +2353,39 @@ fun GeometryScreen() {
                 "Surface" to fmt(x * x + 2 * x * sqrt((x / 2) * (x / 2) + y * y), 2)
             )
             "ellipse" -> listOf("Area" to fmt(Geometry.ellipseArea(x, y), 2))
+            "rightTriangle" -> runCatching {
+                val (hyp, area, per) = Geometry.rightTriangle(x, y)
+                listOf("Hypotenuse" to fmt(hyp, 2), "Area" to fmt(area, 2), "Perimeter" to fmt(per, 2))
+            }.getOrDefault(listOf("Hypotenuse" to "—", "Area" to "—", "Perimeter" to "—"))
+            "square" -> runCatching {
+                val (area, per, diag) = Geometry.square(x)
+                listOf("Area" to fmt(area, 2), "Perimeter" to fmt(per, 2), "Diagonal" to fmt(diag, 2))
+            }.getOrDefault(listOf("Area" to "—", "Perimeter" to "—", "Diagonal" to "—"))
+            "rhombus" -> listOf("Area" to fmt(runCatching { Geometry.rhombusAreaD(x, y) }.getOrDefault(Double.NaN), 2))
+            "pentagon" -> listOf("Area" to fmt(runCatching { Geometry.pentagonArea(x) }.getOrDefault(Double.NaN), 2))
+            "hexagon" -> listOf("Area" to fmt(runCatching { Geometry.hexagonArea(x) }.getOrDefault(Double.NaN), 2))
+            "arc" -> listOf(
+                "Arc length" to fmt(runCatching { Geometry.arcLength(x, y) }.getOrDefault(Double.NaN), 2),
+                "Sector area" to fmt(runCatching { Geometry.sectorArea(x, y) }.getOrDefault(Double.NaN), 2)
+            )
+            "pyramidFrustum" -> runCatching {
+                val (slant, vol, lat) = Geometry.pyramidFrustum(x, y, z)
+                listOf("Slant" to fmt(slant, 2), "Volume" to fmt(vol, 2), "Lateral area" to fmt(lat, 2))
+            }.getOrDefault(listOf("Slant" to "—", "Volume" to "—", "Lateral area" to "—"))
+            "conicalFrustum" -> runCatching {
+                val (slant, vol, lat) = Geometry.conicalFrustum(x, y, z)
+                listOf("Slant" to fmt(slant, 2), "Volume" to fmt(vol, 2), "Lateral area" to fmt(lat, 2))
+            }.getOrDefault(listOf("Slant" to "—", "Volume" to "—", "Lateral area" to "—"))
+            "sphereCap" -> runCatching {
+                val (baseR, vol, curved) = Geometry.sphereCap(x, y)
+                listOf("Base radius" to fmt(baseR, 2), "Volume" to fmt(vol, 2), "Curved area" to fmt(curved, 2))
+            }.getOrDefault(listOf("Base radius" to "—", "Volume" to "—", "Curved area" to "—"))
+            "sphereZone" -> listOf("Curved area" to fmt(runCatching { Geometry.sphereZone(x, y) }.getOrDefault(Double.NaN), 2))
+            "ellipsoid" -> listOf(
+                "Volume" to fmt(runCatching { Geometry.ellipsoidVol(x, y, z) }.getOrDefault(Double.NaN), 2),
+                "Surface" to fmt(runCatching { Geometry.ellipsoidSurf(x, y, z) }.getOrDefault(Double.NaN), 2)
+            )
+            "trapezoid" -> listOf("Area" to fmt(Geometry.trapezoidArea(x, y, z), 2))
             else -> emptyList()
         }
     }.getOrDefault(listOf("Result" to "—"))
@@ -2243,6 +2401,12 @@ fun GeometryScreen() {
         }
         item {
             SectionCard("Dimensions") {
+                when (shape) {
+                    "cube" -> UnitDropdown(cubeSolve, listOf("Volume & Surface", "Side from Volume", "Side from Surface"), { cubeSolve = it }, "Solve for")
+                    "sphere" -> UnitDropdown(sphereSolve, listOf("Volume & Surface", "Radius from Volume"), { sphereSolve = it }, "Solve for")
+                    "cylinder" -> UnitDropdown(cylSolve, listOf("Volume & Surface", "Height from Volume"), { cylSolve = it }, "Solve for")
+                    "cone" -> UnitDropdown(coneSolve, listOf("Volume & Surface", "Height from Volume"), { coneSolve = it }, "Solve for")
+                }
                 labels.forEachIndexed { i, label ->
                     NumField(dims.getOrNull(i) ?: "", setters.getOrNull(i) ?: {}, label)
                 }

@@ -41,6 +41,84 @@ object Engine {
         Expression(expr).evaluate().numberValue
     }
 
+    /**
+     * String angle-mode entry point. [mode] is one of `"DEG"`, `"RAD"` or `"GRA"`
+     * (case-insensitive, trimmed; anything else falls back to `"DEG"`).
+     *
+     * - `DEG` reuses [eval] with `angleDeg = true` (EvalEx degree trig).
+     * - `RAD` reuses [eval] with `angleDeg = false` (`SIN(`→`SINR(` path).
+     * - `GRA` (gradians, 400 per circle) reuses the `DEG` engine after rewriting
+     *   bare `SIN(`/`COS(`/`TAN(` arguments with a 0.9 grad→deg factor, e.g.
+     *   `SIN(x)` → `SIN(0.9*(x))`, via balanced-paren matching.
+     *
+     * Simple-case limitation: only forward bare `SIN`/`COS`/`TAN` with explicit
+     * parentheses are rewritten. Inverse trig (`ASIN(`/`ACOS(`/`ATAN(`) still
+     * returns degrees, and explicit radian spellings (`SINR(`/`COSR(`/`TANR(`)
+     * are left untouched.
+     */
+    fun evalMode(input: String, mode: String = "DEG"): Result<BigDecimal> = runCatching {
+        when (mode.trim().uppercase()) {
+            "RAD" -> eval(input, false).getOrThrow()
+            "GRA" -> eval(gradToDeg(input), true).getOrThrow()
+            else -> eval(input, true).getOrThrow()
+        }
+    }
+
+    private fun gradToDeg(expr: String): String {
+        val out = StringBuilder(expr.length + 16)
+        var i = 0
+        while (i < expr.length) {
+            val hit = matchBareTrig(expr, i)
+            if (hit == null) {
+                out.append(expr[i])
+                i++
+                continue
+            }
+            val (name, openIdx) = hit
+            var depth = 0
+            var closeIdx = -1
+            var j = openIdx
+            while (j < expr.length) {
+                when (expr[j]) {
+                    '(' -> depth++
+                    ')' -> {
+                        depth--
+                        if (depth == 0) {
+                            closeIdx = j
+                            break
+                        }
+                    }
+                }
+                j++
+            }
+            if (closeIdx == -1) {
+                out.append(name).append("(0.9*(")
+                out.append(gradToDeg(expr.substring(openIdx + 1)))
+                i = expr.length
+            } else {
+                out.append(name).append("(0.9*(")
+                out.append(gradToDeg(expr.substring(openIdx + 1, closeIdx)))
+                out.append("))")
+                i = closeIdx + 1
+            }
+        }
+        return out.toString()
+    }
+
+    private fun matchBareTrig(expr: String, i: Int): Pair<String, Int>? {
+        if (i + 3 > expr.length) return null
+        val w = expr.substring(i, i + 3)
+        if (!w.equals("SIN", ignoreCase = true) &&
+            !w.equals("COS", ignoreCase = true) &&
+            !w.equals("TAN", ignoreCase = true)
+        ) return null
+        if (i > 0 && (expr[i - 1].isLetterOrDigit() || expr[i - 1] == '_')) return null
+        var k = i + 3
+        while (k < expr.length && expr[k].isWhitespace()) k++
+        if (k >= expr.length || expr[k] != '(') return null
+        return Pair(w, k)
+    }
+
     fun format(v: BigDecimal, maxScale: Int = 10, grouping: String = "locale", fractions: Boolean = false): String {
         return try {
             val d = v.toDouble()

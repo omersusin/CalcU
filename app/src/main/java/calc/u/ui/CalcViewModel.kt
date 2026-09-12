@@ -29,6 +29,7 @@ data class CalcUiState(
     val input: String = "",
     val result: String = "",
     val angleDeg: Boolean = true,
+    val angleMode: String = "DEG",
     val memory: Double = 0.0,
     val history: List<String> = emptyList(),
     val query: String = "",
@@ -128,7 +129,23 @@ class CalcViewModel @Inject constructor(
         }
         return input.dropLast(1)
     }
-    fun onToggleAngle() { _uiState.update { it.copy(angleDeg = !it.angleDeg) }; evaluate() }
+    fun onToggleAngle() {
+        _uiState.update {
+            val next = when (effectiveMode(it)) {
+                "DEG" -> "RAD"
+                "RAD" -> "GRA"
+                else -> "DEG"
+            }
+            it.copy(angleMode = next, angleDeg = next == "DEG")
+        }
+        evaluate()
+    }
+
+    private fun effectiveMode(st: CalcUiState): String {
+        val m = st.angleMode.trim().uppercase()
+        if (m == "DEG" || m == "RAD" || m == "GRA") return m
+        return if (st.angleDeg) "DEG" else "RAD"
+    }
     fun onQueryChange(q: String) { _uiState.update { it.copy(query = q) } }
 
     fun onCopyResult() {
@@ -142,7 +159,7 @@ class CalcViewModel @Inject constructor(
             _uiState.update { s -> s.copy(result = msg) }
             return
         }
-        runCatching { Engine.eval(st.input, st.angleDeg) }.getOrNull()?.onSuccess {
+        runCatching { Engine.evalMode(st.input, effectiveMode(st)) }.getOrNull()?.onSuccess {
             val r = runCatching { fmt(it) }.getOrDefault("Error")
             if (r != "Error") {
                 lastResult = r
@@ -177,7 +194,7 @@ class CalcViewModel @Inject constructor(
         val st = _uiState.value
         if (st.input.isBlank()) { _uiState.update { it.copy(result = "") }; return }
         if (Engine.validateExpr(st.input) != null) { _uiState.update { it.copy(result = "") }; return }
-        runCatching { Engine.eval(st.input, st.angleDeg) }.getOrNull()?.onSuccess {
+        runCatching { Engine.evalMode(st.input, effectiveMode(st)) }.getOrNull()?.onSuccess {
             val formatted = runCatching { fmt(it) }.getOrNull()
             if (formatted != null) _uiState.update { s -> s.copy(result = formatted) }
             else _uiState.update { s -> s.copy(result = "") }
@@ -235,5 +252,24 @@ class CalcViewModel @Inject constructor(
     }
     fun onKeypadLayout(value: String) {
         viewModelScope.launch { runCatching { settingsRepo.setKeypadLayout(value) } }
+    }
+
+    val keepScreenOn: StateFlow<Boolean> =
+        settingsRepo.keepScreenOn.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
+
+    fun onVibration(value: Boolean) {
+        viewModelScope.launch { runCatching { settingsRepo.setVibration(value) } }
+    }
+
+    fun onFractions(value: Boolean) {
+        viewModelScope.launch { runCatching { settingsRepo.setFractions(value) } }
+    }
+
+    fun onMemoryRow(value: Boolean) {
+        viewModelScope.launch { runCatching { settingsRepo.setMemoryRow(value) } }
+    }
+
+    fun onKeepScreenOn(value: Boolean) {
+        viewModelScope.launch { runCatching { settingsRepo.setKeepScreenOn(value) } }
     }
 }

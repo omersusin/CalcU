@@ -16,16 +16,23 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Calculate
+import androidx.compose.material.icons.filled.ChevronLeft
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.FilledTonalButton
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.SmallFloatingActionButton
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
@@ -230,5 +237,26 @@ fun AnimatedSection(
 ) {
     FluentStagger(index = index) {
         SectionCard(title = title, modifier = modifier, content = content)
+    }
+}
+
+@Composable
+fun JumpToCalcFab(onJump: () -> Unit, modifier: Modifier = Modifier) {
+    SmallFloatingActionButton(
+        onClick = onJump,
+        modifier = modifier.size(48.dp),
+        shape = RoundedCornerShape(12.dp),
+        containerColor = MaterialTheme.colorScheme.inverseSurface,
+        contentColor = MaterialTheme.colorScheme.onInverseSurface
+    ) {
+        Icon(Icons.Filled.Calculate, contentDescription = "Back to calculator")
+    }
+}
+
+@Composable
+fun BottomBackChevron(onBack: () -> Unit, modifier: Modifier = Modifier) {
+    TextButton(onClick = onBack, modifier = modifier) {
+        Icon(Icons.Filled.ChevronLeft, contentDescription = null)
+        Text("Back")
     }
 }

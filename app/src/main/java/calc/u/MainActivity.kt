@@ -68,6 +68,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import calc.u.data.SettingsRepository
 import calc.u.ui.CalcViewModel
+import calc.u.ui.JumpToCalcFab
 import calc.u.ui.screens.AnalyzeScreen
 import calc.u.ui.screens.CalculatorScreen
 import calc.u.ui.screens.ConvertersScreen
@@ -207,6 +208,11 @@ class MainActivity : ComponentActivity() {
                                             containerColor = MaterialTheme.colorScheme.surfaceContainer
                                         )
                                     )
+                                },
+                                floatingActionButton = {
+                                    if (route != "calc" && !expanded) {
+                                        JumpToCalcFab(onJump = { go("calc") })
+                                    }
                                 }
                             ) { pad ->
                                 Row(Modifier.padding(pad).fillMaxSize()) {
