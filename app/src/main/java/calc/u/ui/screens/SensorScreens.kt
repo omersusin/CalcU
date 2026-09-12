@@ -1,25 +1,38 @@
 package calc.u.ui.screens
 
+import android.Manifest
 import android.content.Context
+import android.content.pm.PackageManager
 import android.graphics.Paint
 import android.hardware.Sensor
 import android.hardware.SensorEvent
 import android.hardware.SensorEventListener
 import android.hardware.SensorManager
+import android.media.AudioFormat
+import android.media.AudioRecord
+import android.media.MediaRecorder
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.material3.Button
 import androidx.compose.material3.FilterChip
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -33,9 +46,14 @@ import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import androidx.core.content.ContextCompat
 import calc.u.ui.ResultLine
 import calc.u.ui.SectionCard
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.isActive
+import kotlinx.coroutines.withContext
 import kotlin.math.atan2
+import kotlin.math.log10
 import kotlin.math.sqrt
 
 @Composable
@@ -43,13 +61,14 @@ fun SensorScreen() {
     var tab by remember { mutableStateOf("compass") }
     Column(Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(16.dp)) {
         LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            items(listOf("compass" to "Compass", "level" to "Level")) { (id, label) ->
+            items(listOf("compass" to "Compass", "level" to "Level", "sound" to "Sound")) { (id, label) ->
                 FilterChip(selected = tab == id, onClick = { tab = id }, label = { Text(label) })
             }
         }
         Box(Modifier.weight(1f).fillMaxWidth()) {
             when (tab) {
                 "level" -> LevelScreen()
+                "sound" -> SoundScreen()
                 else -> CompassScreen()
             }
         }
@@ -283,5 +302,188 @@ fun LevelScreen() {
         }
         ResultLine("Pitch", if (hasReading) "${pitch.toInt()}°" else "Waiting for sensor…")
         ResultLine("Roll", if (hasReading) "${roll.toInt()}°" else "Waiting for sensor…")
+    }
+}
+
+@Composable
+fun SoundScreen() {
+    val context = LocalContext.current
+    var granted by remember {
+        mutableStateOf(
+            runCatching {
+                ContextCompat.checkSelfPermission(
+                    context,
+                    Manifest.permission.RECORD_AUDIO
+                ) == PackageManager.PERMISSION_GRANTED
+            }.getOrDefault(false)
+        )
+    }
+    var running by remember { mutableStateOf(false) }
+    var levelDb by remember { mutableStateOf<Double?>(null) }
+    var minDb by remember { mutableStateOf<Double?>(null) }
+    var maxDb by remember { mutableStateOf<Double?>(null) }
+    var error by remember { mutableStateOf<String?>(null) }
+
+    val permissionLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { isGranted ->
+        granted = isGranted
+        error = null
+        if (isGranted) running = true else running = false
+    }
+
+    LaunchedEffect(granted, running) {
+        if (!granted || !running) return@LaunchedEffect
+        error = null
+        runCatching {
+            withContext(Dispatchers.IO) {
+                val sampleRate = 44100
+                val minBuf = runCatching {
+                    AudioRecord.getMinBufferSize(
+                        sampleRate,
+                        AudioFormat.CHANNEL_IN_MONO,
+                        AudioFormat.ENCODING_PCM_16BIT
+                    )
+                }.getOrNull() ?: 0
+                val bufSize = if (minBuf <= 0) sampleRate * 2 else minBuf * 2
+                val record = runCatching {
+                    AudioRecord(
+                        MediaRecorder.AudioSource.MIC,
+                        sampleRate,
+                        AudioFormat.CHANNEL_IN_MONO,
+                        AudioFormat.ENCODING_PCM_16BIT,
+                        bufSize
+                    )
+                }.getOrNull()
+                if (record == null) {
+                    error = "Microphone unavailable on this device."
+                    return@withContext
+                }
+                try {
+                    val started = runCatching { record.startRecording() }
+                    if (started.isFailure) {
+                        val cause = started.exceptionOrNull()
+                        error = if (cause is SecurityException) {
+                            "Microphone permission denied. Grant it to use the sound meter."
+                        } else {
+                            "Microphone failed to start."
+                        }
+                        return@withContext
+                    }
+                    val buf = ShortArray((bufSize / 2).coerceAtLeast(1024))
+                    var smoothed: Double? = null
+                    while (isActive) {
+                        val read = runCatching { record.read(buf, 0, buf.size) }.getOrNull() ?: 0
+                        if (read <= 0) {
+                            runCatching { kotlinx.coroutines.delay(50) }
+                            continue
+                        }
+                        var sum = 0.0
+                        for (i in 0 until read) {
+                            val s = buf[i].toDouble()
+                            if (s.isFinite()) sum += s * s
+                        }
+                        if (!sum.isFinite()) continue
+                        val rms = sqrt(sum / read.toDouble())
+                        val db = if (rms <= 0.0 || !rms.isFinite()) {
+                            -60.0
+                        } else {
+                            (20.0 * log10(rms / 32768.0)).coerceIn(-60.0, 0.0)
+                        }
+                        if (!db.isFinite()) continue
+                        val prev = smoothed
+                        smoothed = if (prev == null) db else 0.7 * prev + 0.3 * db
+                        val shown = (smoothed ?: db).coerceIn(-60.0, 0.0)
+                        levelDb = shown
+                        val curMin = minDb
+                        val curMax = maxDb
+                        if (curMin == null || shown < curMin) minDb = shown
+                        if (curMax == null || shown > curMax) maxDb = shown
+                    }
+                } finally {
+                    runCatching { record.stop() }
+                    runCatching { record.release() }
+                }
+            }
+        }.onFailure { cause ->
+            error = if (cause is SecurityException) {
+                "Microphone permission denied. Grant it to use the sound meter."
+            } else {
+                "Microphone error: ${cause.message ?: "unknown"}"
+            }
+            running = false
+        }
+    }
+
+    SectionCard("Sound meter") {
+        if (!granted) {
+            Text(
+                "Microphone access is needed to measure sound. Audio is only used for the live level and never stored.",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Button(onClick = { runCatching { permissionLauncher.launch(Manifest.permission.RECORD_AUDIO) } }) {
+                Text("Grant microphone permission")
+            }
+            error?.let {
+                Text(it, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.error)
+            }
+            return@SectionCard
+        }
+        Text(
+            if (levelDb == null) "—" else "${levelDb?.toInt()} dB",
+            style = MaterialTheme.typography.displayMedium,
+            color = MaterialTheme.colorScheme.onSurface
+        )
+        val fraction = (((levelDb ?: -60.0) + 60.0) / 60.0).toFloat().coerceIn(0f, 1f)
+        LinearProgressIndicator(
+            progress = fraction,
+            modifier = Modifier.fillMaxWidth().height(12.dp)
+        )
+        ResultLine("Level", if (levelDb == null) "Tap Start…" else "${levelDb?.toInt()} dB")
+        ResultLine("Min", if (minDb == null) "—" else "${minDb?.toInt()} dB")
+        ResultLine("Max", if (maxDb == null) "—" else "${maxDb?.toInt()} dB")
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Button(onClick = {
+                error = null
+                if (running) {
+                    running = false
+                } else {
+                    val ok = runCatching {
+                        ContextCompat.checkSelfPermission(
+                            context,
+                            Manifest.permission.RECORD_AUDIO
+                        ) == PackageManager.PERMISSION_GRANTED
+                    }.getOrDefault(false)
+                    granted = ok
+                    if (ok) running = true else runCatching {
+                        permissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
+                    }
+                }
+            }) {
+                Text(if (running) "Stop" else "Start")
+            }
+            Button(onClick = {
+                minDb = null
+                maxDb = null
+            }) {
+                Text("Reset min/max")
+            }
+        }
+        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            Text(
+                "0 dB is full scale, −60 dB is silence. Smoothed live average.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(top = 4.dp)
+            )
+            error?.let {
+                Text(it, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.error)
+            }
+        }
     }
 }

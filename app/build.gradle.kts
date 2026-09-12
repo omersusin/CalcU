@@ -89,4 +89,9 @@ dependencies {
     testImplementation(libs.junit)
     implementation(libs.zxing.core)
     implementation(libs.material.color.utilities)
+    implementation(platform(libs.camera.bom))
+    implementation(libs.camera.core)
+    implementation(libs.camera.camera2)
+    implementation(libs.camera.lifecycle)
+    implementation(libs.camera.view)
 }

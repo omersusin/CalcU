@@ -2,6 +2,8 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+    <uses-permission android:name="android.permission.CAMERA" />
+    <uses-permission android:name="android.permission.RECORD_AUDIO" />
     <application
         android:name=".CalcUApp"
         android:allowBackup="true"
@@ -40,6 +42,17 @@
             <meta-data
                 android:name="android.appwidget.provider"
                 android:resource="@xml/calcu_widget_info" />
+        </receiver>
+        <receiver
+            android:name=".widget.CalcUKeypadWidget"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+                <action android:name="calc.u.KEY" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/keypad_widget_info" />
         </receiver>
     </application>
 </manifest>

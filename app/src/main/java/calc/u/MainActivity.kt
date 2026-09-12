@@ -19,6 +19,7 @@ import androidx.compose.material.icons.filled.Calculate
 import androidx.compose.material.icons.filled.Explore
 import androidx.compose.material.icons.filled.GridOn
 import androidx.compose.material.icons.filled.Menu
+import androidx.compose.material.icons.filled.QrCode
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.ShortText
 import androidx.compose.material.icons.filled.ShowChart
@@ -72,6 +73,7 @@ import calc.u.ui.screens.TextDataScreen
 import calc.u.ui.screens.TimeLabScreen
 import calc.u.ui.screens.ElectroScreen
 import calc.u.ui.screens.EverydayScreen
+import calc.u.ui.screens.QrScanScreen
 import calc.u.ui.screens.SensorScreen
 import calc.u.ui.screens.ToolsHub
 import calc.u.ui.theme.CalcUTheme
@@ -95,6 +97,7 @@ private val ToolDests = listOf(
     Dest("electro", "Electro", Icons.Filled.Build),
     Dest("textdata", "Text+Data", Icons.Filled.ShortText),
     Dest("everyday", "Everyday", Icons.Filled.Apps),
+    Dest("qrscan", "QR Scan", Icons.Filled.QrCode),
     Dest("sensors", "Sensors", Icons.Filled.Explore),
     Dest("tools", "Tools", Icons.Filled.Apps)
 )
@@ -117,11 +120,11 @@ class MainActivity : ComponentActivity() {
                     val drawer = rememberDrawerState(DrawerValue.Closed)
                     val scope = rememberCoroutineScope()
                     val startRoute = intent?.getStringExtra("dest")?.takeIf {
-                        it in setOf("graph", "time", "electro", "textdata", "everyday", "sensors", "tools")
+                        it in setOf("graph", "time", "electro", "textdata", "everyday", "sensors", "tools", "qrscan")
                     } ?: "calc"
                     var route by remember { mutableStateOf(startRoute) }
                     fun go(r: String) {
-                        val safe = r.takeIf { it in setOf("calc", "graph", "convert", "finance", "math", "steps", "time", "electro", "textdata", "everyday", "sensors", "tools", "settings") } ?: return
+                        val safe = r.takeIf { it in setOf("calc", "graph", "convert", "finance", "math", "steps", "time", "electro", "textdata", "everyday", "sensors", "tools", "qrscan", "settings") } ?: return
                         route = safe
                         runCatching { nav.navigate(safe) { launchSingleTop = true; popUpTo("calc") } }
                     }
@@ -221,6 +224,7 @@ class MainActivity : ComponentActivity() {
                                         composable("textdata") { Centered { TextDataScreen() } }
                                         composable("everyday") { Centered { EverydayScreen() } }
                                         composable("sensors") { Centered { SensorScreen() } }
+                                        composable("qrscan") { Centered { QrScanScreen() } }
                                         composable("tools") { Centered { ToolsHub(onOpen = { go(it) }) } }
                                         composable("settings") { Centered { SettingsScreen() } }
                                     }
