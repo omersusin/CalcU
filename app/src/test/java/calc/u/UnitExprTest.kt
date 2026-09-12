@@ -33,4 +33,29 @@ class UnitExprTest {
         assertEquals(1.0, UnitExpr.convertExpr(1.0, "N*m", "J"), 1e-9)
         assertEquals(1.0, UnitExpr.convertExpr(1.0, "(N*m)/(J)", "1"), 1e-9)
     }
+
+    @Test fun kWhToJoule() {
+        assertEquals(3600000.0, UnitExpr.convertExpr(1.0, "kWh", "J"), 1e-6)
+    }
+
+    @Test fun psiToPascal() {
+        assertEquals(6894.76, UnitExpr.convertExpr(1.0, "psi", "Pa"), 0.01)
+    }
+
+    @Test fun galToLiter() {
+        assertEquals(3.78541, UnitExpr.convertExpr(1.0, "gal", "L"), 1e-4)
+    }
+
+    @Test fun degToRad() {
+        assertEquals(Math.PI / 180.0, UnitExpr.convertExpr(1.0, "deg", "rad"), 1e-12)
+    }
+
+    @Test fun massVsLengthThrows() {
+        try {
+            UnitExpr.convertExpr(1.0, "kg", "m")
+            fail("expected incompatible dimensions to throw")
+        } catch (e: IllegalArgumentException) {
+            assertTrue(e.message!!.contains("incompatible: mass vs length"))
+        }
+    }
 }

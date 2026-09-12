@@ -6,4 +6,6 @@
     <string name="tile_label">CalcU</string>
     <string name="shortcut_time">Time</string>
     <string name="shortcut_tools">Tools</string>
+    <string name="shortcut_electro">Electro</string>
+    <string name="shortcut_textdata">Text Data</string>
 </resources>

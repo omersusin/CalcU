@@ -2,7 +2,7 @@
 <shortcuts xmlns:android="http://schemas.android.com/apk/res/android">
     <shortcut
         android:enabled="true"
-        android:icon="@android:drawable/ic_dialog_dialer"
+        android:icon="@mipmap/ic_launcher"
         android:shortcutId="calc"
         android:shortcutLongLabel="@string/shortcut_calc"
         android:shortcutShortLabel="@string/shortcut_calc">
@@ -13,7 +13,7 @@
     </shortcut>
     <shortcut
         android:enabled="true"
-        android:icon="@android:drawable/ic_dialog_map"
+        android:icon="@mipmap/ic_launcher"
         android:shortcutId="graph"
         android:shortcutLongLabel="@string/shortcut_graph"
         android:shortcutShortLabel="@string/shortcut_graph">
@@ -43,7 +43,7 @@
     </shortcut>
     <shortcut
         android:enabled="true"
-        android:icon="@android:drawable/ic_menu_preferences"
+        android:icon="@mipmap/ic_launcher"
         android:shortcutId="tools"
         android:shortcutLongLabel="@string/shortcut_tools"
         android:shortcutShortLabel="@string/shortcut_tools">
@@ -54,6 +54,35 @@
             <extra
                 android:name="dest"
                 android:value="tools" />
+        </intent>
+    <shortcut
+        android:enabled="true"
+        android:icon="@mipmap/ic_launcher"
+        android:shortcutId="electro"
+        android:shortcutLongLabel="@string/shortcut_electro"
+        android:shortcutShortLabel="@string/shortcut_electro">
+        <intent
+            android:action="calc.u.action.ELECTRO"
+            android:targetClass="calc.u.MainActivity"
+            android:targetPackage="calc.u">
+            <extra
+                android:name="dest"
+                android:value="electro" />
+        </intent>
+    </shortcut>
+    <shortcut
+        android:enabled="true"
+        android:icon="@mipmap/ic_launcher"
+        android:shortcutId="textdata"
+        android:shortcutLongLabel="@string/shortcut_textdata"
+        android:shortcutShortLabel="@string/shortcut_textdata">
+        <intent
+            android:action="calc.u.action.TEXTDATA"
+            android:targetClass="calc.u.MainActivity"
+            android:targetPackage="calc.u">
+            <extra
+                android:name="dest"
+                android:value="textdata" />
         </intent>
     </shortcut>
 </shortcuts>

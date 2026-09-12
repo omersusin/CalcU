@@ -3,6 +3,7 @@ package calc.u
 import calc.u.core.Finance
 import org.junit.Assert.*
 import org.junit.Test
+import kotlin.math.pow
 
 class FinanceTest {
     @Test fun sipGrows() {
@@ -60,5 +61,24 @@ class FinanceTest {
         val (rent, buy) = Finance.rentVsBuy(1500.0, 3.0, 300000.0, 20.0, 6.0, 10)
         assertTrue(rent > 0)
         assertTrue(buy > 0)
+    }
+
+    @Test fun depreciationDBBookDecreases() {
+        val y1 = Finance.depreciationDB(10000.0, 20.0, 1)
+        assertEquals(8000.0, y1, 1e-6)
+        val y2 = Finance.depreciationDB(10000.0, 20.0, 2)
+        assertEquals(6400.0, y2, 1e-6)
+        assertTrue(y2 < y1)
+    }
+
+    @Test fun savingsGoalSevenPctTenYears() {
+        val r = 0.07 / 12
+        val n = 120
+        val expected = 500 * (((1 + r).pow(n) - 1) / r)
+        assertEquals(expected, Finance.savingsGoal(500.0, 7.0, 10.0), 1.0)
+    }
+
+    @Test fun inflationThreePctTenYears() {
+        assertEquals(134.39, Finance.inflation(100.0, 3.0, 10.0), 0.01)
     }
 }

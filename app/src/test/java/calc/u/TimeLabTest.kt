@@ -41,4 +41,12 @@ class TimeLabTest {
     @Test fun countdownGolden() {
         assertEquals(Triple(1L, 30L, 0L), TimeLab.countdownParts(90000L))
     }
+
+    @Test fun formatHMSZeroExplicit() {
+        assertEquals("0:00:00.00", TimeLab.formatHMS(0L))
+    }
+
+    @Test fun countdownParts61050() {
+        assertEquals(Triple(1L, 1L, 5L), TimeLab.countdownParts(61050L))
+    }
 }
