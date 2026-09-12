@@ -11,11 +11,11 @@ object Currency {
         "KES", "ZAR", "MAD", "DZD", "TND", "IQD", "JOD", "KWD", "BHD", "QAR",
         "OMR", "YER", "LBP", "SYP", "AFN", "IRR", "BRL", "MXN", "ARS", "CLP",
         "COP", "PEN", "SGD", "HKD", "TWD", "NZD", "NPR", "LKR", "MMK", "KHR",
-        "LAK", "BND", "FJD", "ILS", "MVR", "ALL", "BAM", "MKD"
+        "LAK", "BND", "FJD", "ILS", "MVR", "ALL", "BAM", "MKD", "ISK"
     ).distinct().sorted()
 
     val fallbackUsdRates = mapOf(
-        "USD" to 1.0, "EUR" to 0.92, "GBP" to 0.79, "JPY" to 149.5,
+        "USD" to 1.0, "EUR" to 0.92, "GBP" to 0.79, "JPY" to 149.5, "ISK" to 138.5,
         "INR" to 83.2, "CNY" to 7.24, "TRY" to 32.8, "AED" to 3.6725
     )
 

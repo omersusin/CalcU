@@ -88,6 +88,7 @@ dependencies {
     coreLibraryDesugaring(libs.desugar.jdk.libs)
     testImplementation(libs.junit)
     implementation(libs.zxing.core)
+    implementation(libs.jbcrypt)
     implementation(libs.material.color.utilities)
     implementation(libs.camera.core)
     implementation(libs.camera.camera2)

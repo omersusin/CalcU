@@ -196,4 +196,45 @@ class FinanceTest {
     @Test fun bmiDeltaOverweight() {
         assertEquals(13.74, calc.u.core.HealthPlus.bmiDelta(90.0, 175.0), 0.05)
     }
+
+    @Test fun discountForwardTwenty() {
+        val (final, savings) = Finance.discountForward(2000.0, 20.0)
+        assertEquals(1600.0, final, 1e-9)
+        assertEquals(400.0, savings, 1e-9)
+    }
+
+    @Test fun discountReverseTwenty() {
+        val (pct, savings) = Finance.discountReverse(2000.0, 1600.0)
+        assertEquals(20.0, pct, 1e-9)
+        assertEquals(400.0, savings, 1e-9)
+    }
+
+    @Test fun tipRoundUpNoRound() {
+        val (per, total, tip) = Finance.tipRoundUp(1000.0, 100.0, 2)
+        assertEquals(550.0, per, 1e-9)
+        assertEquals(1100.0, total, 1e-9)
+        assertEquals(100.0, tip, 1e-9)
+    }
+
+    @Test fun investFreqMatchesCompound() {
+        val (invested, maturity, gains) = Finance.investFreq(5000.0, 12.0, 10.0, 1)
+        assertEquals(5000.0, invested, 1e-9)
+        assertEquals(Finance.compound(5000.0, 12.0, 10.0, 1), maturity, 1e-6)
+        assertEquals(maturity - invested, gains, 1e-6)
+    }
+
+    @Test fun daysToBirthdaySane() {
+        val today = java.time.LocalDate.parse("2026-01-15")
+        val days = Finance.daysToBirthday(3, 10, today.toEpochDay())
+        assertTrue(days >= 0)
+        assertEquals(java.time.temporal.ChronoUnit.DAYS.between(today, java.time.LocalDate.parse("2026-03-10")), days)
+    }
+
+    @Test fun dateOffsetNinetyCrossesMonth() {
+        assertEquals("2026-04-15", Finance.dateOffset("2026-01-15", 90))
+    }
+
+    @Test fun tzUtcToIstanbulPlus3() {
+        assertEquals("15:00", Finance.timezoneConvert("12:00", "UTC", "Europe/Istanbul"))
+    }
 }

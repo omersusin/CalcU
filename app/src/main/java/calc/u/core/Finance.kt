@@ -305,4 +305,86 @@ object Finance {
         val net = gross / (1 + ratePct / 100)
         return Triple(net, gross - net, gross)
     }
+
+    // Finance+ core, re-implemented from scratch.
+    fun discountForward(mrp: Double, pct: Double): Pair<Double, Double> {
+        require(mrp >= 0.0) { "mrp must be >= 0" }
+        require(pct >= 0.0 && pct <= 100.0) { "pct must be in 0..100" }
+        val final = mrp * (1 - pct / 100)
+        return Pair(final, mrp - final)
+    }
+
+    fun discountReverse(mrp: Double, final: Double): Pair<Double, Double> {
+        require(mrp > 0.0) { "mrp must be > 0" }
+        require(final >= 0.0) { "final must be >= 0" }
+        require(final <= mrp) { "final must be <= mrp" }
+        val savings = mrp - final
+        return Pair(savings / mrp * 100, savings)
+    }
+
+    fun tipRoundUp(bill: Double, tipAmount: Double, people: Int): Triple<Double, Double, Double> {
+        require(bill >= 0.0) { "bill must be >= 0" }
+        require(tipAmount >= 0.0) { "tipAmount must be >= 0" }
+        require(people >= 1) { "people must be >= 1" }
+        val total = bill + tipAmount
+        val per = kotlin.math.ceil(total / people)
+        val roundedTotal = per * people
+        return Triple(per, roundedTotal, roundedTotal - bill)
+    }
+
+    fun investFreq(principal: Double, annualPct: Double, years: Double, timesPerYear: Int): Triple<Double, Double, Double> {
+        require(principal >= 0.0) { "principal must be >= 0" }
+        require(years >= 0.0) { "years must be >= 0" }
+        require(timesPerYear > 0) { "timesPerYear must be > 0" }
+        val maturity = principal * (1 + annualPct / 100 / timesPerYear).pow(timesPerYear * years)
+        return Triple(principal, maturity, maturity - principal)
+    }
+
+    fun investFreq(principal: Double, annualPct: Double, years: Int, timesPerYear: Int): Triple<Double, Double, Double> =
+        investFreq(principal, annualPct, years.toDouble(), timesPerYear)
+
+    fun daysToBirthday(month: Int, day: Int, todayEpochDay: Long): Long {
+        require(month in 1..12) { "month must be in 1..12" }
+        require(day in 1..31) { "day must be in 1..31" }
+        if (month == 2) require(day <= 29) { "day must be <= 29 for February" }
+        if (month == 4 || month == 6 || month == 9 || month == 11) require(day <= 30) { "day must be <= 30" }
+        val today = java.time.LocalDate.ofEpochDay(todayEpochDay)
+        fun birthdayIn(year: Int): java.time.LocalDate {
+            if (month == 2 && day == 29 && !java.time.Year.isLeap(year.toLong())) {
+                return java.time.LocalDate.of(year, 2, 28)
+            }
+            return java.time.LocalDate.of(year, month, day)
+        }
+        var next = birthdayIn(today.year)
+        if (next.isBefore(today)) {
+            next = birthdayIn(today.year + 1)
+        }
+        return java.time.temporal.ChronoUnit.DAYS.between(today, next)
+    }
+
+    fun dateOffset(dateIso: String, offsetDays: Int): String {
+        return java.time.LocalDate.parse(dateIso).plusDays(offsetDays.toLong()).toString()
+    }
+
+    fun dateOffset(dateIso: String, offsetDays: Long): String {
+        return java.time.LocalDate.parse(dateIso).plusDays(offsetDays).toString()
+    }
+
+    fun timezoneConvert(timeStr: String, fromZone: String, toZone: String): String {
+        val from: java.time.ZoneId = try {
+            java.time.ZoneId.of(fromZone)
+        } catch (e: Exception) {
+            throw IllegalArgumentException("bad zone: $fromZone")
+        }
+        val to: java.time.ZoneId = try {
+            java.time.ZoneId.of(toZone)
+        } catch (e: Exception) {
+            throw IllegalArgumentException("bad zone: $toZone")
+        }
+        val time = java.time.LocalTime.parse(timeStr)
+        val date = java.time.LocalDate.now(from)
+        val zonedFrom = java.time.ZonedDateTime.of(date, time, from)
+        val zonedTo = zonedFrom.withZoneSameInstant(to)
+        return zonedTo.toLocalTime().format(java.time.format.DateTimeFormatter.ofPattern("HH:mm"))
+    }
 }

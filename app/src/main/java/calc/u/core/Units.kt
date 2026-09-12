@@ -59,7 +59,13 @@ object Units {
         "hogsheadBeer" to UnitDef("hogsheadBeer", 204.412522056),
         "bushel" to UnitDef("bushel", 35.23907016688), "peck" to UnitDef("peck", 8.80976754172),
         "cord" to UnitDef("cord", 3624.556363776), "boardfoot" to UnitDef("boardfoot", 2.359737216),
-        "impMinim" to UnitDef("impMinim", 5.919388020833333e-5)
+        "impMinim" to UnitDef("impMinim", 5.919388020833333e-5),
+        "tspUK" to UnitDef("tspUK", 0.00591938802083),
+        "tbspUK" to UnitDef("tbspUK", 0.0177581640625),
+        "flozUK" to UnitDef("flozUK", 0.0284130625),
+        "ptUK" to UnitDef("ptUK", 0.56826125),
+        "qtUK" to UnitDef("qtUK", 1.1365225),
+        "galUK" to UnitDef("galUK", 4.54609)
     )
     val temperature = listOf("C", "F", "K", "R")
     val area = mapOf(
@@ -71,7 +77,10 @@ object Units {
         "decare" to UnitDef("decare", 1000.0), "stremma" to UnitDef("stremma", 1000.0),
         "homestead" to UnitDef("homestead", 647497.02784), "sqperch" to UnitDef("sqperch", 25.29285264),
         "rai" to UnitDef("rai", 1600.0), "circInch" to UnitDef("circInch", 5.067074790974978e-4),
-        "circMil" to UnitDef("circMil", 5.067074790974978e-10)
+        "circMil" to UnitDef("circMil", 5.067074790974978e-10),
+        "mm2" to UnitDef("mm2", 1e-6), "cm2" to UnitDef("cm2", 1e-4),
+        "in2" to UnitDef("in2", 6.4516e-4), "yd2" to UnitDef("yd2", 0.83612736),
+        "mi2" to UnitDef("mi2", 2589988.110336)
     )
     val time = mapOf(
         "s" to UnitDef("s", 1.0), "min" to UnitDef("min", 60.0),
@@ -91,7 +100,8 @@ object Units {
         "m/s" to UnitDef("m/s", 1.0), "km/h" to UnitDef("km/h", 1.0 / 3.6),
         "mph" to UnitDef("mph", 0.44704), "ft/s" to UnitDef("ft/s", 0.3048),
         "knot" to UnitDef("knot", 0.5144444444444445),
-        "lightspeed" to UnitDef("lightspeed", 2.99792458e8), "mach" to UnitDef("mach", 340.29)
+        "lightspeed" to UnitDef("lightspeed", 2.99792458e8), "mach" to UnitDef("mach", 340.29),
+        "km/s" to UnitDef("km/s", 1000.0), "kms" to UnitDef("kms", 1000.0)
     )
     val pressure = mapOf(
         "Pa" to UnitDef("Pa", 1.0), "kPa" to UnitDef("kPa", 1000.0),
@@ -104,7 +114,8 @@ object Units {
         "microbar" to UnitDef("microbar", 0.1), "decibar" to UnitDef("decibar", 10000.0),
         "kilobar" to UnitDef("kilobar", 1e8), "megabar" to UnitDef("megabar", 1e11),
         "mmWater" to UnitDef("mmWater", 9.80665), "inWater" to UnitDef("inWater", 249.08891),
-        "ftWater" to UnitDef("ftWater", 2989.06692)
+        "ftWater" to UnitDef("ftWater", 2989.06692),
+        "kgfcm2" to UnitDef("kgfcm2", 98066.5)
     )
     val energy = mapOf(
         "J" to UnitDef("J", 1.0), "kJ" to UnitDef("kJ", 1000.0),
@@ -114,7 +125,8 @@ object Units {
         "MJ" to UnitDef("MJ", 1e6), "GJ" to UnitDef("GJ", 1e9),
         "mJ" to UnitDef("mJ", 0.001), "erg" to UnitDef("erg", 1e-7),
         "eV" to UnitDef("eV", 1.602176634e-19),
-        "tonneOil" to UnitDef("tonneOil", 4.1868e10), "tonneCoal" to UnitDef("tonneCoal", 2.93076e10)
+        "tonneOil" to UnitDef("tonneOil", 4.1868e10), "tonneCoal" to UnitDef("tonneCoal", 2.93076e10),
+        "Wh" to UnitDef("Wh", 3600.0), "ftlb" to UnitDef("ftlb", 1.3558179483314)
     )
     val power = mapOf(
         "W" to UnitDef("W", 1.0), "kW" to UnitDef("kW", 1000.0),
@@ -136,7 +148,9 @@ object Units {
         "PBsi" to UnitDef("PBsi", 1e15),
         "KiB" to UnitDef("KiB", 1024.0), "MiB" to UnitDef("MiB", 1048576.0),
         "GiB" to UnitDef("GiB", 1073741824.0), "TiB" to UnitDef("TiB", 1099511627776.0),
-        "PiB" to UnitDef("PiB", 1125899906842624.0)
+        "PiB" to UnitDef("PiB", 1125899906842624.0),
+        "Pbit" to UnitDef("Pbit", 1.25e14), "Ebit" to UnitDef("Ebit", 1.25e17),
+        "EB" to UnitDef("EB", 1e18), "EiB" to UnitDef("EiB", 1152921504606846976.0)
     )
     val fuel = mapOf(
         "l_100km" to UnitDef("l_100km", 1.0),
@@ -144,7 +158,9 @@ object Units {
         "mpg_us" to UnitDef("mpg_us", Double.NaN),
         "mpg" to UnitDef("mpg", Double.NaN),
         "km_l" to UnitDef("km_l", Double.NaN),
-        "km/L" to UnitDef("km/L", Double.NaN)
+        "km/L" to UnitDef("km/L", Double.NaN),
+        "mpg_uk" to UnitDef("mpg_uk", Double.NaN),
+        "mpgUK" to UnitDef("mpgUK", Double.NaN)
     )
     val cooking = mapOf(
         "tsp" to UnitDef("tsp", 4.92892159375),
@@ -308,16 +324,27 @@ object Units {
         "rps" to UnitDef("rps", 6.283185307179586)
     )
 
+    val amount = mapOf(
+        "pmol" to UnitDef("pmol", 1e-12), "nmol" to UnitDef("nmol", 1e-9),
+        "umol" to UnitDef("umol", 1e-6), "mmol" to UnitDef("mmol", 1e-3),
+        "mol" to UnitDef("mol", 1.0), "kmol" to UnitDef("kmol", 1000.0)
+    )
+
     // Sound level (dB) intentionally absent: decibels are logarithmic and need a
     // reference quantity, so they cannot use the linear toBase model above.
 
     private val fuelIds = fuel.keys
     private const val MPG_US_CONST = 235.214583
+    private const val MPG_UK_CONST = 282.481053
 
     fun fuelToL100km(v: Double, from: String): Double = when (from) {
         "mpg_us", "mpg" -> {
             require(v != 0.0) { "fuel economy must be non-zero" }
             MPG_US_CONST / v
+        }
+        "mpg_uk", "mpgUK" -> {
+            require(v != 0.0) { "fuel economy must be non-zero" }
+            MPG_UK_CONST / v
         }
         "km_l", "km/L" -> {
             require(v != 0.0) { "fuel economy must be non-zero" }
@@ -330,6 +357,10 @@ object Units {
         "mpg_us", "mpg" -> {
             require(v != 0.0) { "fuel economy must be non-zero" }
             MPG_US_CONST / v
+        }
+        "mpg_uk", "mpgUK" -> {
+            require(v != 0.0) { "fuel economy must be non-zero" }
+            MPG_UK_CONST / v
         }
         "km_l", "km/L" -> {
             require(v != 0.0) { "fuel economy must be non-zero" }

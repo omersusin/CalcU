@@ -243,4 +243,46 @@ class UnitsTest {
         } catch (e: IllegalArgumentException) { }
         assertEquals(-5.0, Units.convertFuel(-5.0, "l_100km", "l_100km"), 0.0)
     }
+
+    @Test fun metzgerVolumeUK() {
+        assertEquals(4.54609, Units.convert(1.0, Units.volume["galUK"]!!, Units.volume["L"]!!), 1e-9)
+        assertEquals(1.1365225, Units.convert(1.0, Units.volume["qtUK"]!!, Units.volume["L"]!!), 1e-9)
+        assertEquals(0.56826125, Units.convert(1.0, Units.volume["ptUK"]!!, Units.volume["L"]!!), 1e-9)
+        assertEquals(0.0284130625, Units.convert(1.0, Units.volume["flozUK"]!!, Units.volume["L"]!!), 1e-12)
+        assertEquals(2.0, Units.convert(1.0, Units.volume["qtUK"]!!, Units.volume["ptUK"]!!), 1e-9)
+    }
+
+    @Test fun metzgerAreaLadder() {
+        assertEquals(1e-6, Units.convert(1.0, Units.area["mm2"]!!, Units.area["m2"]!!), 1e-12)
+        assertEquals(1e-4, Units.convert(1.0, Units.area["cm2"]!!, Units.area["m2"]!!), 1e-12)
+        assertEquals(6.4516e-4, Units.convert(1.0, Units.area["in2"]!!, Units.area["m2"]!!), 1e-12)
+        assertEquals(0.83612736, Units.convert(1.0, Units.area["yd2"]!!, Units.area["m2"]!!), 1e-9)
+        assertEquals(2589988.110336, Units.convert(1.0, Units.area["mi2"]!!, Units.area["m2"]!!), 1e-6)
+    }
+
+    @Test fun metzgerSpeedEnergyPressure() {
+        assertEquals(1000.0, Units.convert(1.0, Units.speed["km/s"]!!, Units.speed["m/s"]!!), 1e-9)
+        assertEquals(3600.0, Units.convert(1.0, Units.energy["Wh"]!!, Units.energy["J"]!!), 1e-9)
+        assertEquals(1.3558179483314, Units.convert(1.0, Units.energy["ftlb"]!!, Units.energy["J"]!!), 1e-9)
+        assertEquals(98066.5, Units.convert(1.0, Units.pressure["kgfcm2"]!!, Units.pressure["Pa"]!!), 1e-6)
+    }
+
+    @Test fun metzgerDataBits() {
+        assertEquals(1.25e14, Units.convert(1.0, Units.data["Pbit"]!!, Units.data["B"]!!), 1e8)
+        assertEquals(1.25e17, Units.convert(1.0, Units.data["Ebit"]!!, Units.data["B"]!!), 1e11)
+        assertEquals(1e18, Units.convert(1.0, Units.data["EB"]!!, Units.data["B"]!!), 1e12)
+        assertEquals(1152921504606846976.0, Units.convert(1.0, Units.data["EiB"]!!, Units.data["B"]!!), 1e6)
+    }
+
+    @Test fun metzgerFuelUK() {
+        assertEquals(1.0, Units.convertFuel(282.481053, "mpg_uk", "l_100km"), 1e-9)
+        assertEquals(282.481053, Units.convertFuel(1.0, "l_100km", "mpg_uk"), 1e-6)
+        assertEquals(1.0, Units.convertFuel(282.481053, "mpgUK", "l_100km"), 1e-9)
+    }
+
+    @Test fun metzgerAmountLadder() {
+        assertEquals(1e-3, Units.convert(1.0, Units.amount["mmol"]!!, Units.amount["mol"]!!), 1e-12)
+        assertEquals(1e-6, Units.convert(1.0, Units.amount["umol"]!!, Units.amount["mol"]!!), 1e-12)
+        assertEquals(1000.0, Units.convert(1.0, Units.amount["kmol"]!!, Units.amount["mol"]!!), 1e-9)
+    }
 }

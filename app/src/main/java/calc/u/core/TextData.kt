@@ -734,4 +734,767 @@ object TextData {
         require(style in setOf("t", "T", "d", "D", "f", "F", "R")) { "Bad discord style: $style" }
         return "<t:$unixSec:$style>"
     }
+
+    // Crypto pack (own implementation; standard JDK/JCE algorithms only).
+    // Notes:
+    // - Hex is manual lowercase (no HexFormat) for minSdk 24 safety.
+    // - Keccak (pre-standard padding) is NOT provided: MessageDigest offers
+    //   SHA3-* but not Keccak; implementing Keccak from scratch is out of scope.
+    // - BLAKE2 / RIPEMD160 are NOT provided: no JDK provider; out of scope.
+    // - Every function below is total or throws IllegalArgumentException.
+
+    private val HEX_CHARS = "0123456789abcdef".toCharArray()
+
+    private fun bytesToHex(bytes: ByteArray): String {
+        val out = CharArray(bytes.size * 2)
+        for (i in bytes.indices) {
+            val v = bytes[i].toInt() and 0xFF
+            out[i * 2] = HEX_CHARS[v ushr 4]
+            out[i * 2 + 1] = HEX_CHARS[v and 0x0F]
+        }
+        return String(out)
+    }
+
+    private fun hexVal(c: Char): Int = when (c) {
+        in '0'..'9' -> c - '0'
+        in 'a'..'f' -> c - 'a' + 10
+        in 'A'..'F' -> c - 'A' + 10
+        else -> throw IllegalArgumentException("Bad hex char: $c")
+    }
+
+    private fun hexToBytes(hex: String): ByteArray {
+        val t = hex.trim()
+        require(t.length % 2 == 0) { "Hex must have even length" }
+        val out = ByteArray(t.length / 2)
+        for (i in out.indices) {
+            out[i] = ((hexVal(t[i * 2]) shl 4) or hexVal(t[i * 2 + 1])).toByte()
+        }
+        return out
+    }
+
+    private fun hmacRaw(alg: String, keyBytes: ByteArray, msgBytes: ByteArray): ByteArray {
+        try {
+            val mac = javax.crypto.Mac.getInstance(alg)
+            mac.init(javax.crypto.spec.SecretKeySpec(keyBytes, alg))
+            return mac.doFinal(msgBytes)
+        } catch (e: IllegalArgumentException) {
+            throw e
+        } catch (e: java.security.NoSuchAlgorithmException) {
+            throw IllegalArgumentException("$alg unavailable", e)
+        } catch (e: java.security.InvalidKeyException) {
+            throw IllegalArgumentException("Bad HMAC key", e)
+        } catch (e: Exception) {
+            throw IllegalArgumentException(e.message, e)
+        }
+    }
+
+    private fun hmacHex(alg: String, key: String, msg: String, encoding: String): String {
+        try {
+            val cs = java.nio.charset.Charset.forName(encoding)
+            return bytesToHex(hmacRaw(alg, key.toByteArray(cs), msg.toByteArray(cs)))
+        } catch (e: IllegalArgumentException) {
+            throw e
+        } catch (e: Exception) {
+            throw IllegalArgumentException(e.message, e)
+        }
+    }
+
+    fun hmacSha256(key: String, msg: String, encoding: String = "UTF-8"): String =
+        hmacHex("HmacSHA256", key, msg, encoding)
+
+    fun hmacSha384(key: String, msg: String, encoding: String = "UTF-8"): String =
+        hmacHex("HmacSHA384", key, msg, encoding)
+
+    fun hmacSha512(key: String, msg: String, encoding: String = "UTF-8"): String =
+        hmacHex("HmacSHA512", key, msg, encoding)
+
+    private fun jwtPartDecode(part: String): String {
+        try {
+            var s = part.trim()
+            require(s.isNotEmpty()) { "Empty JWT part" }
+            val rem = s.length % 4
+            if (rem == 1) throw IllegalArgumentException("Bad base64url length")
+            if (rem != 0) s += "=".repeat(4 - rem)
+            return Base64.getUrlDecoder().decode(s).toString(Charsets.UTF_8)
+        } catch (e: IllegalArgumentException) {
+            throw e
+        } catch (e: Exception) {
+            throw IllegalArgumentException("Bad base64url", e)
+        }
+    }
+
+    fun jwtDecode(token: String): Triple<String, String, String> {
+        try {
+            var t = token.trim()
+            require(t.isNotEmpty()) { "Empty token" }
+            if (t.regionMatches(0, "Bearer ", 0, 7, ignoreCase = true)) {
+                t = t.substring(7).trim()
+            }
+            val parts = t.split(".")
+            require(parts.size == 3) { "JWT must have 3 parts" }
+            require(parts[0].isNotEmpty() && parts[1].isNotEmpty() && parts[2].isNotEmpty()) {
+                "JWT parts must not be empty"
+            }
+            val header = jwtPartDecode(parts[0])
+            val payload = jwtPartDecode(parts[1])
+            return Triple(header, payload, "signature: " + parts[2].trim())
+        } catch (e: IllegalArgumentException) {
+            throw e
+        } catch (e: Exception) {
+            throw IllegalArgumentException(e.message, e)
+        }
+    }
+
+    private const val B32_ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567"
+
+    fun base32Encode(text: String): String {
+        val data = text.toByteArray(Charsets.UTF_8)
+        if (data.isEmpty()) return ""
+        val sb = StringBuilder()
+        var buffer = 0
+        var bitsLeft = 0
+        for (b in data) {
+            buffer = (buffer shl 8) or (b.toInt() and 0xFF)
+            bitsLeft += 8
+            while (bitsLeft >= 5) {
+                bitsLeft -= 5
+                sb.append(B32_ALPHABET[(buffer shr bitsLeft) and 0x1F])
+            }
+        }
+        if (bitsLeft > 0) {
+            sb.append(B32_ALPHABET[(buffer shl (5 - bitsLeft)) and 0x1F])
+        }
+        while (sb.length % 8 != 0) sb.append('=')
+        return sb.toString()
+    }
+
+    fun base32Decode(text: String): String {
+        try {
+            val t = text.trim().uppercase()
+            if (t.isEmpty()) return ""
+            require(t.length % 8 == 0) { "Bad base32 length" }
+            var pad = 0
+            while (pad < t.length && t[t.length - 1 - pad] == '=') pad++
+            require(pad == 0 || pad == 1 || pad == 3 || pad == 4 || pad == 6) {
+                "Bad base32 padding"
+            }
+            val core = t.substring(0, t.length - pad)
+            require(!core.contains('=')) { "Bad base32 padding" }
+            val out = ArrayList<Byte>(core.length * 5 / 8 + 1)
+            var buffer = 0
+            var bitsLeft = 0
+            for (c in core) {
+                val v = B32_ALPHABET.indexOf(c)
+                if (v < 0) throw IllegalArgumentException("Bad base32 char: $c")
+                buffer = (buffer shl 5) or v
+                bitsLeft += 5
+                if (bitsLeft >= 8) {
+                    bitsLeft -= 8
+                    out.add(((buffer shr bitsLeft) and 0xFF).toByte())
+                }
+            }
+            if (bitsLeft > 0) {
+                require((buffer and ((1 shl bitsLeft) - 1)) == 0) { "Bad base32 trailing bits" }
+            }
+            return out.toByteArray().toString(Charsets.UTF_8)
+        } catch (e: IllegalArgumentException) {
+            throw e
+        } catch (e: Exception) {
+            throw IllegalArgumentException(e.message, e)
+        }
+    }
+
+    private const val B58_ALPHABET =
+        "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz"
+
+    private fun base58EncodeBytes(input: ByteArray): String {
+        if (input.isEmpty()) return ""
+        var zeros = 0
+        while (zeros < input.size && input[zeros].toInt() == 0) zeros++
+        val temp = IntArray(input.size) { input[it].toInt() and 0xFF }
+        var start = zeros
+        val sb = StringBuilder()
+        while (true) {
+            while (start < temp.size && temp[start] == 0) start++
+            if (start >= temp.size) break
+            var carry = 0
+            for (i in start until temp.size) {
+                val cur = carry * 256 + temp[i]
+                temp[i] = cur / 58
+                carry = cur % 58
+            }
+            sb.append(B58_ALPHABET[carry])
+        }
+        repeat(zeros) { sb.append('1') }
+        return sb.reverse().toString()
+    }
+
+    private fun base58DecodeBytes(s: String): ByteArray {
+        val t = s.trim()
+        if (t.isEmpty()) return ByteArray(0)
+        val vals = IntArray(t.length)
+        for (i in t.indices) {
+            val v = B58_ALPHABET.indexOf(t[i])
+            if (v < 0) throw IllegalArgumentException("Bad base58 char: ${t[i]}")
+            vals[i] = v
+        }
+        var zeros = 0
+        while (zeros < vals.size && vals[zeros] == 0) zeros++
+        val temp = vals.copyOf()
+        var start = zeros
+        val decoded = ArrayList<Byte>()
+        while (true) {
+            while (start < temp.size && temp[start] == 0) start++
+            if (start >= temp.size) break
+            var carry = 0
+            for (i in start until temp.size) {
+                val cur = carry * 58 + temp[i]
+                temp[i] = cur / 256
+                carry = cur % 256
+            }
+            decoded.add(carry.toByte())
+        }
+        val out = ByteArray(zeros + decoded.size)
+        for (i in decoded.indices) out[out.size - 1 - i] = decoded[i]
+        return out
+    }
+
+    fun base58Encode(text: String): String =
+        base58EncodeBytes(text.toByteArray(Charsets.UTF_8))
+
+    fun base58Decode(text: String): String {
+        try {
+            return base58DecodeBytes(text).toString(Charsets.UTF_8)
+        } catch (e: IllegalArgumentException) {
+            throw e
+        } catch (e: Exception) {
+            throw IllegalArgumentException(e.message, e)
+        }
+    }
+
+    fun htmlEscape(text: String): String {
+        val sb = StringBuilder(text.length)
+        for (c in text) {
+            when (c) {
+                '&' -> sb.append("&amp;")
+                '<' -> sb.append("&lt;")
+                '>' -> sb.append("&gt;")
+                '"' -> sb.append("&quot;")
+                '\'' -> sb.append("&#39;")
+                else -> sb.append(c)
+            }
+        }
+        return sb.toString()
+    }
+
+    fun htmlUnescape(text: String): String {
+        try {
+            val sb = StringBuilder(text.length)
+            var i = 0
+            while (i < text.length) {
+                if (text[i] != '&') {
+                    sb.append(text[i])
+                    i++
+                    continue
+                }
+                val semi = text.indexOf(';', i + 1)
+                if (semi < 0) {
+                    sb.append('&')
+                    i++
+                    continue
+                }
+                val entity = text.substring(i + 1, semi)
+                val decoded: String? = when (entity) {
+                    "amp" -> "&"
+                    "lt" -> "<"
+                    "gt" -> ">"
+                    "quot" -> "\""
+                    "apos" -> "'"
+                    else -> if (entity.startsWith("#") && entity.length > 1) {
+                        val code = if (entity[1] == 'x' || entity[1] == 'X') {
+                            require(entity.length > 2) { "Bad entity: &$entity;" }
+                            entity.substring(2).toInt(16)
+                        } else {
+                            entity.substring(1).toInt(10)
+                        }
+                        String(Character.toChars(code))
+                    } else {
+                        null
+                    }
+                }
+                if (decoded != null) {
+                    sb.append(decoded)
+                    i = semi + 1
+                } else {
+                    sb.append('&')
+                    i++
+                }
+            }
+            return sb.toString()
+        } catch (e: IllegalArgumentException) {
+            throw e
+        } catch (e: Exception) {
+            throw IllegalArgumentException(e.message, e)
+        }
+    }
+
+    fun crc32(text: String): Long {
+        val crc = java.util.zip.CRC32()
+        crc.update(text.toByteArray(Charsets.UTF_8))
+        return crc.value
+    }
+
+    fun adler32(text: String): Long {
+        val a = java.util.zip.Adler32()
+        a.update(text.toByteArray(Charsets.UTF_8))
+        return a.value
+    }
+
+    fun crc16(text: String): Int {
+        var crc = 0x0000
+        for (b in text.toByteArray(Charsets.UTF_8)) {
+            crc = crc xor (b.toInt() and 0xFF)
+            repeat(8) {
+                crc = if (crc and 1 != 0) (crc ushr 1) xor 0xA001 else crc ushr 1
+            }
+        }
+        return crc and 0xFFFF
+    }
+
+    private fun digestHex(alg: String, text: String): String {
+        try {
+            return bytesToHex(MessageDigest.getInstance(alg).digest(text.toByteArray(Charsets.UTF_8)))
+        } catch (e: java.security.NoSuchAlgorithmException) {
+            throw IllegalArgumentException("$alg unavailable", e)
+        } catch (e: Exception) {
+            throw IllegalArgumentException(e.message, e)
+        }
+    }
+
+    fun sha1(text: String): String = digestHex("SHA-1", text)
+
+    fun sha224(text: String): String = digestHex("SHA-224", text)
+
+    fun sha3_256(text: String): String = digestHex("SHA3-256", text)
+
+    fun sha3_384(text: String): String = digestHex("SHA3-384", text)
+
+    fun sha3_512(text: String): String = digestHex("SHA3-512", text)
+
+    fun pbkdf2Sha256(password: String, saltHex: String, iterations: Int, bits: Int): String {
+        require(iterations > 0) { "iterations must be > 0" }
+        require(bits >= 8) { "bits must be >= 8" }
+        require(bits % 8 == 0) { "bits must be a multiple of 8" }
+        try {
+            val salt = hexToBytes(saltHex)
+            val spec = javax.crypto.spec.PBEKeySpec(password.toCharArray(), salt, iterations, bits)
+            val skf = javax.crypto.SecretKeyFactory.getInstance("PBKDF2WithHmacSHA256")
+            return bytesToHex(skf.generateSecret(spec).encoded)
+        } catch (e: IllegalArgumentException) {
+            throw e
+        } catch (e: Exception) {
+            throw IllegalArgumentException(e.message, e)
+        }
+    }
+
+    fun hkdfSha256(ikm: ByteArray, salt: ByteArray, info: ByteArray, length: Int): ByteArray {
+        require(length in 1..(255 * 32)) { "length must be 1..8160" }
+        try {
+            val realSalt = if (salt.isEmpty()) ByteArray(32) else salt
+            val prk = hmacRaw("HmacSHA256", realSalt, ikm)
+            val out = ByteArray(length)
+            var prev = ByteArray(0)
+            var pos = 0
+            var counter = 1
+            while (pos < length) {
+                val msg = prev + info + byteArrayOf(counter.toByte())
+                prev = hmacRaw("HmacSHA256", prk, msg)
+                val n = minOf(prev.size, length - pos)
+                prev.copyInto(out, pos, 0, n)
+                pos += n
+                counter++
+            }
+            return out
+        } catch (e: IllegalArgumentException) {
+            throw e
+        } catch (e: Exception) {
+            throw IllegalArgumentException(e.message, e)
+        }
+    }
+
+    fun aesCbcEncrypt(keyHex: String, ivHex: String, plaintext: String): String {
+        try {
+            val key = hexToBytes(keyHex)
+            require(key.size == 16 || key.size == 24 || key.size == 32) {
+                "Key must be 128/192/256-bit hex"
+            }
+            val iv = hexToBytes(ivHex)
+            require(iv.size == 16) { "IV must be 16 bytes hex" }
+            val cipher = javax.crypto.Cipher.getInstance("AES/CBC/PKCS5Padding")
+            cipher.init(
+                javax.crypto.Cipher.ENCRYPT_MODE,
+                javax.crypto.spec.SecretKeySpec(key, "AES"),
+                javax.crypto.spec.IvParameterSpec(iv)
+            )
+            return bytesToHex(cipher.doFinal(plaintext.toByteArray(Charsets.UTF_8)))
+        } catch (e: IllegalArgumentException) {
+            throw e
+        } catch (e: Exception) {
+            throw IllegalArgumentException(e.message, e)
+        }
+    }
+
+    fun aesCbcDecrypt(keyHex: String, ivHex: String, ciphertextHex: String): String {
+        try {
+            val key = hexToBytes(keyHex)
+            require(key.size == 16 || key.size == 24 || key.size == 32) {
+                "Key must be 128/192/256-bit hex"
+            }
+            val iv = hexToBytes(ivHex)
+            require(iv.size == 16) { "IV must be 16 bytes hex" }
+            val cipher = javax.crypto.Cipher.getInstance("AES/CBC/PKCS5Padding")
+            cipher.init(
+                javax.crypto.Cipher.DECRYPT_MODE,
+                javax.crypto.spec.SecretKeySpec(key, "AES"),
+                javax.crypto.spec.IvParameterSpec(iv)
+            )
+            return cipher.doFinal(hexToBytes(ciphertextHex)).toString(Charsets.UTF_8)
+        } catch (e: IllegalArgumentException) {
+            throw e
+        } catch (e: Exception) {
+            throw IllegalArgumentException(e.message, e)
+        }
+    }
+
+    fun chacha20Encrypt(keyHex: String, nonceHex: String, counter: Int, plaintext: String): String {
+        try {
+            val key = hexToBytes(keyHex)
+            require(key.size == 32) { "Key must be 32 bytes hex" }
+            val nonce = hexToBytes(nonceHex)
+            require(nonce.size == 12) { "Nonce must be 12 bytes hex" }
+            require(counter >= 0) { "counter must be >= 0" }
+            val cipher = try {
+                javax.crypto.Cipher.getInstance("ChaCha20")
+            } catch (e: java.security.NoSuchAlgorithmException) {
+                throw IllegalArgumentException("ChaCha20 needs Android 9+", e)
+            }
+            val params = javax.crypto.spec.ChaCha20ParameterSpec(nonce, counter)
+            cipher.init(
+                javax.crypto.Cipher.ENCRYPT_MODE,
+                javax.crypto.spec.SecretKeySpec(key, "ChaCha20"),
+                params
+            )
+            return bytesToHex(cipher.doFinal(plaintext.toByteArray(Charsets.UTF_8)))
+        } catch (e: IllegalArgumentException) {
+            throw e
+        } catch (e: LinkageError) {
+            throw IllegalArgumentException("ChaCha20 needs Android 9+")
+        } catch (e: Exception) {
+            throw IllegalArgumentException(e.message, e)
+        }
+    }
+
+    fun chacha20Decrypt(keyHex: String, nonceHex: String, counter: Int, ciphertextHex: String): String {
+        try {
+            val key = hexToBytes(keyHex)
+            require(key.size == 32) { "Key must be 32 bytes hex" }
+            val nonce = hexToBytes(nonceHex)
+            require(nonce.size == 12) { "Nonce must be 12 bytes hex" }
+            require(counter >= 0) { "counter must be >= 0" }
+            val cipher = try {
+                javax.crypto.Cipher.getInstance("ChaCha20")
+            } catch (e: java.security.NoSuchAlgorithmException) {
+                throw IllegalArgumentException("ChaCha20 needs Android 9+", e)
+            }
+            val params = javax.crypto.spec.ChaCha20ParameterSpec(nonce, counter)
+            cipher.init(
+                javax.crypto.Cipher.DECRYPT_MODE,
+                javax.crypto.spec.SecretKeySpec(key, "ChaCha20"),
+                params
+            )
+            return cipher.doFinal(hexToBytes(ciphertextHex)).toString(Charsets.UTF_8)
+        } catch (e: IllegalArgumentException) {
+            throw e
+        } catch (e: LinkageError) {
+            throw IllegalArgumentException("ChaCha20 needs Android 9+")
+        } catch (e: Exception) {
+            throw IllegalArgumentException(e.message, e)
+        }
+    }
+
+    fun rc4(text: String, key: String): String {
+        require(key.isNotEmpty()) { "Key must not be empty" }
+        try {
+            val cipher = try {
+                javax.crypto.Cipher.getInstance("ARCFOUR")
+            } catch (e: java.security.NoSuchAlgorithmException) {
+                throw IllegalArgumentException("RC4 unavailable on this device", e)
+            }
+            cipher.init(
+                javax.crypto.Cipher.ENCRYPT_MODE,
+                javax.crypto.spec.SecretKeySpec(key.toByteArray(Charsets.UTF_8), "ARCFOUR")
+            )
+            return bytesToHex(cipher.doFinal(text.toByteArray(Charsets.UTF_8)))
+        } catch (e: IllegalArgumentException) {
+            throw e
+        } catch (e: Exception) {
+            throw IllegalArgumentException(e.message, e)
+        }
+    }
+
+    fun rc4Decrypt(ciphertextHex: String, key: String): String {
+        require(key.isNotEmpty()) { "Key must not be empty" }
+        try {
+            val cipher = try {
+                javax.crypto.Cipher.getInstance("ARCFOUR")
+            } catch (e: java.security.NoSuchAlgorithmException) {
+                throw IllegalArgumentException("RC4 unavailable on this device", e)
+            }
+            cipher.init(
+                javax.crypto.Cipher.DECRYPT_MODE,
+                javax.crypto.spec.SecretKeySpec(key.toByteArray(Charsets.UTF_8), "ARCFOUR")
+            )
+            return cipher.doFinal(hexToBytes(ciphertextHex)).toString(Charsets.UTF_8)
+        } catch (e: IllegalArgumentException) {
+            throw e
+        } catch (e: Exception) {
+            throw IllegalArgumentException(e.message, e)
+        }
+    }
+
+    private fun cborEncodeHead(major: Int, value: Long, out: ArrayList<Byte>) {
+        require(value >= 0) { "CBOR length must be >= 0" }
+        val mt = major shl 5
+        when {
+            value <= 23 -> out.add((mt or value.toInt()).toByte())
+            value <= 0xFF -> {
+                out.add((mt or 24).toByte())
+                out.add(value.toByte())
+            }
+            value <= 0xFFFF -> {
+                out.add((mt or 25).toByte())
+                out.add((value ushr 8).toByte())
+                out.add(value.toByte())
+            }
+            value <= 0xFFFFFFFFL -> {
+                out.add((mt or 26).toByte())
+                for (s in 24 downTo 0 step 8) out.add((value ushr s).toByte())
+            }
+            else -> {
+                out.add((mt or 27).toByte())
+                for (s in 56 downTo 0 step 8) out.add((value ushr s).toByte())
+            }
+        }
+    }
+
+    private fun cborEncodeInt(raw: String, out: ArrayList<Byte>) {
+        val n = raw.toLongOrNull() ?: throw IllegalArgumentException("CBOR floats unsupported: $raw")
+        if (n >= 0) cborEncodeHead(0, n, out) else cborEncodeHead(1, -(n + 1), out)
+    }
+
+    private fun cborEncodeValue(v: Any?, out: ArrayList<Byte>) {
+        when (v) {
+            null -> out.add(0xF6.toByte())
+            is Boolean -> out.add(if (v) 0xF5.toByte() else 0xF4.toByte())
+            is String -> {
+                val bytes = v.toByteArray(Charsets.UTF_8)
+                cborEncodeHead(3, bytes.size.toLong(), out)
+                for (b in bytes) out.add(b)
+            }
+            is JsonNum -> cborEncodeInt(v.raw, out)
+            is Map<*, *> -> {
+                cborEncodeHead(5, v.size.toLong(), out)
+                for ((k, vv) in v) {
+                    require(k is String) { "CBOR map keys must be text" }
+                    cborEncodeValue(k, out)
+                    cborEncodeValue(vv, out)
+                }
+            }
+            is List<*> -> {
+                cborEncodeHead(4, v.size.toLong(), out)
+                for (e in v) cborEncodeValue(e, out)
+            }
+            else -> throw IllegalArgumentException("CBOR unsupported value")
+        }
+    }
+
+    fun cborEncodeJson(json: String): String {
+        try {
+            val v = parseJson(json.trim())
+            val out = ArrayList<Byte>()
+            cborEncodeValue(v, out)
+            return bytesToHex(out.toByteArray())
+        } catch (e: IllegalArgumentException) {
+            throw e
+        } catch (e: Exception) {
+            throw IllegalArgumentException(e.message, e)
+        }
+    }
+
+    private fun cborReadArg(bytes: ByteArray, pos: IntArray, ai: Int): Long {
+        return when {
+            ai < 24 -> ai.toLong()
+            ai == 24 -> {
+                require(pos[0] < bytes.size) { "Truncated CBOR" }
+                (bytes[pos[0]++].toInt() and 0xFF).toLong()
+            }
+            ai == 25 -> {
+                require(pos[0] + 2 <= bytes.size) { "Truncated CBOR" }
+                val hi = (bytes[pos[0]++].toInt() and 0xFF).toLong()
+                val lo = (bytes[pos[0]++].toInt() and 0xFF).toLong()
+                (hi shl 8) or lo
+            }
+            ai == 26 -> {
+                require(pos[0] + 4 <= bytes.size) { "Truncated CBOR" }
+                var acc = 0L
+                repeat(4) { acc = (acc shl 8) or (bytes[pos[0]++].toInt() and 0xFF).toLong() }
+                acc
+            }
+            ai == 27 -> {
+                require(pos[0] + 8 <= bytes.size) { "Truncated CBOR" }
+                var acc = 0L
+                repeat(8) { acc = (acc shl 8) or (bytes[pos[0]++].toInt() and 0xFF).toLong() }
+                if (acc < 0) throw IllegalArgumentException("CBOR length too large")
+                acc
+            }
+            else -> throw IllegalArgumentException("Indefinite CBOR unsupported")
+        }
+    }
+
+    private fun cborDecodeValue(bytes: ByteArray, pos: IntArray): Any? {
+        require(pos[0] < bytes.size) { "Truncated CBOR" }
+        val ib = bytes[pos[0]++].toInt() and 0xFF
+        val major = ib shr 5
+        val ai = ib and 0x1F
+        return when (major) {
+            0 -> JsonNum(cborReadArg(bytes, pos, ai).toString())
+            1 -> JsonNum((-1L - cborReadArg(bytes, pos, ai)).toString())
+            3 -> {
+                val n = cborReadArg(bytes, pos, ai)
+                require(n <= Int.MAX_VALUE) { "CBOR text too large" }
+                val len = n.toInt()
+                require(pos[0] + len <= bytes.size) { "Truncated CBOR text" }
+                val s = bytes.copyOfRange(pos[0], pos[0] + len).toString(Charsets.UTF_8)
+                pos[0] += len
+                s
+            }
+            4 -> {
+                val n = cborReadArg(bytes, pos, ai)
+                require(n <= Int.MAX_VALUE) { "CBOR array too large" }
+                ArrayList<Any?>().also { list ->
+                    repeat(n.toInt()) { list.add(cborDecodeValue(bytes, pos)) }
+                }
+            }
+            5 -> {
+                val n = cborReadArg(bytes, pos, ai)
+                require(n <= Int.MAX_VALUE) { "CBOR map too large" }
+                LinkedHashMap<String, Any?>().also { map ->
+                    repeat(n.toInt()) {
+                        val k = cborDecodeValue(bytes, pos)
+                        require(k is String) { "CBOR map keys must be text" }
+                        map[k] = cborDecodeValue(bytes, pos)
+                    }
+                }
+            }
+            7 -> when (ai) {
+                20 -> false
+                21 -> true
+                22 -> null
+                else -> throw IllegalArgumentException("Unsupported CBOR simple/float: $ai")
+            }
+            else -> throw IllegalArgumentException("Unsupported CBOR major: $major")
+        }
+    }
+
+    private fun cborToJson(v: Any?): String = when (v) {
+        null -> "null"
+        is Boolean -> v.toString()
+        is String -> "\"" + jsonEscape(v) + "\""
+        is JsonNum -> v.raw
+        is List<*> -> v.joinToString(",", "[", "]") { cborToJson(it) }
+        is Map<*, *> -> v.entries.joinToString(",", "{", "}") { (k, vv) ->
+            "\"" + jsonEscape(k.toString()) + "\":" + cborToJson(vv)
+        }
+        else -> throw IllegalArgumentException("Bad CBOR value")
+    }
+
+    fun cborDecodeHex(hex: String): String {
+        try {
+            val bytes = hexToBytes(hex)
+            require(bytes.isNotEmpty()) { "Empty CBOR" }
+            val pos = intArrayOf(0)
+            val v = cborDecodeValue(bytes, pos)
+            require(pos[0] == bytes.size) { "Trailing CBOR bytes" }
+            return cborToJson(v)
+        } catch (e: IllegalArgumentException) {
+            throw e
+        } catch (e: Exception) {
+            throw IllegalArgumentException(e.message, e)
+        }
+    }
+
+    private fun formatUuid(msb: Long, lsb: Long): String {
+        val a = (msb ushr 32) and 0xFFFFFFFFL
+        val b = (msb ushr 16) and 0xFFFFL
+        val c = msb and 0xFFFFL
+        val d = (lsb ushr 48) and 0xFFFFL
+        val e = lsb and 0xFFFFFFFFFFFFL
+        return "%08x-%04x-%04x-%04x-%012x".format(a, b, c, d, e)
+    }
+
+    fun uuidV1(): String {
+        val rand = java.security.SecureRandom()
+        val ts = System.currentTimeMillis() * 10000L + 0x01B21DD213814000L
+        val timeLow = ts and 0xFFFFFFFFL
+        val timeMid = (ts ushr 32) and 0xFFFFL
+        val timeHi = (ts ushr 48) and 0x0FFFL
+        val msb = (timeLow shl 32) or (timeMid shl 16) or 0x1000L or timeHi
+        val clockSeq = (rand.nextInt(1 shl 14) or 0x8000).toLong()
+        val node = (rand.nextLong() and 0xFFFFFFFFFFFFL) or 0x010000000000L
+        return formatUuid(msb, (clockSeq shl 48) or node)
+    }
+
+    fun uuidV6(): String {
+        val rand = java.security.SecureRandom()
+        val ts = System.currentTimeMillis() * 10000L + 0x01B21DD213814000L
+        val timeHigh = (ts ushr 28) and 0xFFFFFFFFL
+        val timeMid = (ts ushr 12) and 0xFFFFL
+        val timeLow = ts and 0xFFFL
+        val msb = (timeHigh shl 32) or (timeMid shl 16) or 0x6000L or timeLow
+        val clockSeq = (rand.nextInt(1 shl 14) or 0x8000).toLong()
+        val node = (rand.nextLong() and 0xFFFFFFFFFFFFL) or 0x010000000000L
+        return formatUuid(msb, (clockSeq shl 48) or node)
+    }
+
+    fun uuidV7(): String {
+        val rand = java.security.SecureRandom()
+        val tsMs = System.currentTimeMillis() and 0xFFFFFFFFFFFFL
+        val randA = rand.nextInt(1 shl 12).toLong()
+        val randB = rand.nextLong() and 0x3FFFFFFFFFFFFFFFL
+        val msb = (tsMs shl 16) or 0x7000L or randA
+        val lsb = 0x8000000000000000L or randB
+        return formatUuid(msb, lsb)
+    }
+
+    fun bcryptHash(text: String, rounds: Int = 10): String {
+        require(rounds in 4..31) { "rounds must be 4..31" }
+        try {
+            return org.mindrot.jbcrypt.BCrypt.hashpw(
+                text,
+                org.mindrot.jbcrypt.BCrypt.gensalt(rounds)
+            )
+        } catch (e: IllegalArgumentException) {
+            throw e
+        } catch (e: Exception) {
+            throw IllegalArgumentException(e.message, e)
+        }
+    }
+
+    fun bcryptVerify(text: String, hash: String): Boolean {
+        return try {
+            org.mindrot.jbcrypt.BCrypt.checkpw(text, hash)
+        } catch (e: Exception) {
+            false
+        }
+    }
 }
