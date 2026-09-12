@@ -247,7 +247,7 @@ fun JumpToCalcFab(onJump: () -> Unit, modifier: Modifier = Modifier) {
         modifier = modifier.size(48.dp),
         shape = RoundedCornerShape(12.dp),
         containerColor = MaterialTheme.colorScheme.inverseSurface,
-        contentColor = MaterialTheme.colorScheme.onInverseSurface
+        contentColor = MaterialTheme.colorScheme.inverseOnSurface
     ) {
         Icon(Icons.Filled.Calculate, contentDescription = "Back to calculator")
     }
