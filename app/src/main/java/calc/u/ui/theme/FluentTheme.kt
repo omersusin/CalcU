@@ -1,5 +1,6 @@
 package calc.u.ui.theme
 
+import android.annotation.SuppressLint
 import android.os.Build
 import androidx.compose.animation.core.CubicBezierEasing
 import androidx.compose.animation.core.Easing
@@ -251,6 +252,7 @@ fun infoSeverityColor(kind: Int): Color {
     }
 }
 
+@SuppressLint("RestrictedApi")
 @Composable
 fun seedScheme(seedArgb: Int, dark: Boolean): ColorScheme {
     val p = TonalPalette.fromInt(seedArgb)
