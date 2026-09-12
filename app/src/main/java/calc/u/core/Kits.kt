@@ -142,39 +142,50 @@ object Geometry {
 
 object HealthDate {
     fun bmi(weightKg: Double, heightCm: Double): Double {
-        if (!(weightKg > 0) || !(heightCm > 0)) return Double.NaN
+        require(weightKg > 0) { "weightKg must be > 0" }
+        require(heightCm > 0) { "heightCm must be > 0" }
         val m = heightCm / 100
         return weightKg / (m * m)
     }
 
     fun bodyFatNavy(waistCm: Double, neckCm: Double, heightCm: Double, hipCm: Double = 0.0, male: Boolean = true): Double {
-        if (!(waistCm > 0) || !(neckCm > 0) || !(heightCm > 0)) return Double.NaN
+        require(waistCm > 0) { "waistCm must be > 0" }
+        require(neckCm > 0) { "neckCm must be > 0" }
+        require(heightCm > 0) { "heightCm must be > 0" }
         return if (male) {
-            if (!(waistCm > neckCm)) return Double.NaN
+            require(waistCm > neckCm) { "waistCm must exceed neckCm" }
             495 / (1.0324 - 0.19077 * log10(waistCm - neckCm) + 0.15456 * log10(heightCm)) - 450
         } else {
-            if (!(hipCm > 0)) return Double.NaN
-            if (!(waistCm + hipCm > neckCm)) return Double.NaN
+            require(hipCm > 0) { "hipCm must be > 0" }
+            require(waistCm + hipCm > neckCm) { "waistCm + hipCm must exceed neckCm" }
             495 / (1.29579 - 0.35004 * log10(waistCm + hipCm - neckCm) + 0.22100 * log10(heightCm)) - 450
         }
     }
 
     fun tdee(weightKg: Double, heightCm: Double, age: Int, male: Boolean, activity: Double = 1.55): Double {
-        if (!(weightKg > 0) || !(heightCm > 0)) return Double.NaN
-        if (age !in 0..150) return Double.NaN
-        if (!(activity > 0)) return Double.NaN
+        require(weightKg > 0) { "weightKg must be > 0" }
+        require(heightCm > 0) { "heightCm must be > 0" }
+        require(age in 0..150) { "age must be in 0..150" }
+        require(activity > 0) { "activity must be > 0" }
         val bmr = if (male) 10 * weightKg + 6.25 * heightCm - 5 * age + 5
         else 10 * weightKg + 6.25 * heightCm - 5 * age - 161
         return bmr * activity
     }
 
     fun ohm(v: Double?, i: Double?, r: Double?): Triple<Double?, Double?, Double?> {
+        require(listOf(v, i, r).count { it != null } >= 2) { "provide any two of V, I, R" }
         var vv = v
         var ii = i
         var rr = r
         if (vv == null && ii != null && rr != null) vv = ii * rr
-        if (ii == null && vv != null && rr != null && rr != 0.0) ii = vv / rr
-        if (rr == null && vv != null && ii != null && ii != 0.0) rr = vv / ii
+        if (ii == null && vv != null && rr != null) {
+            require(rr != 0.0) { "R must not be 0" }
+            ii = vv / rr
+        }
+        if (rr == null && vv != null && ii != null) {
+            require(ii != 0.0) { "I must not be 0" }
+            rr = vv / ii
+        }
         return Triple(vv, ii, rr)
     }
 
@@ -343,7 +354,7 @@ object ClockKit {
         val zone = try {
             java.time.ZoneId.of(zoneId.trim())
         } catch (e: Exception) {
-            return "unknown zone"
+            throw IllegalArgumentException("unknown zone: $zoneId")
         }
         return java.time.ZonedDateTime.now(zone).format(java.time.format.DateTimeFormatter.ofPattern("HH:mm"))
     }
@@ -407,14 +418,16 @@ object PaintKit {
 object IdealWeight {
     fun devine(heightCm: Double, male: Boolean): Double {
         require(heightCm > 0) { "heightCm must be > 0" }
-        return if (male) 50.0 + 0.91 * (heightCm - 152.4)
+        val raw = if (male) 50.0 + 0.91 * (heightCm - 152.4)
         else 45.5 + 0.91 * (heightCm - 152.4)
+        return raw.coerceAtLeast(0.0)
     }
     fun robinson(heightCm: Double, male: Boolean): Double {
         require(heightCm > 0) { "heightCm must be > 0" }
         val inches = heightCm / 2.54
-        return if (male) 52.0 + 1.9 * (inches - 60.0)
+        val raw = if (male) 52.0 + 1.9 * (inches - 60.0)
         else 49.0 + 1.7 * (inches - 60.0)
+        return raw.coerceAtLeast(0.0)
     }
 }
 

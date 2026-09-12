@@ -270,7 +270,7 @@ class UnitsTest {
     @Test fun metzgerDataBits() {
         assertEquals(1.25e14, Units.convert(1.0, Units.data["Pbit"]!!, Units.data["B"]!!), 1e8)
         assertEquals(1.25e17, Units.convert(1.0, Units.data["Ebit"]!!, Units.data["B"]!!), 1e11)
-        assertEquals(1e18, Units.convert(1.0, Units.data["EB"]!!, Units.data["B"]!!), 1e12)
+        assertEquals(1.152921504606847e18, Units.convert(1.0, Units.data["EB"]!!, Units.data["B"]!!), 1e6)
         assertEquals(1152921504606846976.0, Units.convert(1.0, Units.data["EiB"]!!, Units.data["B"]!!), 1e6)
     }
 

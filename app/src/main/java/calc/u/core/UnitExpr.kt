@@ -45,6 +45,7 @@ object UnitExpr {
         "dam" to UnitDef(10.0, d(l = 1)),
         "hm" to UnitDef(100.0, d(l = 1)),
         "Mm" to UnitDef(1e6, d(l = 1)),
+        "MM" to UnitDef(1e6, d(l = 1)), // SI case-sensitive: megameter, never millimeter,
         "fermi" to UnitDef(1e-15, d(l = 1)),
         "bohr" to UnitDef(5.29177210903e-11, d(l = 1)),
         "au" to UnitDef(1.495978707e11, d(l = 1)),
@@ -84,8 +85,9 @@ object UnitExpr {
         "day" to UnitDef(86400.0, d(t = 1)),
         "week" to UnitDef(604800.0, d(t = 1)),
         "fortnight" to UnitDef(1209600.0, d(t = 1)),
-        "yr" to UnitDef(31556925.9746784, d(t = 1)),
+        "yr" to UnitDef(31556925.9746784, d(t = 1)), // tropical year 365.242198781 d,
         "ms" to UnitDef(0.001, d(t = 1)),
+        "MS" to UnitDef(1e6, d(t = 1)), // SI case-sensitive: megasecond, never millisecond,
         "us" to UnitDef(1e-6, d(t = 1)),
         "ns" to UnitDef(1e-9, d(t = 1)),
         "month" to UnitDef(2629743.8312232, d(t = 1)),
@@ -106,7 +108,7 @@ object UnitExpr {
         "kgf" to UnitDef(9.80665, d(l = 1, m = 1, t = -2)),
         "J" to UnitDef(1.0, d(l = 2, m = 1, t = -2)),
         "kJ" to UnitDef(1000.0, d(l = 2, m = 1, t = -2)),
-        "cal" to UnitDef(4.184, d(l = 2, m = 1, t = -2)),
+        "cal" to UnitDef(4.184, d(l = 2, m = 1, t = -2)), // cal_IT: International Table calorie,
         "kcal" to UnitDef(4184.0, d(l = 2, m = 1, t = -2)),
         "kWh" to UnitDef(3.6e6, d(l = 2, m = 1, t = -2)),
         "Btu" to UnitDef(1055.05585262, d(l = 2, m = 1, t = -2)),
@@ -131,8 +133,8 @@ object UnitExpr {
         "Pa" to UnitDef(1.0, d(l = -1, m = 1, t = -2)),
         "kPa" to UnitDef(1000.0, d(l = -1, m = 1, t = -2)),
         "bar" to UnitDef(1e5, d(l = -1, m = 1, t = -2)),
-        "psi" to UnitDef(6894.757293178, d(l = -1, m = 1, t = -2)),
-        "ksi" to UnitDef(6894757.293178, d(l = -1, m = 1, t = -2)),
+        "psi" to UnitDef(6894.757293168, d(l = -1, m = 1, t = -2)),
+        "ksi" to UnitDef(6894757.293168, d(l = -1, m = 1, t = -2)),
         "inHg" to UnitDef(3386.389, d(l = -1, m = 1, t = -2)),
         "torr" to UnitDef(133.322368, d(l = -1, m = 1, t = -2)),
         "atm" to UnitDef(101325.0, d(l = -1, m = 1, t = -2)),
@@ -147,6 +149,13 @@ object UnitExpr {
         "mmWater" to UnitDef(9.80665, d(l = -1, m = 1, t = -2)),
         "inWater" to UnitDef(249.08891, d(l = -1, m = 1, t = -2)),
         "ftWater" to UnitDef(2989.06692, d(l = -1, m = 1, t = -2)),
+        // mmHg from Hg density 13.5951 g/cm3; torr is 101325/760, about
+        // 0.14 ppm lower by convention. Keep both; do not merge.
+        "mmHg" to UnitDef(133.322387415, d(l = -1, m = 1, t = -2)),
+        "kgfcm2" to UnitDef(98066.5, d(l = -1, m = 1, t = -2)),
+        "at" to UnitDef(98066.5, d(l = -1, m = 1, t = -2)), // technical atmosphere,
+        "mWater" to UnitDef(9806.65, d(l = -1, m = 1, t = -2)), // meter of water,
+        "psf" to UnitDef(47.8802589800556, d(l = -1, m = 1, t = -2)), // psi / 144,
         "V" to UnitDef(1.0, d(l = 2, m = 1, t = -3, i = -1)),
         "mV" to UnitDef(0.001, d(l = 2, m = 1, t = -3, i = -1)),
         "kV" to UnitDef(1000.0, d(l = 2, m = 1, t = -3, i = -1)),
@@ -154,6 +163,7 @@ object UnitExpr {
         "mA" to UnitDef(0.001, d(i = 1)),
         "uA" to UnitDef(1e-6, d(i = 1)),
         "kA" to UnitDef(1000.0, d(i = 1)),
+        "PA" to UnitDef(1e15, d(i = 1)), // SI case-sensitive: petaampere, never pascal,
         "ohm" to UnitDef(1.0, d(l = 2, m = 1, t = -3, i = -2)),
         "milliohm" to UnitDef(0.001, d(l = 2, m = 1, t = -3, i = -2)),
         "microhm" to UnitDef(1e-6, d(l = 2, m = 1, t = -3, i = -2)),
@@ -166,6 +176,10 @@ object UnitExpr {
         "H" to UnitDef(1.0, d(l = 2, m = 1, t = -2, i = -2)),
         "mH" to UnitDef(0.001, d(l = 2, m = 1, t = -2, i = -2)),
         "uH" to UnitDef(1e-6, d(l = 2, m = 1, t = -2, i = -2)),
+        // T/G are tesla/gauss (kg per A s^2); SI is case-sensitive, so exact
+        // "T" is never the tonne (t) and exact "G" is never the gram (g).
+        "T" to UnitDef(1.0, d(m = 1, t = -2, i = -1)),
+        "G" to UnitDef(1e-4, d(m = 1, t = -2, i = -1)),
         "C" to UnitDef(1.0, d(t = 1, i = 1)),
         "e" to UnitDef(1.602176634e-19, d(t = 1, i = 1)),
         "Ah" to UnitDef(3600.0, d(t = 1, i = 1)),
@@ -179,7 +193,7 @@ object UnitExpr {
         "gal" to UnitDef(0.003785411784, d(l = 3)),
         "qt" to UnitDef(9.46352946e-4, d(l = 3)),
         "pt" to UnitDef(4.73176473e-4, d(l = 3)),
-        "floz" to UnitDef(2.95735e-5, d(l = 3)),
+        "floz" to UnitDef(2.95735295625e-5, d(l = 3)),
         "fldram" to UnitDef(3.6966875e-6, d(l = 3)),
         "tbsp_metric" to UnitDef(1.5e-5, d(l = 3)),
         "dL" to UnitDef(1e-4, d(l = 3)),
@@ -349,12 +363,23 @@ object UnitExpr {
         "arcsecond" to "arcsec", "arcseconds" to "arcsec",
         "knots" to "knot", "kt" to "knot",
         "mileperhour" to "mph", "milesperhour" to "mph",
-        "kilometerperhour" to "kph", "kilometreperhour" to "kph"
+        "kilometerperhour" to "kph", "kilometreperhour" to "kph",
+        "megameter" to "MM", "megameters" to "MM",
+        "megasecond" to "MS", "megaseconds" to "MS",
+        "petaampere" to "PA", "petaamperes" to "PA",
+        "tesla" to "T", "teslas" to "T",
+        "gauss" to "G",
+        "technicalatmosphere" to "at", "technicalatmospheres" to "at", "techatm" to "at",
+        "meterofwater" to "mWater", "metersofwater" to "mWater", "metreofwater" to "mWater",
+        "poundpersquarefoot" to "psf", "poundspersquarefoot" to "psf"
     )
 
     private val lowerIndex: Map<String, String> =
         units.keys.groupBy({ it.lowercase() }, { it }).mapValues { it.value.first() }
 
+    // SI is case-sensitive: the exact-case id wins first ("MM" is the megameter,
+    // never the millimeter), and only an exact miss falls back to a
+    // case-insensitive match.
     private fun resolve(name: String): UnitDef {
         units[name]?.let { return it }
         val lower = name.lowercase()
@@ -403,6 +428,8 @@ object UnitExpr {
         s = s.replace(Regex("fl[ -]?oz", RegexOption.IGNORE_CASE), "floz")
         s = s.replace(Regex("in(ch)?[ -]?hg", RegexOption.IGNORE_CASE), "inHg")
         s = s.replace(Regex("tons?\\s+tnt", RegexOption.IGNORE_CASE), "tonTNT")
+        // Tokenizer names hold letters only, so spellings with digits collapse here.
+        s = s.replace(Regex("\\bmH2O\\b", RegexOption.IGNORE_CASE), "mWater")
         s = s.replace(Regex("([A-Za-z_)Ωµμ])\\s*(\\d+)"), "\$1^\$2")
         return s
     }
@@ -609,11 +636,25 @@ object UnitExpr {
         return Parser(tokenize(normalize(t))).parse()
     }
 
+    private val tempIds: Set<String> = setOf("C", "F", "K", "R")
+
     fun convertExpr(value: Double, from: String, to: String): Double {
+        val f = from.trim()
+        val t = to.trim()
+        // Single-letter C/F are ambiguous (coulomb/farad vs Celsius/Fahrenheit):
+        // inside a temperature query both sides name C/F/K/R, so answer with the
+        // offset temperature model instead of letting charge/capacitance reply.
+        if ((f == "C" || f == "F" || t == "C" || t == "F") && f in tempIds && t in tempIds) {
+            return Units.convertTemp(value, f, t)
+        }
         val q1 = evaluate(from)
         val q2 = evaluate(to)
         if (!q1.dim.contentEquals(q2.dim)) {
-            throw IllegalArgumentException("incompatible: ${describe(q1.dim)} vs ${describe(q2.dim)}")
+            val base = "incompatible: ${describe(q1.dim)} vs ${describe(q2.dim)}"
+            if (f == "C" || f == "F" || t == "C" || t == "F") {
+                throw IllegalArgumentException(base + " (note: single-letter C is the coulomb of charge and F is the farad of capacitance here; for a Celsius/Fahrenheit temperature query convert within C/F/K/R)")
+            }
+            throw IllegalArgumentException(base)
         }
         if (q2.factor == 0.0) throw ArithmeticException("division by zero in unit conversion")
         return value * q1.factor / q2.factor

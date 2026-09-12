@@ -22,7 +22,7 @@ object Finance {
     }
 
     fun emi(principal: Double, annualRate: Double, months: Int): Double {
-        if (months <= 0) return 0.0
+        require(months > 0) { "months must be > 0" }
         val r = annualRate / 1200
         if (r == 0.0) return principal / months
         val f = (1 + r).pow(months)
@@ -40,7 +40,10 @@ object Finance {
         return Pair(interest, principal + interest)
     }
 
-    fun unitPrice(price: Double, qty: Double): Double = if (qty == 0.0) 0.0 else price / qty
+    fun unitPrice(price: Double, qty: Double): Double {
+        require(qty != 0.0) { "qty must not be 0" }
+        return price / qty
+    }
 
     fun sip(monthly: Double, annualPct: Double, years: Double): Triple<Double, Double, Double> {
         require(monthly >= 0.0) { "monthly must be >= 0" }
@@ -125,17 +128,40 @@ object Finance {
     fun depreciationSL(cost: Double, salvage: Double, lifeYears: Int): Double =
         depreciationSL(cost, salvage, lifeYears.toDouble())
 
+    /**
+     * Declining-balance depreciation CHARGE for a single year (not book value):
+     * charge(year) = cost * rate * (1 - rate)^(year-1), with rate = ratePct / 100.
+     * Book value after N years = cost - sum of charges = cost * (1 - rate)^N;
+     * see [depreciationDBBook] for the book-value form.
+     */
     fun depreciationDB(cost: Double, ratePct: Double, year: Int): Double {
         require(cost >= 0.0) { "cost must be >= 0" }
         require(ratePct >= 0.0) { "ratePct must be >= 0" }
-        require(year >= 0) { "year must be >= 0" }
-        return cost * (1 - ratePct / 100).pow(year)
+        require(year >= 1) { "year must be >= 1" }
+        val rate = ratePct / 100
+        return cost * rate * (1 - rate).pow(year - 1)
     }
 
+    /**
+     * Same as [depreciationDB] but accepts a fractional year, which is rounded
+     * to the nearest whole year (never truncated).
+     */
     fun depreciationDB(cost: Double, ratePct: Double, year: Double): Double {
         require(cost >= 0.0) { "cost must be >= 0" }
         require(ratePct >= 0.0) { "ratePct must be >= 0" }
-        require(year >= 0.0) { "year must be >= 0" }
+        require(year >= 1.0) { "year must be >= 1" }
+        return depreciationDB(cost, ratePct, kotlin.math.round(year).toInt().coerceAtLeast(1))
+    }
+
+    /**
+     * Declining-balance BOOK VALUE after [year] full years:
+     * book(year) = cost * (1 - rate)^year. Companion to [depreciationDB],
+     * which returns the per-year charge instead.
+     */
+    fun depreciationDBBook(cost: Double, ratePct: Double, year: Int): Double {
+        require(cost >= 0.0) { "cost must be >= 0" }
+        require(ratePct >= 0.0) { "ratePct must be >= 0" }
+        require(year >= 0) { "year must be >= 0" }
         return cost * (1 - ratePct / 100).pow(year)
     }
 
@@ -155,6 +181,7 @@ object Finance {
         require(monthlyRent >= 0.0) { "monthlyRent must be >= 0" }
         require(homePrice >= 0.0) { "homePrice must be >= 0" }
         require(downPct >= 0.0) { "downPct must be >= 0" }
+        require(downPct <= 100.0) { "downPct must be <= 100" }
         require(years > 0) { "years must be > 0" }
         require(years <= 100) { "years must be <= 100" }
         val g = rentGrowthPct / 100
@@ -170,13 +197,16 @@ object Finance {
         return Pair(totalRent, totalBuy)
     }
 
+    /**
+     * Fractional [years] are rounded to the nearest whole year (never truncated).
+     */
     fun rentVsBuy(monthlyRent: Double, rentGrowthPct: Double, homePrice: Double, downPct: Double, mortgageRatePct: Double, years: Double): Pair<Double, Double> {
         require(monthlyRent >= 0.0) { "monthlyRent must be >= 0" }
         require(homePrice >= 0.0) { "homePrice must be >= 0" }
         require(downPct >= 0.0) { "downPct must be >= 0" }
         require(years > 0.0) { "years must be > 0" }
         require(years <= 100.0) { "years must be <= 100" }
-        val nYears = years.toInt()
+        val nYears = kotlin.math.round(years).toInt()
         require(nYears > 0) { "years must be > 0" }
         return rentVsBuy(monthlyRent, rentGrowthPct, homePrice, downPct, mortgageRatePct, nYears)
     }
@@ -195,7 +225,7 @@ object Finance {
             points += grade * credit
             credits += credit
         }
-        if (credits == 0.0) return 0.0
+        if (credits == 0.0) throw IllegalArgumentException("total credits must be > 0")
         return points / credits
     }
 
@@ -211,6 +241,7 @@ object Finance {
         require(hourlyRate >= 0.0) { "hourlyRate must be >= 0" }
         require(hoursPerWeek >= 0.0) { "hoursPerWeek must be >= 0" }
         require(taxPct >= 0.0) { "taxPct must be >= 0" }
+        require(taxPct <= 100.0) { "taxPct must be <= 100" }
         val gross = hourlyRate * hoursPerWeek * 52 / 12
         val tax = gross * taxPct / 100
         return Triple(gross, tax, gross - tax)
@@ -226,6 +257,7 @@ object Finance {
             val months = kotlin.math.ceil(balance / monthlyPayment).toInt()
             return Triple(months, 0.0, balance)
         }
+        require(monthlyPayment > balance * r) { "monthlyPayment must exceed first month interest" }
         var bal = balance
         var months = 0
         var totalInterest = 0.0
@@ -261,11 +293,17 @@ object Finance {
     fun profitMargin(cost: Double, price: Double): Double {
         require(cost >= 0.0) { "cost must be >= 0" }
         require(price >= 0.0) { "price must be >= 0" }
-        if (price == 0.0) return 0.0
+        require(price != 0.0) { "price must not be 0" }
         return (price - cost) / price * 100
     }
 
+    /**
+     * Zakat due at 2.5% of net assets above nisab. [nisabThreshold] must be
+     * > 0: pass the current nisab value for your school/currency; a missing
+     * nisab must never silently charge (or waive) zakat.
+     */
     fun zakat(cashGoldSilver: Double, debts: Double, nisabThreshold: Double = 0.0): Double {
+        require(nisabThreshold > 0.0) { "nisabThreshold must be > 0" }
         val net = (cashGoldSilver - debts).coerceAtLeast(0.0)
         if (net < nisabThreshold) return 0.0
         return net * 2.5 / 100
@@ -286,7 +324,7 @@ object Finance {
     fun investRoi(invested: Double, settled: Double, days: Double): Triple<Double, Double, Double> {
         require(days > 0.0) { "days must be > 0" }
         require(days <= Int.MAX_VALUE) { "days must be <= Int.MAX" }
-        return investRoi(invested, settled, days.toInt())
+        return investRoi(invested, settled, kotlin.math.round(days).toInt().coerceAtLeast(1))
     }
 
     // GST forward: Triple(net, tax, gross). If intra is true the tax splits
@@ -332,6 +370,13 @@ object Finance {
         return Triple(per, roundedTotal, roundedTotal - bill)
     }
 
+    /**
+     * Compound growth with [timesPerYear] payouts per year.
+     * Returns Triple(principal, maturity, gain).
+     * NOTE: this order differs from [investRoi], which returns
+     * Triple(profit, marginPct, annualizedPct). The order is kept as-is
+     * because UI code destructures it; do not reorder.
+     */
     fun investFreq(principal: Double, annualPct: Double, years: Double, timesPerYear: Int): Triple<Double, Double, Double> {
         require(principal >= 0.0) { "principal must be >= 0" }
         require(years >= 0.0) { "years must be >= 0" }

@@ -45,9 +45,11 @@ class FinanceTest {
         assertEquals(1000.0, Finance.depreciationSL(10000.0, 1000.0, 9.0), 1e-9)
     }
     @Test fun depreciationDBDeclines() {
-        val book = Finance.depreciationDB(10000.0, 20.0, 1)
-        assertEquals(8000.0, book, 1e-6)
-        assertTrue(Finance.depreciationDB(10000.0, 20.0, 2) < book)
+        val charge1 = Finance.depreciationDB(10000.0, 20.0, 1)
+        assertEquals(2000.0, charge1, 1e-6)
+        val charge2 = Finance.depreciationDB(10000.0, 20.0, 2)
+        assertEquals(1600.0, charge2, 1e-6)
+        assertTrue(charge2 < charge1)
     }
     @Test fun savingsGoalPositive() {
         val fv = Finance.savingsGoal(500.0, 6.0, 10.0)
@@ -64,9 +66,9 @@ class FinanceTest {
     }
 
     @Test fun depreciationDBBookDecreases() {
-        val y1 = Finance.depreciationDB(10000.0, 20.0, 1)
+        val y1 = Finance.depreciationDBBook(10000.0, 20.0, 1)
         assertEquals(8000.0, y1, 1e-6)
-        val y2 = Finance.depreciationDB(10000.0, 20.0, 2)
+        val y2 = Finance.depreciationDBBook(10000.0, 20.0, 2)
         assertEquals(6400.0, y2, 1e-6)
         assertTrue(y2 < y1)
     }
@@ -105,7 +107,7 @@ class FinanceTest {
     }
 
     @Test fun zakatBasic() {
-        assertEquals(225.0, Finance.zakat(10000.0, 1000.0), 1e-9)
+        assertEquals(225.0, Finance.zakat(10000.0, 1000.0, 5000.0), 1e-9)
     }
 
     @Test fun zakatBelowNisab() {
@@ -113,8 +115,14 @@ class FinanceTest {
     }
 
     @Test fun edgeCasesSafe() {
-        assertEquals(0.0, Finance.emi(1000.0, 5.0, 0), 0.0)
-        assertEquals(0.0, Finance.unitPrice(10.0, 0.0), 0.0)
+        try {
+            Finance.emi(1000.0, 5.0, 0)
+            fail("expected IAE")
+        } catch (e: IllegalArgumentException) { }
+        try {
+            Finance.unitPrice(10.0, 0.0)
+            fail("expected IAE")
+        } catch (e: IllegalArgumentException) { }
         try {
             Finance.compound(100.0, 5.0, 1.0, 0)
             fail("expected IAE")
@@ -134,9 +142,18 @@ class FinanceTest {
     }
 
     @Test fun crashHardeningEdges() {
-        assertEquals(0.0, Finance.emi(1000.0, 5.0, -3), 0.0)
-        assertEquals(0.0, Finance.profitMargin(50.0, 0.0), 0.0)
-        assertEquals(0.0, Finance.gpa(emptyList()), 0.0)
+        try {
+            Finance.emi(1000.0, 5.0, -3)
+            fail("expected IAE")
+        } catch (e: IllegalArgumentException) { }
+        try {
+            Finance.profitMargin(50.0, 0.0)
+            fail("expected IAE")
+        } catch (e: IllegalArgumentException) { }
+        try {
+            Finance.gpa(emptyList())
+            fail("expected IAE")
+        } catch (e: IllegalArgumentException) { }
         assertEquals(Triple(0, 0.0, 0.0), Finance.creditPayoff(0.0, 12.0, 100.0))
         try {
             Finance.rentVsBuy(1500.0, 3.0, 300000.0, 20.0, 6.0, 101)

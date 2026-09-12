@@ -348,6 +348,18 @@ private fun ToolResultRow(
 }
 
 @Composable
+private fun ToolErrorLine(msg: String?) {
+    if (msg != null) {
+        Text(
+            msg,
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.error,
+            modifier = Modifier.padding(horizontal = 4.dp)
+        )
+    }
+}
+
+@Composable
 private fun HelperCaption(text: String, modifier: Modifier = Modifier) {
     Text(
         text,
@@ -512,7 +524,8 @@ private fun CurrencyCard() {
     val safeTo = if (to in options) to else "EUR"
     val fromRate = rates[safeFrom] ?: Currency.fallbackUsdRates[safeFrom] ?: 0.0
     val toRate = rates[safeTo] ?: Currency.fallbackUsdRates[safeTo] ?: 0.0
-    val result = runCatching { Currency.convert(num(amount), fromRate, toRate) }.getOrDefault(Double.NaN)
+    val convRes = runCatching { Currency.convert(num(amount), fromRate, toRate) }
+    val result = convRes.getOrDefault(Double.NaN)
     SectionCard("Currency") {
         NumField(amount, { amount = it }, "Amount")
         Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -551,6 +564,7 @@ private fun CurrencyCard() {
                 maxLines = 2,
                 overflow = TextOverflow.Ellipsis
             )
+            ToolErrorLine(convRes.exceptionOrNull()?.message)
         }
     }
 }
@@ -1144,12 +1158,14 @@ fun FinanceScreen(onNavigate: (String) -> Unit = {}) {
     val priceV = num(price)
     val taxV = num(taxRate)
     val (taxTotal, taxAmt) = runCatching { Finance.withTax(priceV, taxV, inclusive) }.getOrDefault(Double.NaN to Double.NaN)
-    val unitA = runCatching { Finance.unitPrice(num(priceA), num(qtyA)) }.getOrDefault(0.0)
-    val unitB = runCatching { Finance.unitPrice(num(priceB), num(qtyB)) }.getOrDefault(0.0)
+    val unitARes = runCatching { Finance.unitPrice(num(priceA), num(qtyA)) }
+    val unitBRes = runCatching { Finance.unitPrice(num(priceB), num(qtyB)) }
+    val unitA = unitARes.getOrDefault(Double.NaN)
+    val unitB = unitBRes.getOrDefault(Double.NaN)
     val verdict = when {
-        unitA == 0.0 && unitB == 0.0 -> "Enter quantities"
-        unitA == 0.0 -> "B is the better buy"
-        unitB == 0.0 -> "A is the better buy"
+        unitARes.isFailure && unitBRes.isFailure -> "Enter quantities"
+        unitARes.isFailure -> "B is the better buy"
+        unitBRes.isFailure -> "A is the better buy"
         unitA < unitB -> "A is the better buy"
         unitB < unitA -> "B is the better buy"
         else -> "Tie"
@@ -1280,6 +1296,8 @@ fun FinanceScreen(onNavigate: (String) -> Unit = {}) {
                 HorizontalDivider()
                 ToolResultRow(Icons.Filled.AttachMoney, "Unit price A", fmt(unitA, 4))
                 ToolResultRow(Icons.Filled.AttachMoney, "Unit price B", fmt(unitB, 4))
+                ToolErrorLine(unitARes.exceptionOrNull()?.message)
+                ToolErrorLine(unitBRes.exceptionOrNull()?.message)
                 ToolResultRow(Icons.Filled.Info, "Verdict", verdict)
             }
         }
@@ -1474,9 +1492,10 @@ fun FinanceScreen(onNavigate: (String) -> Unit = {}) {
             var gpaC2 by remember { mutableStateOf("3") }
             var gpaG3 by remember { mutableStateOf("3") }
             var gpaC3 by remember { mutableStateOf("3") }
-            val gpa = runCatching {
+            val gpaRes = runCatching {
                 Finance.gpa(listOf(num(gpaG1) to num(gpaC1), num(gpaG2) to num(gpaC2), num(gpaG3) to num(gpaC3)))
-            }.getOrNull()
+            }
+            val gpa = gpaRes.getOrNull()
             SectionCard("GPA") {
                 Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                     Box(Modifier.weight(1f)) { NumField(gpaG1, { gpaG1 = it }, "Grade 1") }
@@ -1492,6 +1511,7 @@ fun FinanceScreen(onNavigate: (String) -> Unit = {}) {
                 }
                 HorizontalDivider()
                 ToolResultRow(Icons.Filled.Info, "GPA", gpa?.let { fmt(it, 2) } ?: "—")
+                ToolErrorLine(gpaRes.exceptionOrNull()?.message)
             }
         }
         item {
@@ -1513,7 +1533,7 @@ fun FinanceScreen(onNavigate: (String) -> Unit = {}) {
             var pcRate by remember { mutableStateOf("20") }
             var pcHours by remember { mutableStateOf("40") }
             var pcTax by remember { mutableStateOf("20") }
-            val res = runCatching { Finance.paycheck(num(pcRate), num(pcHours), num(pcTax)) }.getOrNull()
+            val res = runCatching { Finance.paycheck(num(pcRate), num(pcHours), num(pcTax)) }
             SectionCard("Paycheck") {
                 Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                     Box(Modifier.weight(1f)) { NumField(pcRate, { pcRate = it }, "Hourly rate") }
@@ -1521,16 +1541,17 @@ fun FinanceScreen(onNavigate: (String) -> Unit = {}) {
                     Box(Modifier.weight(1f)) { NumField(pcTax, { pcTax = it }, "Tax %") }
                 }
                 HorizontalDivider()
-                ToolResultRow(Icons.Filled.AttachMoney, "Gross / month", res?.let { fmt(it.first, 2) } ?: "—")
-                ToolResultRow(Icons.Filled.AttachMoney, "Tax / month", res?.let { fmt(it.second, 2) } ?: "—")
-                ToolResultRow(Icons.Filled.AttachMoney, "Net / month", res?.let { fmt(it.third, 2) } ?: "—")
+                ToolResultRow(Icons.Filled.AttachMoney, "Gross / month", res.getOrNull()?.let { fmt(it.first, 2) } ?: "—")
+                ToolResultRow(Icons.Filled.AttachMoney, "Tax / month", res.getOrNull()?.let { fmt(it.second, 2) } ?: "—")
+                ToolResultRow(Icons.Filled.AttachMoney, "Net / month", res.getOrNull()?.let { fmt(it.third, 2) } ?: "—")
+                ToolErrorLine(res.exceptionOrNull()?.message)
             }
         }
         item {
             var poBal by remember { mutableStateOf("1000") }
             var poApr by remember { mutableStateOf("12") }
             var poPay by remember { mutableStateOf("100") }
-            val res = runCatching { Finance.creditPayoff(num(poBal), num(poApr), num(poPay)) }.getOrNull()
+            val res = runCatching { Finance.creditPayoff(num(poBal), num(poApr), num(poPay)) }
             SectionCard("Credit payoff") {
                 Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                     Box(Modifier.weight(1f)) { NumField(poBal, { poBal = it }, "Balance") }
@@ -1538,9 +1559,10 @@ fun FinanceScreen(onNavigate: (String) -> Unit = {}) {
                     Box(Modifier.weight(1f)) { NumField(poPay, { poPay = it }, "Monthly pay") }
                 }
                 HorizontalDivider()
-                ToolResultRow(Icons.Filled.DateRange, "Months", res?.first?.toString() ?: "—")
-                ToolResultRow(Icons.Filled.AttachMoney, "Total interest", res?.let { fmt(it.second, 2) } ?: "—")
-                ToolResultRow(Icons.Filled.AttachMoney, "Total paid", res?.let { fmt(it.third, 2) } ?: "—")
+                ToolResultRow(Icons.Filled.DateRange, "Months", res.getOrNull()?.first?.toString() ?: "—")
+                ToolResultRow(Icons.Filled.AttachMoney, "Total interest", res.getOrNull()?.let { fmt(it.second, 2) } ?: "—")
+                ToolResultRow(Icons.Filled.AttachMoney, "Total paid", res.getOrNull()?.let { fmt(it.third, 2) } ?: "—")
+                ToolErrorLine(res.exceptionOrNull()?.message)
             }
         }
         item {
@@ -1550,7 +1572,7 @@ fun FinanceScreen(onNavigate: (String) -> Unit = {}) {
             var lcM by remember { mutableStateOf("24") }
             val res = runCatching {
                 Finance.loanCompare(num(lcP), num(lcRa), num(lcRb), lcM.toIntOrNull() ?: 0)
-            }.getOrNull()
+            }
             SectionCard("Loan compare") {
                 Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                     Box(Modifier.weight(1f)) { NumField(lcP, { lcP = it }, "Principal") }
@@ -1561,15 +1583,17 @@ fun FinanceScreen(onNavigate: (String) -> Unit = {}) {
                     Box(Modifier.weight(1f)) { NumField(lcRb, { lcRb = it }, "Rate B %") }
                 }
                 HorizontalDivider()
-                ToolResultRow(Icons.Filled.AttachMoney, "EMI A", res?.let { fmt(it.first, 2) } ?: "—")
-                ToolResultRow(Icons.Filled.AttachMoney, "EMI B", res?.let { fmt(it.second, 2) } ?: "—")
-                ToolResultRow(Icons.Filled.AttachMoney, "Savings total (B-A)", res?.let { fmt(it.third, 2) } ?: "—")
+                ToolResultRow(Icons.Filled.AttachMoney, "EMI A", res.getOrNull()?.let { fmt(it.first, 2) } ?: "—")
+                ToolResultRow(Icons.Filled.AttachMoney, "EMI B", res.getOrNull()?.let { fmt(it.second, 2) } ?: "—")
+                ToolResultRow(Icons.Filled.AttachMoney, "Savings total (B-A)", res.getOrNull()?.let { fmt(it.third, 2) } ?: "—")
+                ToolErrorLine(res.exceptionOrNull()?.message)
             }
         }
         item {
             var mgCost by remember { mutableStateOf("50") }
             var mgPrice by remember { mutableStateOf("100") }
-            val margin = runCatching { Finance.profitMargin(num(mgCost), num(mgPrice)) }.getOrNull()
+            val marginRes = runCatching { Finance.profitMargin(num(mgCost), num(mgPrice)) }
+            val margin = marginRes.getOrNull()
             SectionCard("Profit margin") {
                 Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                     Box(Modifier.weight(1f)) { NumField(mgCost, { mgCost = it }, "Cost") }
@@ -1577,6 +1601,7 @@ fun FinanceScreen(onNavigate: (String) -> Unit = {}) {
                 }
                 HorizontalDivider()
                 ToolResultRow(Icons.Filled.Percent, "Margin", margin?.let { fmt(it, 2) + " %" } ?: "—")
+                ToolErrorLine(marginRes.exceptionOrNull()?.message)
             }
         }
         item {
@@ -1621,7 +1646,8 @@ fun FinanceScreen(onNavigate: (String) -> Unit = {}) {
             var zakAssets by remember { mutableStateOf("10000") }
             var zakDebts by remember { mutableStateOf("1000") }
             var zakNisab by remember { mutableStateOf("0") }
-            val due = runCatching { Finance.zakat(num(zakAssets), num(zakDebts), num(zakNisab)) }.getOrNull()
+            val zakRes = runCatching { Finance.zakat(num(zakAssets), num(zakDebts), num(zakNisab)) }
+            val due = zakRes.getOrNull()
             SectionCard("Zakat") {
                 Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                     Box(Modifier.weight(1f)) { NumField(zakAssets, { zakAssets = it }, "Assets") }
@@ -1630,6 +1656,7 @@ fun FinanceScreen(onNavigate: (String) -> Unit = {}) {
                 NumField(zakNisab, { zakNisab = it }, "Nisab")
                 HorizontalDivider()
                 ToolResultRow(Icons.Filled.AttachMoney, "Zakat due", due?.let { fmt(it, 2) } ?: "—")
+                ToolErrorLine(zakRes.exceptionOrNull()?.message)
             }
         }
         item {
@@ -1640,7 +1667,8 @@ fun FinanceScreen(onNavigate: (String) -> Unit = {}) {
             val days = runCatching {
                 ChronoUnit.DAYS.between(LocalDate.parse(startD.trim()), LocalDate.parse(endD.trim())).toInt()
             }.getOrNull()
-            val roi = if (days == null) null else runCatching { Finance.investRoi(num(invAmt), num(stlAmt), days) }.getOrNull()
+            val roiRes = if (days == null) null else runCatching { Finance.investRoi(num(invAmt), num(stlAmt), days) }
+            val roi = roiRes?.getOrNull()
             SectionCard("Investment ROI") {
                 Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                     Box(Modifier.weight(1f)) { NumField(invAmt, { invAmt = it }, "Invested") }
@@ -1671,6 +1699,7 @@ fun FinanceScreen(onNavigate: (String) -> Unit = {}) {
                 ToolResultRow(Icons.Filled.AttachMoney, "Profit", roi?.let { fmt(it.first, 2) } ?: "—")
                 ToolResultRow(Icons.Filled.Percent, "Return", roi?.let { fmt(it.second, 2) + " %" } ?: "—")
                 ToolResultRow(Icons.Filled.Percent, "Annualized", roi?.let { fmt(it.third, 2) + " %" } ?: "—")
+                ToolErrorLine(roiRes?.exceptionOrNull()?.message)
             }
         }
         item {
@@ -2706,7 +2735,8 @@ fun HealthScreen(onNavigate: (String) -> Unit = {}) {
                 HorizontalDivider()
                 ToolResultRow(Icons.Filled.DateRange, "Weekday", weekday ?: "—")
                 ToolResultRow(Icons.Filled.DateRange, "Days until", until?.toString() ?: "—")
-                ToolResultRow(Icons.Filled.DateRange, zone.ifBlank { "Zone" }, runCatching { ClockKit.worldTime(zone) }.getOrDefault("—"))
+                val worldRes = runCatching { ClockKit.worldTime(zone) }
+                ToolResultRow(Icons.Filled.DateRange, zone.ifBlank { "Zone" }, worldRes.getOrNull() ?: (worldRes.exceptionOrNull()?.message ?: "—"))
             }
         }
         item {

@@ -43,9 +43,10 @@ object Units {
     )
     val volume = mapOf(
         "mL" to UnitDef("mL", 0.001), "L" to UnitDef("L", 1.0),
-        "m3" to UnitDef("m3", 1000.0), "tsp" to UnitDef("tsp", 0.00492892),
-        "tbsp" to UnitDef("tbsp", 0.0147868), "cup" to UnitDef("cup", 0.24),
-        "fl-oz" to UnitDef("fl-oz", 0.0295735), "gal" to UnitDef("gal", 3.78541),
+        "m3" to UnitDef("m3", 1000.0), "tsp" to UnitDef("tsp", 0.00492892159375),
+        // cupLegal: US legal cup = 240 mL (nutrition labeling); cooking uses cupCustomary below.
+        "tbsp" to UnitDef("tbsp", 0.01478676478125), "cup" to UnitDef("cup", 0.24),
+        "fl-oz" to UnitDef("fl-oz", 0.0295735295625), "gal" to UnitDef("gal", 3.785411784),
         "qt" to UnitDef("qt", 0.946352946), "pt" to UnitDef("pt", 0.473176473),
         "fl_dram" to UnitDef("fl_dram", 0.0036966875), "tbsp_metric" to UnitDef("tbsp_metric", 0.015),
         "dL" to UnitDef("dL", 0.1), "cL" to UnitDef("cL", 0.01),
@@ -70,7 +71,7 @@ object Units {
     val temperature = listOf("C", "F", "K", "R")
     val area = mapOf(
         "m2" to UnitDef("m2", 1.0), "km2" to UnitDef("km2", 1e6),
-        "ft2" to UnitDef("ft2", 0.092903), "acre" to UnitDef("acre", 4046.86),
+        "ft2" to UnitDef("ft2", 0.09290304), "acre" to UnitDef("acre", 4046.8564224),
         "ha" to UnitDef("ha", 10000.0), "rood" to UnitDef("rood", 1011.715),
         "section" to UnitDef("section", 2589988.110336), "township" to UnitDef("township", 93239571.972096),
         "barn" to UnitDef("barn", 1e-28), "are" to UnitDef("are", 100.0),
@@ -86,7 +87,7 @@ object Units {
         "s" to UnitDef("s", 1.0), "min" to UnitDef("min", 60.0),
         "hr" to UnitDef("hr", 3600.0), "day" to UnitDef("day", 86400.0),
         "week" to UnitDef("week", 604800.0), "fortnight" to UnitDef("fortnight", 1209600.0),
-        "yr" to UnitDef("yr", 31556925.9746784),
+        "yr" to UnitDef("yr", 31556925.9746784), // tropical year 365.242198781 d (not Julian 365.25 d),
         "ms" to UnitDef("ms", 0.001), "us" to UnitDef("us", 1e-6),
         "ns" to UnitDef("ns", 1e-9), "month" to UnitDef("month", 2629743.8312232),
         "decade" to UnitDef("decade", 315569259.746784), "century" to UnitDef("century", 3.15569259746784e9),
@@ -105,21 +106,25 @@ object Units {
     )
     val pressure = mapOf(
         "Pa" to UnitDef("Pa", 1.0), "kPa" to UnitDef("kPa", 1000.0),
-        "bar" to UnitDef("bar", 1e5), "psi" to UnitDef("psi", 6894.76),
-        "atm" to UnitDef("atm", 101325.0), "mmHg" to UnitDef("mmHg", 133.322),
-        "inHg" to UnitDef("inHg", 3386.389), "torr" to UnitDef("torr", 133.322368),
-        "ksi" to UnitDef("ksi", 6894760.0),
+        "bar" to UnitDef("bar", 1e5), "psi" to UnitDef("psi", 6894.757293168),
+        "atm" to UnitDef("atm", 101325.0), "mmHg" to UnitDef("mmHg", 133.322387415),
+        "inHg" to UnitDef("inHg", 3386.389), "torr" to UnitDef("torr", 133.322368), // torr kept: ~0.14 ppm below mmHg by convention,
+        "ksi" to UnitDef("ksi", 6894757.293168),
         "hPa" to UnitDef("hPa", 100.0), "MPa" to UnitDef("MPa", 1e6),
         "GPa" to UnitDef("GPa", 1e9), "mbar" to UnitDef("mbar", 100.0),
         "microbar" to UnitDef("microbar", 0.1), "decibar" to UnitDef("decibar", 10000.0),
         "kilobar" to UnitDef("kilobar", 1e8), "megabar" to UnitDef("megabar", 1e11),
+        // mmHg from Hg density 13.5951 g/cm3 (NOT 101325/760 like torr); keep both, do not merge.
         "mmWater" to UnitDef("mmWater", 9.80665), "inWater" to UnitDef("inWater", 249.08891),
         "ftWater" to UnitDef("ftWater", 2989.06692),
-        "kgfcm2" to UnitDef("kgfcm2", 98066.5)
+        "kgfcm2" to UnitDef("kgfcm2", 98066.5),
+        "at" to UnitDef("at", 98066.5), // technical atmosphere, alias of kgf/cm2 (not standard atm),
+        "mH2O" to UnitDef("mH2O", 9806.65), // meter of water column: 1000 kg/m3 * g * 1 m,
+        "psf" to UnitDef("psf", 47.8802589800556) // pound per square foot = psi / 144,
     )
     val energy = mapOf(
         "J" to UnitDef("J", 1.0), "kJ" to UnitDef("kJ", 1000.0),
-        "cal" to UnitDef("cal", 4.184), "kcal" to UnitDef("kcal", 4184.0),
+        "cal" to UnitDef("cal", 4.184), "kcal" to UnitDef("kcal", 4184.0), // cal_IT: International Table calorie,
         "kWh" to UnitDef("kWh", 3.6e6), "Btu" to UnitDef("Btu", 1055.05585262),
         "therm" to UnitDef("therm", 105505585.262), "tonTNT" to UnitDef("tonTNT", 4.184e9),
         "MJ" to UnitDef("MJ", 1e6), "GJ" to UnitDef("GJ", 1e9),
@@ -130,11 +135,18 @@ object Units {
     )
     val power = mapOf(
         "W" to UnitDef("W", 1.0), "kW" to UnitDef("kW", 1000.0),
-        "hp" to UnitDef("hp", 745.7),
+        "hp" to UnitDef("hp", 745.6998715822702), // mechanical hp = 550 ft*lbf/s exactly,
         "MW" to UnitDef("MW", 1e6), "GW" to UnitDef("GW", 1e9),
         "mW" to UnitDef("mW", 0.001), "metricHp" to UnitDef("metricHp", 735.49875),
         "tonRefrig" to UnitDef("tonRefrig", 3516.852842066667), "MBH" to UnitDef("MBH", 293.0710701722222)
     )
+    /**
+     * Binary data ladder: legacy KB/MB/../EB are powers of 1024 (file-manager
+     * convention), while the kBsi-style decimal SI ladder kBsi/MBsi/GBsi/TBsi/
+     * PBsi/EBsi below is powers of 1000. EB here is binary-consistent
+     * (1024^6 B = 1152921504606846976 B, the IEC twin of EiB); legacy KB=1024
+     * versus kBsi=1000 is intentional, not a bug.
+     */
     val data = mapOf(
         "B" to UnitDef("B", 1.0), "KB" to UnitDef("KB", 1024.0),
         "MB" to UnitDef("MB", 1024.0 * 1024), "GB" to UnitDef("GB", 1024.0 * 1024 * 1024),
@@ -150,7 +162,8 @@ object Units {
         "GiB" to UnitDef("GiB", 1073741824.0), "TiB" to UnitDef("TiB", 1099511627776.0),
         "PiB" to UnitDef("PiB", 1125899906842624.0),
         "Pbit" to UnitDef("Pbit", 1.25e14), "Ebit" to UnitDef("Ebit", 1.25e17),
-        "EB" to UnitDef("EB", 1e18), "EiB" to UnitDef("EiB", 1152921504606846976.0)
+        "EB" to UnitDef("EB", 1152921504606846976.0), "EiB" to UnitDef("EiB", 1152921504606846976.0),
+        "EBsi" to UnitDef("EBsi", 1e18)
     )
     val fuel = mapOf(
         "l_100km" to UnitDef("l_100km", 1.0),
@@ -166,7 +179,7 @@ object Units {
         "tsp" to UnitDef("tsp", 4.92892159375),
         "tbsp" to UnitDef("tbsp", 14.78676478125),
         "fl_oz" to UnitDef("fl_oz", 29.5735295625),
-        "cup" to UnitDef("cup", 236.5882365),
+        "cup" to UnitDef("cup", 236.5882365), // cupCustomary: 8 fl oz customary (vs 240 mL cupLegal in volume),
         "pint_us" to UnitDef("pint_us", 473.176473),
         "pint_uk" to UnitDef("pint_uk", 568.26125),
         "quart_us" to UnitDef("quart_us", 946.352946),
@@ -176,6 +189,18 @@ object Units {
         "ml" to UnitDef("ml", 1.0),
         "l" to UnitDef("l", 1000.0)
     )
+    /**
+     * Shoe sizes are affine (offset) scales, not proportional through-origin
+     * factors: size 0 is not a zero-length foot. The toBase numbers below are
+     * kept only so category ids stay stable for callers; [convert] routes every
+     * shoe pair through [convertShoe] and never uses them as ratios.
+     *
+     * Reference foot lengths (Mondopoint cm) after the Brannock-device
+     * approximation shoeUsMToCm(us) = (us + 22) * 2.54 / 3, cross-checked
+     * against common retail charts (US_M 10 wears about 27.0-28.0 cm):
+     * 6 to 23.71, 7 to 24.55, 8 to 25.40, 9 to 26.25, 10 to 27.09,
+     * 11 to 27.94, 12 to 28.79, 13 to 29.63. Brand lasts vary about +-0.5 cm.
+     */
     val shoe = mapOf(
         "US_M" to UnitDef("US_M", 3.0),
         "US_W" to UnitDef("US_W", 2.5714285714285716),
@@ -183,14 +208,173 @@ object Units {
         "EU" to UnitDef("EU", 0.6428571428571429),
         "CM" to UnitDef("CM", 1.0)
     )
+    /**
+     * Ring sizes are affine scales of inner circumference, not proportional
+     * factors. The toBase numbers below are kept only so category ids stay
+     * stable for callers; [convert] routes every ring pair through
+     * [convertRing] and never uses them as ratios.
+     *
+     * Reference inner circumferences (EU/French size = mm) after standard
+     * jewelry charts (US step about 2.55 mm circ, about 0.8128 mm dia):
+     * US 5 to 49.35, 6 to 51.90, 8 to 57.00, 10 to 62.10 (19.77 mm dia),
+     * 12 to 67.20. JP is EU minus 40; the numeric UK index is US minus 0.5
+     * (letter scales vary by maker, so treat UK as an approximation).
+     */
     val ring = mapOf(
         "US" to UnitDef("US", 8.666666666666666),
         "UK" to UnitDef("UK", 9.454545454545455),
         "EU" to UnitDef("EU", 1.0),
         "JP" to UnitDef("JP", 4.333333333333333)
     )
+
+    fun shoeUsMToCm(us: Double): Double {
+        require(us.isFinite()) { "shoe size must be finite" }
+        return (us + 22.0) * 2.54 / 3.0
+    }
+
+    fun shoeUsWToCm(usw: Double): Double {
+        require(usw.isFinite()) { "shoe size must be finite" }
+        return shoeUsMToCm(usw - 1.5)
+    }
+
+    fun shoeUkToCm(uk: Double): Double {
+        require(uk.isFinite()) { "shoe size must be finite" }
+        return shoeUsMToCm(uk + 0.5)
+    }
+
+    fun shoeEuToCm(eu: Double): Double {
+        require(eu.isFinite()) { "shoe size must be finite" }
+        return (eu - 2.0) * 2.0 / 3.0
+    }
+
+    fun cmToShoeUsM(cm: Double): Double {
+        require(cm.isFinite()) { "foot length must be finite" }
+        return cm * 3.0 / 2.54 - 22.0
+    }
+
+    fun cmToShoeUsW(cm: Double): Double {
+        require(cm.isFinite()) { "foot length must be finite" }
+        return cmToShoeUsM(cm) + 1.5
+    }
+
+    fun cmToShoeUk(cm: Double): Double {
+        require(cm.isFinite()) { "foot length must be finite" }
+        return cmToShoeUsM(cm) - 0.5
+    }
+
+    fun cmToShoeEu(cm: Double): Double {
+        require(cm.isFinite()) { "foot length must be finite" }
+        return cm * 1.5 + 2.0
+    }
+
+    fun shoeToCm(value: Double, from: String): Double {
+        require(value.isFinite()) { "shoe size must be finite" }
+        return when (from) {
+            "US_M" -> shoeUsMToCm(value)
+            "US_W" -> shoeUsWToCm(value)
+            "UK" -> shoeUkToCm(value)
+            "EU" -> shoeEuToCm(value)
+            "CM" -> value
+            else -> throw IllegalArgumentException("unknown shoe unit: $from")
+        }
+    }
+
+    fun cmToShoe(cm: Double, to: String): Double {
+        require(cm.isFinite()) { "foot length must be finite" }
+        return when (to) {
+            "US_M" -> cmToShoeUsM(cm)
+            "US_W" -> cmToShoeUsW(cm)
+            "UK" -> cmToShoeUk(cm)
+            "EU" -> cmToShoeEu(cm)
+            "CM" -> cm
+            else -> throw IllegalArgumentException("unknown shoe unit: $to")
+        }
+    }
+
+    fun convertShoe(value: Double, from: String, to: String): Double {
+        require(from in shoe) { "unknown shoe unit: $from" }
+        require(to in shoe) { "unknown shoe unit: $to" }
+        if (from == to) return value
+        return cmToShoe(shoeToCm(value, from), to)
+    }
+
+    fun ringUsToEu(us: Double): Double {
+        require(us.isFinite()) { "ring size must be finite" }
+        return 36.6 + 2.55 * us
+    }
+
+    fun ringEuToUs(eu: Double): Double {
+        require(eu.isFinite()) { "ring size must be finite" }
+        return (eu - 36.6) / 2.55
+    }
+
+    fun ringJpToEu(jp: Double): Double {
+        require(jp.isFinite()) { "ring size must be finite" }
+        return jp + 40.0
+    }
+
+    fun ringEuToJp(eu: Double): Double {
+        require(eu.isFinite()) { "ring size must be finite" }
+        return eu - 40.0
+    }
+
+    fun ringUkToEu(uk: Double): Double {
+        require(uk.isFinite()) { "ring size must be finite" }
+        return 36.6 + 2.55 * (uk + 0.5)
+    }
+
+    fun ringEuToUk(eu: Double): Double {
+        require(eu.isFinite()) { "ring size must be finite" }
+        return (eu - 36.6) / 2.55 - 0.5
+    }
+
+    fun ringToEu(value: Double, from: String): Double {
+        require(value.isFinite()) { "ring size must be finite" }
+        return when (from) {
+            "US" -> ringUsToEu(value)
+            "UK" -> ringUkToEu(value)
+            "EU" -> value
+            "JP" -> ringJpToEu(value)
+            else -> throw IllegalArgumentException("unknown ring unit: $from")
+        }
+    }
+
+    fun euToRing(eu: Double, to: String): Double {
+        require(eu.isFinite()) { "ring size must be finite" }
+        return when (to) {
+            "US" -> ringEuToUs(eu)
+            "UK" -> ringEuToUk(eu)
+            "EU" -> eu
+            "JP" -> ringEuToJp(eu)
+            else -> throw IllegalArgumentException("unknown ring unit: $to")
+        }
+    }
+
+    fun convertRing(value: Double, from: String, to: String): Double {
+        require(from in ring) { "unknown ring unit: $from" }
+        require(to in ring) { "unknown ring unit: $to" }
+        if (from == to) return value
+        return euToRing(ringToEu(value, from), to)
+    }
+
+    private fun isShoeDef(u: UnitDef): Boolean {
+        if (shoe.values.any { it === u }) return true
+        val s = shoe[u.id] ?: return false
+        if (s.toBase != u.toBase) return false
+        val r = ring[u.id]
+        return r == null || r.toBase != u.toBase
+    }
+
+    private fun isRingDef(u: UnitDef): Boolean {
+        if (ring.values.any { it === u }) return true
+        val r = ring[u.id] ?: return false
+        if (r.toBase != u.toBase) return false
+        val s = shoe[u.id]
+        return s == null || s.toBase != u.toBase
+    }
+
     val historic = mapOf(
-        "cubit" to UnitDef("cubit", 0.4572),
+        "cubit" to UnitDef("cubit", 0.4572), // 18-inch cubit variant,
         "furlong" to UnitDef("furlong", 201.168),
         "light_year" to UnitDef("light_year", 9.4607304725808E15),
         "angstrom" to UnitDef("angstrom", 1.0E-10),
@@ -386,6 +570,20 @@ object Units {
         if (fromFuel || toFuel) {
             require(fromFuel && toFuel) { "cannot mix fuel and linear units" }
             return convertFuel(value, from.id, to.id)
+        }
+        // Shoe and ring sizes are affine (offset) scales, so they cannot go
+        // through the linear toBase path below; same dispatch shape as fuel.
+        val fromShoe = isShoeDef(from)
+        val toShoe = isShoeDef(to)
+        if (fromShoe || toShoe) {
+            require(fromShoe && toShoe) { "cannot mix shoe sizes with other units" }
+            return convertShoe(value, from.id, to.id)
+        }
+        val fromRing = isRingDef(from)
+        val toRing = isRingDef(to)
+        if (fromRing || toRing) {
+            require(fromRing && toRing) { "cannot mix ring sizes with other units" }
+            return convertRing(value, from.id, to.id)
         }
         require(from.toBase.isFinite()) { "source factor must be finite" }
         require(to.toBase.isFinite()) { "target factor must be finite" }

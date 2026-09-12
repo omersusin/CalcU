@@ -272,13 +272,37 @@ object TextData {
     fun extractEmails(text: String): List<String> =
         emailRegex.findAll(text).map { it.value }.toList()
 
+    /** Max lines per input accepted by [diffLines]. */
+    const val MAX_DIFF_LINES = 2000
+
+    /** Max combined chars of both inputs accepted by [diffLines]. */
+    const val MAX_DIFF_CHARS = 200_000
+
+    /**
+     * Line diff via LCS dynamic programming, O(n*m) time and memory.
+     *
+     * Limits: each input is capped at [MAX_DIFF_LINES] lines and both inputs
+     * combined at [MAX_DIFF_CHARS] chars; larger inputs throw
+     * IllegalArgumentException naming the limit. The DP loop checks thread
+     * interruption on every row and aborts with CancellationException so
+     * large-but-allowed inputs stay cancellable.
+     */
     fun diffLines(a: String, b: String): List<String> {
+        require(a.length + b.length <= MAX_DIFF_CHARS) {
+            "diff too large: max $MAX_DIFF_CHARS chars total"
+        }
         val x = if (a.isEmpty()) emptyList() else a.split("\n").map { it.trimEnd('\r') }
         val y = if (b.isEmpty()) emptyList() else b.split("\n").map { it.trimEnd('\r') }
+        require(x.size <= MAX_DIFF_LINES && y.size <= MAX_DIFF_LINES) {
+            "diff too large: max $MAX_DIFF_LINES lines per input"
+        }
         val n = x.size
         val m = y.size
         val dp = Array(n + 1) { IntArray(m + 1) }
         for (i in n - 1 downTo 0) {
+            if (Thread.currentThread().isInterrupted) {
+                throw java.util.concurrent.CancellationException("diffLines cancelled")
+            }
             for (j in m - 1 downTo 0) {
                 dp[i][j] = if (x[i] == y[j]) 1 + dp[i + 1][j + 1] else maxOf(dp[i + 1][j], dp[i][j + 1])
             }

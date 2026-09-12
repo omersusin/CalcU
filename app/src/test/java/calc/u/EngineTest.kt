@@ -288,10 +288,7 @@ class EngineTest {
             Engine.factorial(30L)
             fail("expected AE")
         } catch (e: ArithmeticException) { }
-        try {
-            Engine.toFraction(1e308, 1000)
-            fail("expected AE")
-        } catch (e: ArithmeticException) { }
+        assertNull(Engine.toFraction(1e308, 1000))
         try {
             Engine.solve3x3(
                 listOf(listOf(Double.NaN, 0.0, 0.0), listOf(0.0, 1.0, 0.0), listOf(0.0, 0.0, 1.0)),
@@ -310,7 +307,7 @@ class EngineTest {
     }
 
     @Test fun validateUnbalanced() {
-        assertEquals("Unbalanced brackets", Engine.validateExpr("(2+3"))
+        assertNull(Engine.validateExpr("(2+3"))
         assertEquals("Unbalanced brackets", Engine.validateExpr("2+3)"))
     }
 

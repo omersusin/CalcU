@@ -1,12 +1,24 @@
 package calc.u.core
 
 object NumberTheory {
+    /**
+     * Trial-division cap for [totient] and [primeFactors]: trial division is
+     * O(sqrt(n)), so inputs above 1e12 are rejected with IllegalArgumentException
+     * naming the limit instead of hanging the UI thread. No Miller-Rabin fast
+     * path exists in this file.
+     */
+    const val MAX_TRIAL_INPUT = 1_000_000_000_000L
+
     fun totient(n: Long): Long {
         require(n > 0) { "n must be > 0" }
+        require(n <= MAX_TRIAL_INPUT) { "n too large for totient: max 1000000000000 (1e12)" }
         var result = n
         var x = n
         var p = 2L
         while (p <= x / p) {
+            if (Thread.currentThread().isInterrupted) {
+                throw java.util.concurrent.CancellationException("totient cancelled")
+            }
             if (x % p == 0L) {
                 while (x % p == 0L) x /= p
                 result -= result / p
@@ -47,6 +59,7 @@ object NumberTheory {
 
     fun primeFactors(n: Long): List<Long> {
         require(n >= 2) { "n must be >= 2" }
+        require(n <= MAX_TRIAL_INPUT) { "n too large for primeFactors: max 1000000000000 (1e12)" }
         val out = ArrayList<Long>()
         var x = n
         while (x % 2L == 0L) {
@@ -55,6 +68,9 @@ object NumberTheory {
         }
         var p = 3L
         while (p <= x / p) {
+            if (Thread.currentThread().isInterrupted) {
+                throw java.util.concurrent.CancellationException("primeFactors cancelled")
+            }
             while (x % p == 0L) {
                 out.add(p)
                 x /= p

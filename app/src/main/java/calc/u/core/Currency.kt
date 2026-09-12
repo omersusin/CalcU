@@ -20,7 +20,7 @@ object Currency {
     )
 
     fun convert(amount: Double, fromRate: Double, toRate: Double): Double {
-        if (fromRate == 0.0) return 0.0
+        require(fromRate != 0.0) { "fromRate must not be 0 (unknown rate for source currency)" }
         return amount / fromRate * toRate
     }
 

@@ -190,8 +190,16 @@ object Engine {
         var b = x
         while (true) {
             val a = floor(b).toLong()
-            val h = Math.addExact(Math.multiplyExact(a, h1), h2)
-            val k = Math.addExact(Math.multiplyExact(a, k1), k2)
+            val h = try {
+                Math.addExact(Math.multiplyExact(a, h1), h2)
+            } catch (e: ArithmeticException) {
+                return null
+            }
+            val k = try {
+                Math.addExact(Math.multiplyExact(a, k1), k2)
+            } catch (e: ArithmeticException) {
+                return null
+            }
             if (k > maxDenominator) break
             h2 = h1
             h1 = h
@@ -231,6 +239,9 @@ object Engine {
         if (n % 2L == 0L || n % 3L == 0L) return false
         var i = 5L
         while (i <= n / i) {
+            if (Thread.currentThread().isInterrupted) {
+                throw java.util.concurrent.CancellationException("isPrime cancelled")
+            }
             if (n % i == 0L || n % (i + 2L) == 0L) return false
             i += 6L
         }
@@ -285,9 +296,17 @@ object Engine {
         return listOf(fmt((-b - s) / (2 * a)), fmt((-b + s) / (2 * a)))
     }
 
+    /**
+     * Solves a 2x2 linear system. A determinant within 1e-12 scaled by
+     * coefficient magnitude counts as singular and yields ("—", "—").
+     * The 1e-12 constant is shared with [solve3x3] (absolute there);
+     * Matrix.inverse() instead requires exact non-zero det, since silently
+     * inverting a near-singular matrix is worse than reporting it.
+     */
     fun solveLinearSystem2x2(a1: Double, b1: Double, c1: Double, a2: Double, b2: Double, c2: Double): Pair<String, String> {
         val det = a1 * b2 - a2 * b1
-        if (det == 0.0) return Pair("—", "—")
+        val scale = abs(a1) * abs(b2) + abs(a2) * abs(b1)
+        if (abs(det) <= 1e-12 * maxOf(1.0, scale)) return Pair("—", "—")
         return Pair(fmt((c1 * b2 - c2 * b1) / det), fmt((a1 * c2 - a2 * c1) / det))
     }
 
@@ -402,12 +421,12 @@ object Engine {
     fun statsStdev(values: List<Double>): Double = sqrt(statsVariance(values))
 
     private fun evalAt(expr: String, xVal: Double, angleDeg: Boolean): Double? {
-        val sub = expr.replace(Regex("\\bx\\b"), "($xVal)")
+        val sub = expr.replace(Regex("\\bx\\b", RegexOption.IGNORE_CASE), "($xVal)")
         return eval(sub, angleDeg).getOrNull()?.toDouble()
     }
 
     fun derivative(expr: String, x: Double, angleDeg: Boolean = true): Double {
-        val h = 1e-5
+        val h = 1e-5 * maxOf(1.0, abs(x))
         val f1 = evalAt(expr, x + h, angleDeg) ?: return Double.NaN
         val f2 = evalAt(expr, x - h, angleDeg) ?: return Double.NaN
         return (f1 - f2) / (2 * h)
@@ -425,6 +444,13 @@ object Engine {
         return sum * h / 3.0
     }
 
+    /**
+     * Solves a 3x3 system via Cramer's rule on Matrix determinants.
+     * Singularity threshold is an absolute |det| <= 1e-12, sharing the 1e-12
+     * constant with [solveLinearSystem2x2] (magnitude-scaled there).
+     * Matrix.inverse() instead requires exact non-zero det; the solvers are
+     * deliberately more forgiving since they only report "no unique solution".
+     */
     fun solve3x3(a: List<List<Double>>, b: List<Double>): List<String> {
         require(a.size == 3 && a.all { it.size == 3 }) { "a must be 3x3" }
         require(b.size == 3) { "b must have 3 entries" }
@@ -434,7 +460,7 @@ object Engine {
             return Matrix(3, 3, flat).determinant()
         }
         val det = detOf(a)
-        if (abs(det) < 1e-12) return listOf("no unique solution")
+        if (abs(det) <= 1e-12) return listOf("no unique solution")
         return (0..2).map { col ->
             val replaced = List(3) { r -> List(3) { c -> if (c == col) b[r] else a[r][c] } }
             format(BigDecimal.valueOf(detOf(replaced) / det))
@@ -493,6 +519,13 @@ object Engine {
         return chunks.reversed().joinToString(" ")
     }
 
+    /**
+     * Mirrors the forgiving eval above: trailing operators are stripped and
+     * missing closing parens are auto-appended by [eval], so those inputs
+     * validate as OK (null). Only extra closing parens (which eval cannot
+     * fix) report "Unbalanced brackets", and more than 1000 unclosed opens
+     * (which eval rejects) report "Too many unclosed parentheses".
+     */
     fun validateExpr(input: String): String? {
         if (input.isBlank()) return "Empty"
         var t = input.trim()
@@ -504,7 +537,10 @@ object Engine {
         }
         if (t.isBlank()) return "Empty"
         if (Regex("[^0-9a-zA-Z+\\-×÷*/^%().!√πe, −]").containsMatchIn(t)) return "Invalid character"
-        if (t.count { it == '(' } != t.count { it == ')' }) return "Unbalanced brackets"
+        val opens = t.count { it == '(' }
+        val closes = t.count { it == ')' }
+        if (closes > opens) return "Unbalanced brackets"
+        if (opens - closes > 1000) return "Too many unclosed parentheses"
         if (Regex("\\(\\s*\\)").containsMatchIn(t)) return "Empty brackets"
         Regex("(\\d+)!").findAll(t).forEach {
             runCatching { it.groupValues[1].toLong() }.getOrNull()?.let { n ->
@@ -513,6 +549,14 @@ object Engine {
         }
         return null
     }
+
+    /**
+     * Max fractional digits analyzed by [repeatingToDecimal] and
+     * [decimalToFraction]; longer periods/precision throw
+     * IllegalArgumentException naming this limit instead of hanging on
+     * unbounded BigInteger pow / repetend tracking.
+     */
+    const val MAX_FRACTION_DIGITS = 12
 
     fun repeatingToDecimal(num: Long, den: Long): String {
         require(den != 0L) { "denominator must not be zero" }
@@ -527,6 +571,9 @@ object Engine {
         val seen = mutableMapOf<BigInteger, Int>()
         var repeatStart = -1
         while (rem != BigInteger.ZERO) {
+            if (digits.length > MAX_FRACTION_DIGITS) {
+                throw IllegalArgumentException("repeating decimal period too long: max $MAX_FRACTION_DIGITS digits")
+            }
             val prev = seen[rem]
             if (prev != null) {
                 repeatStart = prev
@@ -567,6 +614,9 @@ object Engine {
             val nonRep = beforeParen.substring(dot + 1)
             require(intStr.isNotEmpty() && intStr.all { it in '0'..'9' }) { "invalid repeating decimal: $s" }
             require(nonRep.all { it in '0'..'9' }) { "invalid repeating decimal: $s" }
+            require(nonRep.length + rep.length <= MAX_FRACTION_DIGITS) {
+                "too many fractional digits: max $MAX_FRACTION_DIGITS"
+            }
             if (rep.all { it == '0' }) {
                 val frac = nonRep
                 if (frac.isEmpty()) {
@@ -606,6 +656,9 @@ object Engine {
             require(intP.isEmpty() || intP.all { it in '0'..'9' }) { "invalid decimal: $s" }
             require(fracP.all { it in '0'..'9' }) { "invalid decimal: $s" }
             require(intP.isNotEmpty() || fracP.isNotEmpty()) { "invalid decimal: $s" }
+            require(fracP.length <= MAX_FRACTION_DIGITS) {
+                "too many fractional digits: max $MAX_FRACTION_DIGITS"
+            }
             val intNorm = if (intP.isEmpty()) "0" else intP
             if (fracP.isEmpty()) {
                 val n = BigInteger(intNorm)

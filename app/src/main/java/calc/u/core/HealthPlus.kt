@@ -4,7 +4,7 @@ object HealthPlus {
     fun waterIntakeMl(weightKg: Double, activeMin: Double): Double {
         require(weightKg > 0.0) { "weightKg must be > 0" }
         require(activeMin >= 0.0) { "activeMin must be >= 0" }
-        return weightKg * 35.0 + activeMin / 30.0 * 12.0
+        return weightKg * 35.0 + activeMin / 30.0 * 120.0
     }
 
     fun runPace(distanceKm: Double, minutes: Double): Double {
@@ -26,11 +26,14 @@ object HealthPlus {
         }
     }
 
+    /**
+     * Target heart rate in bpm. [intensityPct] is always a percent in 0..100
+     * (e.g. 70 means 70%), never a 0..1 fraction.
+     */
     fun targetHeartRate(age: Int, intensityPct: Double): Double {
         require(age > 0 && age < 220) { "age must be in 1..219" }
         require(intensityPct in 0.0..100.0) { "intensityPct must be in 0..100" }
-        val fraction = if (intensityPct > 1.0) intensityPct / 100.0 else intensityPct
-        return (220 - age) * fraction
+        return (220 - age) * intensityPct / 100.0
     }
 
     // Kg to reach healthy BMI band: current minus 24.9 ceiling if above,

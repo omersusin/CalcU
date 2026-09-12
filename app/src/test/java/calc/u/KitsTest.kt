@@ -34,10 +34,22 @@ class KitsTest {
     }
 
     @Test fun healthInvalidReturnsNaN() {
-        assertTrue(HealthDate.bmi(0.0, 175.0).isNaN())
-        assertTrue(HealthDate.bmi(70.0, 0.0).isNaN())
-        assertTrue(HealthDate.tdee(0.0, 175.0, 30, true, 1.55).isNaN())
-        assertTrue(HealthDate.bodyFatNavy(80.0, 90.0, 175.0, 0.0, true).isNaN())
+        try {
+            HealthDate.bmi(0.0, 175.0)
+            fail("expected IAE")
+        } catch (e: IllegalArgumentException) { }
+        try {
+            HealthDate.bmi(70.0, 0.0)
+            fail("expected IAE")
+        } catch (e: IllegalArgumentException) { }
+        try {
+            HealthDate.tdee(0.0, 175.0, 30, true, 1.55)
+            fail("expected IAE")
+        } catch (e: IllegalArgumentException) { }
+        try {
+            HealthDate.bodyFatNavy(80.0, 90.0, 175.0, 0.0, true)
+            fail("expected IAE")
+        } catch (e: IllegalArgumentException) { }
     }
 
     @Test fun clockInvalidDateThrowsIAE() {
@@ -126,7 +138,10 @@ class KitsTest {
             calc.u.core.TripKit.tripTime(10.0, 0.0)
             fail("expected IAE")
         } catch (e: IllegalArgumentException) { }
-        assertEquals("unknown zone", ClockKit.worldTime("Not_A_Zone"))
+        try {
+            ClockKit.worldTime("Not_A_Zone")
+            fail("expected IAE")
+        } catch (e: IllegalArgumentException) { }
         try {
             calc.u.core.IdealWeight.devine(0.0, true)
             fail("expected IAE")
