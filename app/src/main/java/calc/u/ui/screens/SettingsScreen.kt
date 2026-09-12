@@ -74,6 +74,16 @@ class SettingsViewModel @Inject constructor(
         )
     val historyCap: StateFlow<Int> =
         repo.historyCap.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 200)
+    val numberFormat: StateFlow<String> =
+        repo.numberFormat.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), "locale")
+    val decimals: StateFlow<Int> =
+        repo.decimals.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 10)
+    val fractions: StateFlow<Boolean> =
+        repo.fractions.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), true)
+    val keepScreenOn: StateFlow<Boolean> =
+        repo.keepScreenOn.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
+    val memoryRow: StateFlow<Boolean> =
+        repo.memoryRow.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), true)
 
     fun setTheme(value: String) {
         viewModelScope.launch { repo.setTheme(value) }
@@ -90,6 +100,26 @@ class SettingsViewModel @Inject constructor(
     fun setHistoryCap(value: Int) {
         viewModelScope.launch { repo.setHistoryCap(value) }
     }
+
+    fun setNumberFormat(value: String) {
+        viewModelScope.launch { repo.setNumberFormat(value) }
+    }
+
+    fun setDecimals(value: Int) {
+        viewModelScope.launch { repo.setDecimals(value) }
+    }
+
+    fun setFractions(value: Boolean) {
+        viewModelScope.launch { repo.setFractions(value) }
+    }
+
+    fun setKeepScreenOn(value: Boolean) {
+        viewModelScope.launch { repo.setKeepScreenOn(value) }
+    }
+
+    fun setMemoryRow(value: Boolean) {
+        viewModelScope.launch { repo.setMemoryRow(value) }
+    }
 }
 
 @Composable
@@ -98,6 +128,11 @@ fun SettingsScreen(vm: SettingsViewModel = hiltViewModel()) {
     val vibration by vm.vibration.collectAsStateWithLifecycle()
     val dynamicColor by vm.dynamicColor.collectAsStateWithLifecycle()
     val historyCap by vm.historyCap.collectAsStateWithLifecycle()
+    val numberFormat by vm.numberFormat.collectAsStateWithLifecycle()
+    val decimals by vm.decimals.collectAsStateWithLifecycle()
+    val fractions by vm.fractions.collectAsStateWithLifecycle()
+    val keepScreenOn by vm.keepScreenOn.collectAsStateWithLifecycle()
+    val memoryRow by vm.memoryRow.collectAsStateWithLifecycle()
     val options = listOf(
         "system" to "System",
         "light" to "Light",
@@ -203,6 +238,109 @@ fun SettingsScreen(vm: SettingsViewModel = hiltViewModel()) {
                             selected = historyCap == cap,
                             onClick = { vm.setHistoryCap(cap) },
                             label = { Text("$cap") }
+                        )
+                    }
+                }
+            }
+        }
+        item {
+            SectionCard("Numbers") {
+                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Column(Modifier.selectableGroup()) {
+                        listOf(
+                            "locale" to "System locale",
+                            "comma" to "1,234,567.89",
+                            "space" to "1 234 567.89",
+                            "none" to "1234567.89",
+                            "indian" to "12,34,567.89"
+                        ).forEach { (id, example) ->
+                            Row(
+                                modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)
+                                    .selectable(
+                                        selected = numberFormat == id,
+                                        onClick = { vm.setNumberFormat(id) },
+                                        role = Role.RadioButton
+                                    ),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                RadioButton(
+                                    selected = numberFormat == id,
+                                    onClick = { vm.setNumberFormat(id) }
+                                )
+                                Column(modifier = Modifier.padding(start = 8.dp).weight(1f)) {
+                                    Text(
+                                        id.replaceFirstChar { it.uppercase() },
+                                        style = MaterialTheme.typography.bodyLarge
+                                    )
+                                    Text(
+                                        example,
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
+                            }
+                        }
+                    }
+                    Text(
+                        "Decimals: $decimals",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        listOf(2, 4, 6, 10).forEach { scale ->
+                            FilterChip(
+                                selected = decimals == scale,
+                                onClick = { vm.setDecimals(scale) },
+                                label = { Text("$scale") }
+                            )
+                        }
+                    }
+                }
+            }
+        }
+        item {
+            SectionCard("Calculator") {
+                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            "Show fractions",
+                            style = MaterialTheme.typography.bodyLarge,
+                            modifier = Modifier.weight(1f)
+                        )
+                        Switch(
+                            checked = fractions,
+                            onCheckedChange = { vm.setFractions(it) }
+                        )
+                    }
+                    Row(
+                        modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            "Keep screen on",
+                            style = MaterialTheme.typography.bodyLarge,
+                            modifier = Modifier.weight(1f)
+                        )
+                        Switch(
+                            checked = keepScreenOn,
+                            onCheckedChange = { vm.setKeepScreenOn(it) }
+                        )
+                    }
+                    Row(
+                        modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            "Memory row",
+                            style = MaterialTheme.typography.bodyLarge,
+                            modifier = Modifier.weight(1f)
+                        )
+                        Switch(
+                            checked = memoryRow,
+                            onCheckedChange = { vm.setMemoryRow(it) }
                         )
                     }
                 }

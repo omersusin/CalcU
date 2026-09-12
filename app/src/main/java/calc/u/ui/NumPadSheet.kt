@@ -1,0 +1,142 @@
+package calc.u.ui
+
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.RowScope
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.Clear
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilledIconButton
+import androidx.compose.material3.FilledTonalButton
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.Text
+import androidx.compose.material3.rememberModalBottomSheetState
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.unit.dp
+
+class NumPadState {
+    var text by mutableStateOf("")
+    var show by mutableStateOf(false)
+    var onCommit: (String) -> Unit by mutableStateOf({})
+
+    fun open(current: String, onCommit: (String) -> Unit) {
+        text = current
+        this.onCommit = onCommit
+        show = true
+    }
+}
+
+@Composable
+fun rememberNumPadState(): NumPadState = remember { NumPadState() }
+
+private fun smartParen(text: String): String {
+    val open = text.count { it == '(' }
+    val close = text.count { it == ')' }
+    val last = text.lastOrNull()
+    return if (open > close && (last?.isDigit() == true || last == ')' || last == '%')) {
+        "$text)"
+    } else {
+        "$text("
+    }
+}
+
+@Composable
+private fun RowScope.PadKey(
+    label: String,
+    tonal: Boolean,
+    onClick: () -> Unit
+) {
+    val modifier = Modifier.weight(1f).height(56.dp)
+    if (tonal) {
+        FilledTonalButton(onClick = onClick, modifier = modifier) {
+            Text(label, style = MaterialTheme.typography.titleLarge, maxLines = 1)
+        }
+    } else {
+        OutlinedButton(onClick = onClick, modifier = modifier) {
+            Text(label, style = MaterialTheme.typography.titleLarge, maxLines = 1)
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun NumPadSheet(state: NumPadState, title: String) {
+    if (!state.show) return
+    ModalBottomSheet(
+        onDismissRequest = { state.show = false },
+        sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    ) {
+        Column(
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Text(
+                    title,
+                    style = MaterialTheme.typography.titleLarge,
+                    modifier = Modifier.weight(1f).semantics { heading() },
+                    maxLines = 1
+                )
+                IconButton(onClick = { state.text = "" }) {
+                    Icon(Icons.Filled.Clear, contentDescription = "Clear input")
+                }
+                FilledIconButton(
+                    onClick = {
+                        state.onCommit(state.text)
+                        state.show = false
+                    }
+                ) {
+                    Icon(Icons.Filled.Check, contentDescription = "Done")
+                }
+            }
+            val rows = listOf(
+                listOf("AC", "()", "%", "÷"),
+                listOf("7", "8", "9", "×"),
+                listOf("4", "5", "6", "−"),
+                listOf("1", "2", "3", "+"),
+                listOf("0", "00", ".", "⌫")
+            )
+            fun onKey(k: String) {
+                when (k) {
+                    "AC" -> state.text = ""
+                    "⌫" -> state.text = state.text.dropLast(1)
+                    "()" -> state.text = smartParen(state.text)
+                    else -> state.text += k
+                }
+            }
+            fun isTonal(k: String): Boolean =
+                k == "." || k == "00" || (k.length == 1 && k[0].isDigit())
+            rows.forEach { row ->
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    row.forEach { k ->
+                        PadKey(label = k, tonal = isTonal(k), onClick = { onKey(k) })
+                    }
+                }
+            }
+        }
+    }
+}

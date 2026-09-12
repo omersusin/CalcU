@@ -17,8 +17,15 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.AttachMoney
+import androidx.compose.material.icons.filled.DateRange
+import androidx.compose.material.icons.filled.Favorite
+import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.Percent
+import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.StarBorder
 import androidx.compose.material.icons.filled.SwapVert
@@ -52,14 +59,19 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import calc.u.core.ClockAngle
@@ -277,13 +289,118 @@ private fun NumField(
     modifier: Modifier = Modifier,
     integer: Boolean = false
 ) {
-    CalcUNumberBox(
-        value = value,
-        onValueChange = onChange,
-        label = label,
-        integer = integer,
-        modifier = modifier
+    val pad = calc.u.ui.rememberNumPadState()
+    Box(modifier.clickable { pad.open(value, onChange) }) {
+        OutlinedTextField(
+            value = value,
+            onValueChange = {},
+            readOnly = true,
+            label = { Text(label) },
+            singleLine = true,
+            modifier = Modifier.fillMaxWidth()
+        )
+    }
+    if (pad.show) {
+        calc.u.ui.NumPadSheet(pad, label)
+    }
+}
+
+@Composable
+private fun ToolResultRow(
+    icon: ImageVector,
+    label: String,
+    value: String,
+    tint: Color = MaterialTheme.colorScheme.primary
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Box(
+            modifier = Modifier.size(32.dp)
+                .background(tint.copy(alpha = 0.12f), RoundedCornerShape(8.dp)),
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(icon, contentDescription = null, tint = tint, modifier = Modifier.size(18.dp))
+        }
+        Text(
+            label,
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.weight(1f)
+        )
+        Text(
+            value,
+            style = MaterialTheme.typography.titleMedium.copy(fontFeatureSettings = "tnum"),
+            color = MaterialTheme.colorScheme.onSurface,
+            textAlign = TextAlign.End,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis
+        )
+    }
+}
+
+@Composable
+private fun PrimePill(label: String, isPrime: Boolean) {
+    val bg = if (isPrime) Color(0xFF2E7D32) else Color(0xFFC62828)
+    Box(
+        modifier = Modifier.background(bg, RoundedCornerShape(16.dp))
+            .padding(horizontal = 12.dp, vertical = 6.dp),
+        contentAlignment = Alignment.Center
+    ) {
+        Text(
+            "$label: " + if (isPrime) "Yes ✓" else "No ✕",
+            style = MaterialTheme.typography.labelLarge,
+            color = Color.White
+        )
+    }
+}
+
+@Composable
+private fun BmiBar(bmi: Double) {
+    val segments = listOf(
+        Color(0xFF4CAF50),
+        Color(0xFF9CCC65),
+        Color(0xFFFFC107),
+        Color(0xFFFF9800),
+        Color(0xFFF44336)
     )
+    val frac = if (!bmi.isFinite()) -1f else ((bmi - 14.0) / (36.0 - 14.0)).toFloat().coerceIn(0f, 1f)
+    Canvas(modifier = Modifier.fillMaxWidth().height(12.dp)) {
+        val gap = 4.dp.toPx()
+        val segW = (size.width - gap * (segments.size - 1)) / segments.size
+        segments.forEachIndexed { i, c ->
+            drawRoundRect(
+                color = c,
+                topLeft = Offset(x = i * (segW + gap), y = 0f),
+                size = Size(width = segW, height = size.height),
+                cornerRadius = CornerRadius(x = 6.dp.toPx(), y = 6.dp.toPx())
+            )
+        }
+        if (frac >= 0f) {
+            val markerW = 3.dp.toPx()
+            val x = (frac * size.width).coerceIn(0f, size.width)
+            drawRoundRect(
+                color = Color.Black,
+                topLeft = Offset(
+                    x = (x - markerW / 2).coerceIn(0f, (size.width - markerW).coerceAtLeast(0f)),
+                    y = -2.dp.toPx()
+                ),
+                size = Size(width = markerW, height = size.height + 4.dp.toPx()),
+                cornerRadius = CornerRadius(x = markerW / 2, y = markerW / 2)
+            )
+        }
+    }
+}
+
+private fun bmiPlainLabel(category: String, bmi: Double): String = when {
+    !bmi.isFinite() -> "Enter your weight and height to see your BMI."
+    category == "Underweight" -> "Below the healthy range — consider checking with your doctor."
+    category == "Normal" -> "In the healthy range — nice work."
+    category == "Overweight" -> "A little above the healthy range — small steps help."
+    category == "Obese" -> "Well above the healthy range — consider checking with your doctor."
+    else -> "Enter your weight and height to see your BMI."
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -410,12 +527,13 @@ private fun UnitExprCard() {
 @Composable
 fun ConvertersScreen() {
     var input by remember { mutableStateOf("1") }
-    var outputOverride by remember { mutableStateOf<String?>(null) }
+    var rowOverrides by remember { mutableStateOf(mapOf<String, String>()) }
     var lastCleared by remember { mutableStateOf<String?>(null) }
     var undoVisible by remember { mutableStateOf(false) }
     var cat by remember { mutableStateOf("length") }
     var from by remember { mutableStateOf("m") }
     var to by remember { mutableStateOf("ft") }
+    var toRows by remember { mutableStateOf(listOf<String>()) }
     var feet by remember { mutableStateOf("5") }
     var inches by remember { mutableStateOf("9") }
     var baseInput by remember { mutableStateOf("42") }
@@ -431,7 +549,16 @@ fun ConvertersScreen() {
     val v = num(input)
     val units: List<String> = if (cat == "temp") Units.temperature else mapFor(cat).keys.toList()
     val safeFrom = if (from in units) from else units.firstOrNull() ?: ""
-    val safeTo = if (to in units) to else units.getOrNull(1) ?: units.firstOrNull() ?: ""
+    val legacyTo = if (to in units) to else units.getOrNull(1) ?: units.firstOrNull() ?: ""
+    val effectiveRows: List<String> = run {
+        val clean = toRows.filter { it in units }.distinct()
+        if (clean.isNotEmpty()) clean
+        else {
+            val extras = units.filter { it != safeFrom && it != legacyTo }.take(2)
+            (listOf(legacyTo) + extras).filter { it.isNotBlank() }.distinct()
+        }
+    }
+    val safeTo = effectiveRows.firstOrNull() ?: legacyTo
     fun convertOrNull(amount: Double, f: String, t: String): Double? = runCatching {
         if (f.isBlank() || t.isBlank()) null
         else if (f == t) amount
@@ -444,12 +571,17 @@ fun ConvertersScreen() {
             Units.convert(amount, ff, tt)
         }?.takeIf { it.isFinite() }
     }.getOrNull()?.takeIf { it?.isFinite() == true }
-    val forwardVal: Double? = convertOrNull(v, safeFrom, safeTo)
-    val result: String = forwardVal?.let { fmt(it) } ?: "—"
-    fun reverseTo(newBottom: String) {
-        outputOverride = newBottom
-        val parsed = newBottom.toDoubleOrNull() ?: return
-        convertOrNull(parsed, safeTo, safeFrom)?.let { back ->
+    fun factorFor(target: String): String = runCatching {
+        convertOrNull(1.0, safeFrom, target)?.let { fmt(it) } ?: "—"
+    }.getOrDefault("—")
+    fun rowText(unit: String): String {
+        rowOverrides[unit]?.let { return it }
+        return convertOrNull(v, safeFrom, unit)?.let { fmt(it) } ?: ""
+    }
+    fun reverseFromRow(newText: String, rowUnit: String) {
+        rowOverrides = mapOf(rowUnit to newText)
+        val parsed = newText.toDoubleOrNull() ?: return
+        convertOrNull(parsed, rowUnit, safeFrom)?.let { back ->
             if (back.isFinite()) input = fmt(back)
         }
     }
@@ -465,12 +597,15 @@ fun ConvertersScreen() {
     val favorites by prefs.favoritesFlow(cat).collectAsState(initial = emptySet())
     val hidden by prefs.hiddenFlow(cat).collectAsState(initial = emptySet())
     LaunchedEffect(cat) {
-        outputOverride = null
+        rowOverrides = emptyMap()
         runCatching {
             val (savedFrom, savedTo) = prefs.getPair(cat)
             if (savedFrom != null && savedFrom in units) from = savedFrom
             if (savedTo != null && savedTo in units) to = savedTo
         }
+    }
+    LaunchedEffect(safeTo) {
+        if (safeTo.isNotBlank() && safeTo != to && safeTo in units) to = safeTo
     }
     LaunchedEffect(cat, from, to) {
         runCatching {
@@ -505,8 +640,27 @@ fun ConvertersScreen() {
         pickerOpen = true
     }
     fun pick(unit: String) {
-        if (sheetTarget == "from") from = unit else to = unit
-        outputOverride = null
+        val t = sheetTarget
+        when {
+            t == "from" -> from = unit
+            t == "to" -> {
+                to = unit
+                toRows = (listOf(unit) + effectiveRows.filter { it != unit })
+                    .take(maxOf(1, effectiveRows.size))
+            }
+            t != null && t.startsWith("row:") -> {
+                val old = t.removePrefix("row:")
+                toRows = if (unit == old) effectiveRows
+                else if (unit in effectiveRows) effectiveRows.filter { it != old }
+                else effectiveRows.map { if (it == old) unit else it }
+                if (effectiveRows.firstOrNull() == old) to = unit
+            }
+            t == "add" -> {
+                if (unit !in effectiveRows) toRows = effectiveRows + unit
+            }
+            else -> to = unit
+        }
+        rowOverrides = emptyMap()
         pickerOpen = false
         sheetTarget = null
         query = ""
@@ -591,26 +745,26 @@ fun ConvertersScreen() {
         }
         item {
             SectionCard("Value") {
-                NumField(input, { input = it; outputOverride = null }, "Value to convert")
+                NumField(input, { input = it; rowOverrides = emptyMap() }, "Value in ${safeFrom.ifBlank { "source" }}")
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     TextButton(
                         onClick = {
-                            if (input.isNotEmpty() || outputOverride != null) {
+                            if (input.isNotEmpty() || rowOverrides.isNotEmpty()) {
                                 lastCleared = input
                                 input = ""
-                                outputOverride = null
+                                rowOverrides = emptyMap()
                                 undoVisible = true
                             }
                         },
-                        enabled = input.isNotEmpty() || outputOverride != null
+                        enabled = input.isNotEmpty() || rowOverrides.isNotEmpty()
                     ) { Text("Clear") }
                     if (undoVisible && lastCleared != null) {
                         TextButton(onClick = {
                             input = lastCleared ?: ""
-                            outputOverride = null
+                            rowOverrides = emptyMap()
                             lastCleared = null
                             undoVisible = false
                         }) { Text("Undo") }
@@ -636,9 +790,12 @@ fun ConvertersScreen() {
                     }
                     FilledTonalIconButton(onClick = {
                         val f = from
-                        from = to
+                        val first = effectiveRows.firstOrNull() ?: safeTo
+                        from = first
                         to = f
-                        outputOverride = null
+                        toRows = if (effectiveRows.isEmpty()) listOf(f)
+                        else effectiveRows.toMutableList().also { it[0] = f }
+                        rowOverrides = emptyMap()
                         swapped = !swapped
                     }, modifier = Modifier.size(48.dp)) {
                         Icon(
@@ -647,43 +804,51 @@ fun ConvertersScreen() {
                             modifier = Modifier.graphicsLayer { rotationZ = rotation }
                         )
                     }
-                    Box(Modifier.weight(1f).clickable { openPicker("to") }) {
-                        OutlinedTextField(
-                            value = safeTo,
-                            onValueChange = {},
-                            enabled = false,
-                            label = { Text("To") },
-                            modifier = Modifier.fillMaxWidth()
-                        )
-                    }
                 }
                 HorizontalDivider()
                 FluentStagger(0) {
-                    Column(
-                        Modifier.fillMaxWidth()
-                            .background(
-                                MaterialTheme.colorScheme.surfaceContainerHighest,
-                                MaterialTheme.shapes.medium
-                            )
-                            .padding(horizontal = 16.dp, vertical = 12.dp)
-                    ) {
-                        Text(
-                            safeTo.ifBlank { "Result" },
-                            style = MaterialTheme.typography.labelLarge,
-                            color = MaterialTheme.colorScheme.primary
-                        )
-                        Text(
-                            result,
-                            style = MaterialTheme.typography.displaySmall,
-                            color = MaterialTheme.colorScheme.onSurface,
-                            maxLines = 2,
-                            overflow = TextOverflow.Ellipsis
-                        )
+                    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                        effectiveRows.forEach { u ->
+                            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                                Row(
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Box(Modifier.weight(1f).clickable { openPicker("row:$u") }) {
+                                        OutlinedTextField(
+                                            value = u,
+                                            onValueChange = {},
+                                            enabled = false,
+                                            label = { Text("To unit") },
+                                            modifier = Modifier.fillMaxWidth()
+                                        )
+                                    }
+                                    Box(Modifier.weight(1f)) {
+                                        NumField(rowText(u), { reverseFromRow(it, u) }, "Value in $u")
+                                    }
+                                    TextButton(
+                                        onClick = {
+                                            toRows = effectiveRows.filter { it != u }
+                                            if (effectiveRows.firstOrNull() == u) {
+                                                to = effectiveRows.getOrNull(1) ?: safeFrom
+                                            }
+                                            rowOverrides = emptyMap()
+                                        },
+                                        enabled = effectiveRows.size > 1
+                                    ) { Text("X") }
+                                }
+                                Text(
+                                    "1 ${safeFrom.ifBlank { "source" }} = ${factorFor(u)} $u",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                        }
                     }
                 }
-                NumField(outputOverride ?: (if (forwardVal != null) result else ""), { reverseTo(it) }, "Result in ${safeTo.ifBlank { "target" }} (editable)")
+                TextButton(onClick = { openPicker("add") }) { Text("+ Add unit") }
                 Text(
-                    "Typing here reverse-converts into ${safeFrom.ifBlank { "source" }}.",
+                    "Editing any value recomputes all others via ${safeFrom.ifBlank { "source" }}.",
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -885,7 +1050,7 @@ fun FinanceScreen() {
                     }
                 }
                 HorizontalDivider()
-                ResultLine("Result", pctOut)
+                ToolResultRow(Icons.Filled.Percent, "Result", pctOut)
             }
         }
         item {
@@ -895,9 +1060,9 @@ fun FinanceScreen() {
                 Slider(value = tipPct, onValueChange = { tipPct = it }, valueRange = 0f..30f)
                 NumField(split, { split = it }, "Split between", integer = true)
                 HorizontalDivider()
-                ResultLine("Tip", fmt(tipAmt, 2))
-                ResultLine("Total", fmt(grand, 2))
-                ResultLine("Per person", fmt(per, 2))
+                ToolResultRow(Icons.Filled.AttachMoney, "Tip", fmt(tipAmt, 2))
+                ToolResultRow(Icons.Filled.AttachMoney, "Total", fmt(grand, 2))
+                ToolResultRow(Icons.Filled.AttachMoney, "Per person", fmt(per, 2))
             }
         }
         item {
@@ -910,11 +1075,11 @@ fun FinanceScreen() {
                 )
                 Slider(value = monthsF, onValueChange = { monthsF = it }, valueRange = 6f..360f)
                 HorizontalDivider()
-                ResultLine("Monthly EMI", fmt(emi, 2))
-                ResultLine("Total interest", fmt(totalInt, 2))
+                ToolResultRow(Icons.Filled.AttachMoney, "Monthly EMI", fmt(emi, 2))
+                ToolResultRow(Icons.Filled.AttachMoney, "Total interest", fmt(totalInt, 2))
                 sched.forEach { row ->
                     val tag = if (row.n == months && months > 3) "Month $months (last)" else "Month ${row.n}"
-                    ResultLine(tag, "int ${fmt(row.interest, 2)} · bal ${fmt(row.balance, 2)}")
+                    ToolResultRow(Icons.Filled.DateRange, tag, "int ${fmt(row.interest, 2)} · bal ${fmt(row.balance, 2)}")
                 }
             }
         }
@@ -922,9 +1087,9 @@ fun FinanceScreen() {
             SectionCard("Interest over time") {
                 NumField(years, { years = it }, "Years")
                 HorizontalDivider()
-                ResultLine("Simple interest", fmt(si, 2))
-                ResultLine("Simple total", fmt(siTotal, 2))
-                ResultLine("Compound total", fmt(ci, 2))
+                ToolResultRow(Icons.Filled.AttachMoney, "Simple interest", fmt(si, 2))
+                ToolResultRow(Icons.Filled.AttachMoney, "Simple total", fmt(siTotal, 2))
+                ToolResultRow(Icons.Filled.AttachMoney, "Compound total", fmt(ci, 2))
             }
         }
         item {
@@ -948,8 +1113,8 @@ fun FinanceScreen() {
                     }
                 }
                 HorizontalDivider()
-                ResultLine(if (inclusive) "Net" else "Total", fmt(taxTotal, 2))
-                ResultLine("Tax", fmt(taxAmt, 2))
+                ToolResultRow(Icons.Filled.AttachMoney, if (inclusive) "Net" else "Total", fmt(taxTotal, 2))
+                ToolResultRow(Icons.Filled.AttachMoney, "Tax", fmt(taxAmt, 2))
             }
         }
         item {
@@ -963,9 +1128,9 @@ fun FinanceScreen() {
                     Box(Modifier.weight(1f)) { NumField(qtyB, { qtyB = it }, "Qty B") }
                 }
                 HorizontalDivider()
-                ResultLine("Unit price A", fmt(unitA, 4))
-                ResultLine("Unit price B", fmt(unitB, 4))
-                ResultLine("Verdict", verdict)
+                ToolResultRow(Icons.Filled.AttachMoney, "Unit price A", fmt(unitA, 4))
+                ToolResultRow(Icons.Filled.AttachMoney, "Unit price B", fmt(unitB, 4))
+                ToolResultRow(Icons.Filled.Info, "Verdict", verdict)
             }
         }
         item {
@@ -981,9 +1146,9 @@ fun FinanceScreen() {
                 Text("Years: ${sipYf.toInt()}", style = MaterialTheme.typography.labelLarge)
                 Slider(value = sipYf, onValueChange = { sipYf = it }, valueRange = 1f..40f)
                 HorizontalDivider()
-                ResultLine("Invested", fmt(res?.first ?: Double.NaN, 2))
-                ResultLine("Gain", fmt(res?.second ?: Double.NaN, 2))
-                ResultLine("Total", fmt(res?.third ?: Double.NaN, 2))
+                ToolResultRow(Icons.Filled.AttachMoney, "Invested", fmt(res?.first ?: Double.NaN, 2))
+                ToolResultRow(Icons.Filled.AttachMoney, "Gain", fmt(res?.second ?: Double.NaN, 2))
+                ToolResultRow(Icons.Filled.AttachMoney, "Total", fmt(res?.third ?: Double.NaN, 2))
                 val sipInvested = res?.first ?: 0.0
                 val sipGain = res?.second ?: 0.0
                 val sipTotal = res?.third ?: 0.0
@@ -1037,7 +1202,7 @@ fun FinanceScreen() {
                     Box(Modifier.weight(1f)) { NumField(cagrY, { cagrY = it }, "Years") }
                 }
                 HorizontalDivider()
-                ResultLine("CAGR %", if (r == null) "—" else fmt(r * 100, 2))
+                ToolResultRow(Icons.Filled.Percent, "CAGR %", if (r == null) "—" else fmt(r * 100, 2))
             }
         }
         item {
@@ -1052,8 +1217,8 @@ fun FinanceScreen() {
                     Box(Modifier.weight(1f)) { NumField(fdY, { fdY = it }, "Years") }
                 }
                 HorizontalDivider()
-                ResultLine("Interest", fmt(res?.second ?: Double.NaN, 2))
-                ResultLine("Total", fmt(res?.third ?: Double.NaN, 2))
+                ToolResultRow(Icons.Filled.AttachMoney, "Interest", fmt(res?.second ?: Double.NaN, 2))
+                ToolResultRow(Icons.Filled.AttachMoney, "Total", fmt(res?.third ?: Double.NaN, 2))
             }
         }
         item {
@@ -1081,9 +1246,9 @@ fun FinanceScreen() {
                     }
                 }
                 HorizontalDivider()
-                ResultLine("Net", fmt(res?.first ?: Double.NaN, 2))
-                ResultLine("Tax", fmt(res?.second ?: Double.NaN, 2))
-                ResultLine("Gross", fmt(res?.third ?: Double.NaN, 2))
+                ToolResultRow(Icons.Filled.AttachMoney, "Net", fmt(res?.first ?: Double.NaN, 2))
+                ToolResultRow(Icons.Filled.AttachMoney, "Tax", fmt(res?.second ?: Double.NaN, 2))
+                ToolResultRow(Icons.Filled.AttachMoney, "Gross", fmt(res?.third ?: Double.NaN, 2))
             }
         }
         item {
@@ -1103,8 +1268,8 @@ fun FinanceScreen() {
                     Box(Modifier.weight(1f)) { NumField(avg, { avg = it }, "Avg km/h") }
                 }
                 HorizontalDivider()
-                ResultLine("Fuel cost", cost?.let { fmt(it, 2) } ?: "—")
-                ResultLine("Drive time h", time?.let { fmt(it, 2) } ?: "—")
+                ToolResultRow(Icons.Filled.AttachMoney, "Fuel cost", cost?.let { fmt(it, 2) } ?: "—")
+                ToolResultRow(Icons.Filled.DateRange, "Drive time h", time?.let { fmt(it, 2) } ?: "—")
             }
         }
         item {
@@ -1123,9 +1288,9 @@ fun FinanceScreen() {
                     Box(Modifier.weight(1f)) { NumField(pr2, { pr2 = it }, "Price 2") }
                 }
                 HorizontalDivider()
-                ResultLine("Total shares", fmt(res?.first ?: Double.NaN, 2))
-                ResultLine("Average price", fmt(res?.second ?: Double.NaN, 2))
-                ResultLine("Total cost", fmt(res?.third ?: Double.NaN, 2))
+                ToolResultRow(Icons.Filled.Info, "Total shares", fmt(res?.first ?: Double.NaN, 2))
+                ToolResultRow(Icons.Filled.AttachMoney, "Average price", fmt(res?.second ?: Double.NaN, 2))
+                ToolResultRow(Icons.Filled.AttachMoney, "Total cost", fmt(res?.third ?: Double.NaN, 2))
             }
         }
         item {
@@ -1140,7 +1305,7 @@ fun FinanceScreen() {
                     Box(Modifier.weight(1f)) { NumField(sgY, { sgY = it }, "Years") }
                 }
                 HorizontalDivider()
-                ResultLine("Future value", fv?.let { fmt(it, 2) } ?: "—")
+                ToolResultRow(Icons.Filled.AttachMoney, "Future value", fv?.let { fmt(it, 2) } ?: "—")
             }
         }
         item {
@@ -1149,7 +1314,7 @@ fun FinanceScreen() {
             SectionCard("Rule of 72") {
                 NumField(r72, { r72 = it }, "Rate %")
                 HorizontalDivider()
-                ResultLine("Years to double", dbl?.let { fmt(it, 2) } ?: "—")
+                ToolResultRow(Icons.Filled.DateRange, "Years to double", dbl?.let { fmt(it, 2) } ?: "—")
             }
         }
         item {
@@ -1176,7 +1341,7 @@ fun FinanceScreen() {
                     Box(Modifier.weight(1f)) { NumField(gpaC3, { gpaC3 = it }, "Credits 3") }
                 }
                 HorizontalDivider()
-                ResultLine("GPA", gpa?.let { fmt(it, 2) } ?: "—")
+                ToolResultRow(Icons.Filled.Info, "GPA", gpa?.let { fmt(it, 2) } ?: "—")
             }
         }
         item {
@@ -1191,7 +1356,7 @@ fun FinanceScreen() {
                     Box(Modifier.weight(1f)) { NumField(gnTarget, { gnTarget = it }, "Target %") }
                 }
                 HorizontalDivider()
-                ResultLine("Needed on remainder", needed?.let { fmt(it, 2) + " %" } ?: "—")
+                ToolResultRow(Icons.Filled.Percent, "Needed on remainder", needed?.let { fmt(it, 2) + " %" } ?: "—")
             }
         }
         item {
@@ -1206,9 +1371,9 @@ fun FinanceScreen() {
                     Box(Modifier.weight(1f)) { NumField(pcTax, { pcTax = it }, "Tax %") }
                 }
                 HorizontalDivider()
-                ResultLine("Gross / month", res?.let { fmt(it.first, 2) } ?: "—")
-                ResultLine("Tax / month", res?.let { fmt(it.second, 2) } ?: "—")
-                ResultLine("Net / month", res?.let { fmt(it.third, 2) } ?: "—")
+                ToolResultRow(Icons.Filled.AttachMoney, "Gross / month", res?.let { fmt(it.first, 2) } ?: "—")
+                ToolResultRow(Icons.Filled.AttachMoney, "Tax / month", res?.let { fmt(it.second, 2) } ?: "—")
+                ToolResultRow(Icons.Filled.AttachMoney, "Net / month", res?.let { fmt(it.third, 2) } ?: "—")
             }
         }
         item {
@@ -1223,9 +1388,9 @@ fun FinanceScreen() {
                     Box(Modifier.weight(1f)) { NumField(poPay, { poPay = it }, "Monthly pay") }
                 }
                 HorizontalDivider()
-                ResultLine("Months", res?.first?.toString() ?: "—")
-                ResultLine("Total interest", res?.let { fmt(it.second, 2) } ?: "—")
-                ResultLine("Total paid", res?.let { fmt(it.third, 2) } ?: "—")
+                ToolResultRow(Icons.Filled.DateRange, "Months", res?.first?.toString() ?: "—")
+                ToolResultRow(Icons.Filled.AttachMoney, "Total interest", res?.let { fmt(it.second, 2) } ?: "—")
+                ToolResultRow(Icons.Filled.AttachMoney, "Total paid", res?.let { fmt(it.third, 2) } ?: "—")
             }
         }
         item {
@@ -1246,9 +1411,9 @@ fun FinanceScreen() {
                     Box(Modifier.weight(1f)) { NumField(lcRb, { lcRb = it }, "Rate B %") }
                 }
                 HorizontalDivider()
-                ResultLine("EMI A", res?.let { fmt(it.first, 2) } ?: "—")
-                ResultLine("EMI B", res?.let { fmt(it.second, 2) } ?: "—")
-                ResultLine("Savings total (B-A)", res?.let { fmt(it.third, 2) } ?: "—")
+                ToolResultRow(Icons.Filled.AttachMoney, "EMI A", res?.let { fmt(it.first, 2) } ?: "—")
+                ToolResultRow(Icons.Filled.AttachMoney, "EMI B", res?.let { fmt(it.second, 2) } ?: "—")
+                ToolResultRow(Icons.Filled.AttachMoney, "Savings total (B-A)", res?.let { fmt(it.third, 2) } ?: "—")
             }
         }
         item {
@@ -1261,7 +1426,7 @@ fun FinanceScreen() {
                     Box(Modifier.weight(1f)) { NumField(mgPrice, { mgPrice = it }, "Price") }
                 }
                 HorizontalDivider()
-                ResultLine("Margin", margin?.let { fmt(it, 2) + " %" } ?: "—")
+                ToolResultRow(Icons.Filled.Percent, "Margin", margin?.let { fmt(it, 2) + " %" } ?: "—")
             }
         }
         item {
@@ -1292,12 +1457,12 @@ fun FinanceScreen() {
                 coins.forEach { id ->
                     val coin = prices[id]
                     if (coin == null) {
-                        ResultLine(id, "—")
+                        ToolResultRow(Icons.Filled.AttachMoney, id, "—")
                     } else {
                         val change = coin.usd_24h_change
                         val changeTxt = if (change == null) "n/a" else fmt(change, 2) + " %"
                         val qty = if (coin.usd.isFinite() && coin.usd > 0 && amt.isFinite()) amt / coin.usd else Double.NaN
-                        ResultLine(id, fmt(coin.usd, 2) + " USD (" + changeTxt + ") → " + fmt(qty, 6))
+                        ToolResultRow(Icons.Filled.AttachMoney, id, fmt(coin.usd, 2) + " USD (" + changeTxt + ") → " + fmt(qty, 6))
                     }
                 }
             }
@@ -1314,7 +1479,7 @@ fun FinanceScreen() {
                 }
                 NumField(zakNisab, { zakNisab = it }, "Nisab")
                 HorizontalDivider()
-                ResultLine("Zakat due", due?.let { fmt(it, 2) } ?: "—")
+                ToolResultRow(Icons.Filled.AttachMoney, "Zakat due", due?.let { fmt(it, 2) } ?: "—")
             }
         }
         item {
@@ -1352,10 +1517,10 @@ fun FinanceScreen() {
                     }
                 }
                 HorizontalDivider()
-                ResultLine("Days", days?.takeIf { it > 0 }?.toString() ?: "—")
-                ResultLine("Profit", roi?.let { fmt(it.first, 2) } ?: "—")
-                ResultLine("Return", roi?.let { fmt(it.second, 2) + " %" } ?: "—")
-                ResultLine("Annualized", roi?.let { fmt(it.third, 2) + " %" } ?: "—")
+                ToolResultRow(Icons.Filled.DateRange, "Days", days?.takeIf { it > 0 }?.toString() ?: "—")
+                ToolResultRow(Icons.Filled.AttachMoney, "Profit", roi?.let { fmt(it.first, 2) } ?: "—")
+                ToolResultRow(Icons.Filled.Percent, "Return", roi?.let { fmt(it.second, 2) + " %" } ?: "—")
+                ToolResultRow(Icons.Filled.Percent, "Annualized", roi?.let { fmt(it.third, 2) + " %" } ?: "—")
             }
         }
         item {
@@ -1391,14 +1556,14 @@ fun FinanceScreen() {
                     }
                 }
                 HorizontalDivider()
-                ResultLine("Net", gstRes?.let { fmt(it.first, 2) } ?: "—")
+                ToolResultRow(Icons.Filled.AttachMoney, "Net", gstRes?.let { fmt(it.first, 2) } ?: "—")
                 if (gstIntra) {
-                    ResultLine("CGST", runCatching { fmt(gstTax / 2, 2) }.getOrDefault("—"))
-                    ResultLine("SGST", runCatching { fmt(gstTax / 2, 2) }.getOrDefault("—"))
+                    ToolResultRow(Icons.Filled.AttachMoney, "CGST", runCatching { fmt(gstTax / 2, 2) }.getOrDefault("—"))
+                    ToolResultRow(Icons.Filled.AttachMoney, "SGST", runCatching { fmt(gstTax / 2, 2) }.getOrDefault("—"))
                 } else {
-                    ResultLine("IGST", runCatching { fmt(gstTax, 2) }.getOrDefault("—"))
+                    ToolResultRow(Icons.Filled.AttachMoney, "IGST", runCatching { fmt(gstTax, 2) }.getOrDefault("—"))
                 }
-                ResultLine("Gross", gstRes?.let { fmt(it.third, 2) } ?: "—")
+                ToolResultRow(Icons.Filled.AttachMoney, "Gross", gstRes?.let { fmt(it.third, 2) } ?: "—")
             }
         }
         item {
@@ -1416,8 +1581,8 @@ fun FinanceScreen() {
                 }
                 NumField(lpM, { lpM = it }, "Months", integer = true)
                 HorizontalDivider()
-                ResultLine("Monthly EMI", lpEmi?.let { fmt(it, 2) } ?: "—")
-                ResultLine("Total interest", runCatching { fmt(lpInt, 2) }.getOrDefault("—"))
+                ToolResultRow(Icons.Filled.AttachMoney, "Monthly EMI", lpEmi?.let { fmt(it, 2) } ?: "—")
+                ToolResultRow(Icons.Filled.AttachMoney, "Total interest", runCatching { fmt(lpInt, 2) }.getOrDefault("—"))
                 PieChart(
                     listOf("Principal" to lpPrin.coerceAtLeast(0.0), "Interest" to lpInt.coerceAtLeast(0.0)),
                     "Monthly",
@@ -1453,8 +1618,8 @@ fun FinanceScreen() {
                     }
                 }
                 HorizontalDivider()
-                ResultLine("Interest", bdRes?.let { fmt(it.second, 2) } ?: "—")
-                ResultLine("Maturity", bdRes?.let { fmt(it.third, 2) } ?: "—")
+                ToolResultRow(Icons.Filled.AttachMoney, "Interest", bdRes?.let { fmt(it.second, 2) } ?: "—")
+                ToolResultRow(Icons.Filled.AttachMoney, "Maturity", bdRes?.let { fmt(it.third, 2) } ?: "—")
                 PieChart(
                     listOf(
                         "Principal" to (bdRes?.first ?: 0.0).coerceAtLeast(0.0),
@@ -1512,6 +1677,11 @@ private fun NumbersContent() {
     var c2 by remember { mutableStateOf("1") }
     var fracN by remember { mutableStateOf("24") }
     var fracD by remember { mutableStateOf("36") }
+    var la by remember { mutableStateOf("1") }
+    var lb by remember { mutableStateOf("-2") }
+    var ohmV by remember { mutableStateOf("") }
+    var ohmI by remember { mutableStateOf("") }
+    var ohmR by remember { mutableStateOf("") }
     val av = a.toLongOrNull() ?: 0L
     val bv = b.toLongOrNull() ?: 0L
     val values = parseList(listInput)
@@ -1533,6 +1703,18 @@ private fun NumbersContent() {
     val qbv = num(qb)
     val qcv = num(qc)
     val roots = runCatching { Engine.solveQuadratic(qav, qbv, qcv) }.getOrDefault(emptyList())
+    val lav = num(la)
+    val lbv = num(lb)
+    val linRes = when {
+        !lav.isFinite() || !lbv.isFinite() -> "—"
+        lav == 0.0 -> if (lbv == 0.0) "any x" else "no solution"
+        else -> "x=" + fmt(-lbv / lav, 6)
+    }
+    val ohmVi = ohmV.trim().takeIf { it.isNotEmpty() }?.toDoubleOrNull()
+    val ohmCi = ohmI.trim().takeIf { it.isNotEmpty() }?.toDoubleOrNull()
+    val ohmRi = ohmR.trim().takeIf { it.isNotEmpty() }?.toDoubleOrNull()
+    val (ohmVo, ohmCo, ohmRo) = runCatching { HealthDate.ohm(ohmVi, ohmCi, ohmRi) }
+        .getOrDefault(Triple(ohmVi, ohmCi, ohmRi))
     val m1 = num(a1)
     val n1 = num(b1)
     val o1 = num(c1)
@@ -1559,13 +1741,15 @@ private fun NumbersContent() {
                     Box(Modifier.weight(1f)) { NumField(b, { b = it }, "b", integer = true) }
                 }
                 HorizontalDivider()
-                ResultLine("GCD", runCatching { "${Engine.gcd(av, bv)}" }.getOrDefault("—"))
-                ResultLine("LCM", "${runCatching { Engine.lcm(av, bv) }.getOrDefault(0)}")
-                ResultLine("a is prime", runCatching { if (Engine.isPrime(av)) "yes" else "no" }.getOrDefault("—"))
-                ResultLine("b is prime", runCatching { if (Engine.isPrime(bv)) "yes" else "no" }.getOrDefault("—"))
-                ResultLine("nCr", "${runCatching { Engine.nCr(av, bv) }.getOrDefault(0)}")
-                ResultLine("nPr", "${runCatching { Engine.nPr(av, bv) }.getOrDefault(0)}")
-                ResultLine("a!", factorial(av)?.toString() ?: "too large")
+                ToolResultRow(Icons.Filled.Info, "GCD", runCatching { "${Engine.gcd(av, bv)}" }.getOrDefault("—"))
+                ToolResultRow(Icons.Filled.Info, "LCM", "${runCatching { Engine.lcm(av, bv) }.getOrDefault(0)}")
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    PrimePill("a", runCatching { Engine.isPrime(av) }.getOrDefault(false))
+                    PrimePill("b", runCatching { Engine.isPrime(bv) }.getOrDefault(false))
+                }
+                ToolResultRow(Icons.Filled.Info, "nCr", "${runCatching { Engine.nCr(av, bv) }.getOrDefault(0)}")
+                ToolResultRow(Icons.Filled.Info, "nPr", "${runCatching { Engine.nPr(av, bv) }.getOrDefault(0)}")
+                ToolResultRow(Icons.Filled.Info, "a!", factorial(av)?.toString() ?: "too large")
             }
         }
         item {
@@ -1574,15 +1758,15 @@ private fun NumbersContent() {
                     Box(Modifier.weight(1f)) { NumField(pctP, { pctP = it }, "%") }
                     Box(Modifier.weight(1f)) { NumField(pctX, { pctX = it }, "of value") }
                 }
-                ResultLine("Result", fmt(num(pctX) * num(pctP) / 100))
+                ToolResultRow(Icons.Filled.Percent, "Result", fmt(num(pctX) * num(pctP) / 100))
                 HorizontalDivider()
                 Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                     Box(Modifier.weight(1f)) { NumField(discPrice, { discPrice = it }, "Price") }
                     Box(Modifier.weight(1f)) { NumField(discPct, { discPct = it }, "Off %") }
                 }
                 val save = num(discPrice) * num(discPct) / 100
-                ResultLine("You save", fmt(save, 2))
-                ResultLine("Final price", fmt(num(discPrice) - save, 2))
+                ToolResultRow(Icons.Filled.AttachMoney, "You save", fmt(save, 2))
+                ToolResultRow(Icons.Filled.AttachMoney, "Final price", fmt(num(discPrice) - save, 2))
             }
         }
         item {
@@ -1594,37 +1778,87 @@ private fun NumbersContent() {
                     }
                 }
                 HorizontalDivider()
-                ResultLine(stat, statValue)
+                ToolResultRow(Icons.Filled.Info, stat, statValue)
+            }
+        }
+        item {
+            SectionCard("Linear solver") {
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Box(Modifier.weight(1f)) { NumField(la, { la = it }, "a") }
+                    Text("x +", style = MaterialTheme.typography.titleMedium)
+                    Box(Modifier.weight(1f)) { NumField(lb, { lb = it }, "b") }
+                    Text("= 0", style = MaterialTheme.typography.titleMedium)
+                }
+                HorizontalDivider()
+                ToolResultRow(Icons.Filled.Info, "Solution", linRes)
             }
         }
         item {
             SectionCard("Quadratic solver") {
-                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
                     Box(Modifier.weight(1f)) { NumField(qa, { qa = it }, "a") }
+                    Text("x² +", style = MaterialTheme.typography.titleMedium)
                     Box(Modifier.weight(1f)) { NumField(qb, { qb = it }, "b") }
+                    Text("x +", style = MaterialTheme.typography.titleMedium)
                     Box(Modifier.weight(1f)) { NumField(qc, { qc = it }, "c") }
+                    Text("= 0", style = MaterialTheme.typography.titleMedium)
                 }
                 HorizontalDivider()
-                ResultLine("Roots", if (roots.isEmpty()) "—" else roots.joinToString())
+                ToolResultRow(Icons.Filled.Info, "Roots", if (roots.isEmpty()) "—" else roots.joinToString())
             }
         }
         item {
             SectionCard("2x2 system solver") {
-                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
                     Box(Modifier.weight(1f)) { NumField(a1, { a1 = it }, "a1") }
+                    Text("x +", style = MaterialTheme.typography.titleMedium)
                     Box(Modifier.weight(1f)) { NumField(b1, { b1 = it }, "b1") }
+                    Text("y =", style = MaterialTheme.typography.titleMedium)
                     Box(Modifier.weight(1f)) { NumField(c1, { c1 = it }, "c1") }
                 }
-                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
                     Box(Modifier.weight(1f)) { NumField(a2, { a2 = it }, "a2") }
+                    Text("x +", style = MaterialTheme.typography.titleMedium)
                     Box(Modifier.weight(1f)) { NumField(b2, { b2 = it }, "b2") }
+                    Text("y =", style = MaterialTheme.typography.titleMedium)
                     Box(Modifier.weight(1f)) { NumField(c2, { c2 = it }, "c2") }
                 }
                 HorizontalDivider()
-                ResultLine(
+                ToolResultRow(
+                    Icons.Filled.Info,
                     "Solution",
                     if (sys == null) "no unique solution" else "x=${fmt(sys.first, 6)}, y=${fmt(sys.second, 6)}"
                 )
+            }
+        }
+        item {
+            SectionCard("Ohm's law") {
+                Text(
+                    "Fill any two to find the third",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Box(Modifier.weight(1f)) { NumField(ohmV, { ohmV = it }, "Volts") }
+                    Box(Modifier.weight(1f)) { NumField(ohmI, { ohmI = it }, "Amps") }
+                    Box(Modifier.weight(1f)) { NumField(ohmR, { ohmR = it }, "Ohms") }
+                }
+                HorizontalDivider()
+                ToolResultRow(Icons.Filled.Info, "Voltage", ohmVo?.let { fmt(it, 4) + " V" } ?: "—")
+                ToolResultRow(Icons.Filled.Info, "Current", ohmCo?.let { fmt(it, 4) + " A" } ?: "—")
+                ToolResultRow(Icons.Filled.Info, "Resistance", ohmRo?.let { fmt(it, 4) + " Ω" } ?: "—")
             }
         }
         item {
@@ -1634,7 +1868,7 @@ private fun NumbersContent() {
                     Box(Modifier.weight(1f)) { NumField(fracD, { fracD = it }, "Denominator", integer = true) }
                 }
                 HorizontalDivider()
-                ResultLine("Reduced", frac)
+                ToolResultRow(Icons.Filled.Info, "Reduced", frac)
             }
         }
         item {
@@ -1656,14 +1890,16 @@ private fun NumbersContent() {
                     Box(Modifier.weight(1f)) { NumField(a22, { a22 = it }, "a22") }
                 }
                 HorizontalDivider()
-                ResultLine("det", m?.let { runCatching { fmt(it.determinant()) }.getOrDefault("—") } ?: "—")
-                ResultLine(
+                ToolResultRow(Icons.Filled.Info, "det", m?.let { runCatching { fmt(it.determinant()) }.getOrDefault("—") } ?: "—")
+                ToolResultRow(
+                    Icons.Filled.Info,
                     "transpose",
                     runCatching {
                         m?.transpose()?.let { t -> "${fmt(t[0, 0])}, ${fmt(t[0, 1])} / ${fmt(t[1, 0])}, ${fmt(t[1, 1])}" } ?: "—"
                     }.getOrDefault("—")
                 )
-                ResultLine(
+                ToolResultRow(
+                    Icons.Filled.Info,
                     "inverse",
                     m?.let { runCatching { it.inverse().pretty().replace("\n", " ") }.getOrDefault("singular") } ?: "—"
                 )
@@ -1683,7 +1919,7 @@ private fun NumbersContent() {
                     Box(Modifier.weight(1f)) { NumField(cd, { cd = it }, "d") }
                 }
                 HorizontalDivider()
-                ResultLine("Roots", if (roots.isEmpty()) "—" else roots.joinToString())
+                ToolResultRow(Icons.Filled.Info, "Roots", if (roots.isEmpty()) "—" else roots.joinToString())
             }
         }
         item {
@@ -1692,10 +1928,10 @@ private fun NumbersContent() {
             SectionCard("Distribution stats") {
                 NumField(statsIn, { statsIn = it }, "Values, comma separated")
                 HorizontalDivider()
-                ResultLine("Median", vals.let { runCatching { fmt(Engine.statsMedian(it)) }.getOrDefault("—") })
-                ResultLine("Mode", vals.let { runCatching { fmt(Engine.statsMode(it)) }.getOrDefault("—") })
-                ResultLine("Variance", vals.let { runCatching { fmt(Engine.statsVariance(it)) }.getOrDefault("—") })
-                ResultLine("Stdev", vals.let { runCatching { fmt(Engine.statsStdev(it)) }.getOrDefault("—") })
+                ToolResultRow(Icons.Filled.Info, "Median", vals.let { runCatching { fmt(Engine.statsMedian(it)) }.getOrDefault("—") })
+                ToolResultRow(Icons.Filled.Info, "Mode", vals.let { runCatching { fmt(Engine.statsMode(it)) }.getOrDefault("—") })
+                ToolResultRow(Icons.Filled.Info, "Variance", vals.let { runCatching { fmt(Engine.statsVariance(it)) }.getOrDefault("—") })
+                ToolResultRow(Icons.Filled.Info, "Stdev", vals.let { runCatching { fmt(Engine.statsStdev(it)) }.getOrDefault("—") })
             }
         }
         item {
@@ -1723,17 +1959,19 @@ private fun NumbersContent() {
                 }
                 Button(onClick = { statVals = statVals + "" }) { Text("Add value") }
                 HorizontalDivider()
-                ResultLine("Count", "${parsed.size}")
-                ResultLine("Mean", runCatching { fmt(Engine.mean(parsed)) }.getOrDefault("—"))
-                ResultLine("Median", runCatching { fmt(Engine.statsMedian(parsed)) }.getOrDefault("—"))
-                ResultLine("Stdev", runCatching { fmt(Engine.statsStdev(parsed)) }.getOrDefault("—"))
+                ToolResultRow(Icons.Filled.Info, "Count", "${parsed.size}")
+                ToolResultRow(Icons.Filled.Info, "Mean", runCatching { fmt(Engine.mean(parsed)) }.getOrDefault("—"))
+                ToolResultRow(Icons.Filled.Info, "Median", runCatching { fmt(Engine.statsMedian(parsed)) }.getOrDefault("—"))
+                ToolResultRow(Icons.Filled.Info, "Stdev", runCatching { fmt(Engine.statsStdev(parsed)) }.getOrDefault("—"))
                 if (allIntegral) {
                     val intVals = longs.filterNotNull()
-                    ResultLine(
+                    ToolResultRow(
+                        Icons.Filled.Info,
                         "GCD",
                         runCatching { "${intVals.reduce { x, y -> Engine.gcd(x, y) }}" }.getOrDefault("—")
                     )
-                    ResultLine(
+                    ToolResultRow(
+                        Icons.Filled.Info,
                         "LCM",
                         runCatching { "${intVals.reduce { x, y -> Engine.lcm(x, y) }}" }.getOrDefault("—")
                     )
@@ -1764,7 +2002,7 @@ private fun NumbersContent() {
                         Text(fmt(c.value, 6), style = MaterialTheme.typography.bodyMedium)
                     }
                 }
-                if (hits.isEmpty()) ResultLine("No match", "—")
+                if (hits.isEmpty()) ToolResultRow(Icons.Filled.Info, "No match", "—")
             }
         }
         item {
@@ -1780,8 +2018,8 @@ private fun NumbersContent() {
                     Box(Modifier.weight(1f)) { NumField(diag, { diag = it }, "Inch") }
                 }
                 HorizontalDivider()
-                ResultLine("Aspect", aspect ?: "—")
-                ResultLine("PPI", ppiV?.let { fmt(it, 1) } ?: "—")
+                ToolResultRow(Icons.Filled.Info, "Aspect", aspect ?: "—")
+                ToolResultRow(Icons.Filled.Info, "PPI", ppiV?.let { fmt(it, 1) } ?: "—")
             }
         }
         item {
@@ -1826,7 +2064,8 @@ private fun NumbersContent() {
                     Box(Modifier.weight(1f)) { NumField(sr3, { sr3 = it }, "b3") }
                 }
                 HorizontalDivider()
-                ResultLine(
+                ToolResultRow(
+                    Icons.Filled.Info,
                     "Solution",
                     if (sol.size == 3 && sol.getOrNull(0) != "no unique solution") "x=${sol.getOrNull(0)}, y=${sol.getOrNull(1)}, z=${sol.getOrNull(2)}"
                     else sol.joinToString()
@@ -1854,14 +2093,16 @@ private fun NumbersContent() {
                     Box(Modifier.weight(1f)) { NumField(vbz, { vbz = it }, "bz") }
                 }
                 HorizontalDivider()
-                ResultLine("Dot", runCatching { fmt(VectorKit.dot(va, vb)) }.getOrDefault("—"))
-                ResultLine(
+                ToolResultRow(Icons.Filled.Info, "Dot", runCatching { fmt(VectorKit.dot(va, vb)) }.getOrDefault("—"))
+                ToolResultRow(
+                    Icons.Filled.Info,
                     "Cross",
                     runCatching { VectorKit.cross(va, vb).joinToString(prefix = "[", postfix = "]") { fmt(it) } }.getOrDefault("—")
                 )
-                ResultLine("Magnitude a", runCatching { fmt(VectorKit.magnitude(va)) }.getOrDefault("—"))
-                ResultLine("Magnitude b", runCatching { fmt(VectorKit.magnitude(vb)) }.getOrDefault("—"))
-                ResultLine(
+                ToolResultRow(Icons.Filled.Info, "Magnitude a", runCatching { fmt(VectorKit.magnitude(va)) }.getOrDefault("—"))
+                ToolResultRow(Icons.Filled.Info, "Magnitude b", runCatching { fmt(VectorKit.magnitude(vb)) }.getOrDefault("—"))
+                ToolResultRow(
+                    Icons.Filled.Info,
                     "Angle",
                     runCatching { fmt(VectorKit.angleDeg(va, vb), 2) + "°" }.getOrDefault("—")
                 )
@@ -1877,7 +2118,7 @@ private fun NumbersContent() {
                     Box(Modifier.weight(1f)) { NumField(cmi, { cmi = it }, "Minute", integer = true) }
                 }
                 HorizontalDivider()
-                ResultLine("Angle", ang?.let { fmt(it, 2) + "°" } ?: "—")
+                ToolResultRow(Icons.Filled.DateRange, "Angle", ang?.let { fmt(it, 2) + "°" } ?: "—")
             }
         }
         item {
@@ -1894,11 +2135,13 @@ private fun NumbersContent() {
                 }
                 NumField(ntF, { ntF = it }, "fib n", integer = true)
                 HorizontalDivider()
-                ResultLine(
+                ToolResultRow(
+                    Icons.Filled.Info,
                     "Totient φ(n)",
                     nL?.let { runCatching { "${NumberTheory.totient(it)}" }.getOrDefault("—") } ?: "—"
                 )
-                ResultLine(
+                ToolResultRow(
+                    Icons.Filled.Info,
                     "Mod inverse a⁻¹ mod m",
                     runCatching {
                         val av = ntA.toLongOrNull() ?: return@runCatching "—"
@@ -1906,13 +2149,15 @@ private fun NumbersContent() {
                         "${NumberTheory.modInverse(av, mv)}"
                     }.getOrDefault("—")
                 )
-                ResultLine(
+                ToolResultRow(
+                    Icons.Filled.Info,
                     "Prime factors",
                     nL?.let {
                         runCatching { NumberTheory.primeFactors(it).joinToString(" × ").ifEmpty { "—" } }.getOrDefault("—")
                     } ?: "—"
                 )
-                ResultLine(
+                ToolResultRow(
+                    Icons.Filled.Info,
                     "Fibonacci",
                     ntF.toIntOrNull()?.let { runCatching { "${NumberTheory.fibonacci(it)}" }.getOrDefault("—") } ?: "—"
                 )
@@ -2002,7 +2247,7 @@ fun GeometryScreen() {
                     NumField(dims.getOrNull(i) ?: "", setters.getOrNull(i) ?: {}, label)
                 }
                 HorizontalDivider()
-                outputs.forEach { (label, value) -> ResultLine(label, value) }
+                outputs.forEach { (label, value) -> ToolResultRow(Icons.Filled.Info, label, value) }
             }
         }
         item {
@@ -2017,11 +2262,11 @@ fun GeometryScreen() {
                     Box(Modifier.weight(1f)) { NumField(sc, { sc = it }, "c") }
                 }
                 HorizontalDivider()
-                ResultLine("Angle A", tri?.get("angleA")?.let { fmt(it, 2) + "°" } ?: "—")
-                ResultLine("Angle B", tri?.get("angleB")?.let { fmt(it, 2) + "°" } ?: "—")
-                ResultLine("Angle C", tri?.get("angleC")?.let { fmt(it, 2) + "°" } ?: "—")
-                ResultLine("Perimeter", tri?.get("perimeter")?.let { fmt(it, 2) } ?: "—")
-                ResultLine("Area", tri?.get("area")?.let { fmt(it, 2) } ?: "—")
+                ToolResultRow(Icons.Filled.Info, "Angle A", tri?.get("angleA")?.let { fmt(it, 2) + "°" } ?: "—")
+                ToolResultRow(Icons.Filled.Info, "Angle B", tri?.get("angleB")?.let { fmt(it, 2) + "°" } ?: "—")
+                ToolResultRow(Icons.Filled.Info, "Angle C", tri?.get("angleC")?.let { fmt(it, 2) + "°" } ?: "—")
+                ToolResultRow(Icons.Filled.Info, "Perimeter", tri?.get("perimeter")?.let { fmt(it, 2) } ?: "—")
+                ToolResultRow(Icons.Filled.Info, "Area", tri?.get("area")?.let { fmt(it, 2) } ?: "—")
             }
         }
     }
@@ -2041,16 +2286,12 @@ fun HealthScreen() {
     var by by remember { mutableStateOf("1990") }
     var bm by remember { mutableStateOf("6") }
     var bd by remember { mutableStateOf("15") }
+    var bmiMetric by remember { mutableStateOf(true) }
+    var wtLb by remember { mutableStateOf("154") }
+    var htFt by remember { mutableStateOf("5") }
+    var htIn by remember { mutableStateOf("9") }
     val w = num(weight)
     val h = num(height)
-    val bmi = runCatching { HealthDate.bmi(w, h) }.getOrDefault(Double.NaN)
-    val bmiCat = when {
-        !bmi.isFinite() || (w == 0.0 && h == 0.0) -> "—"
-        bmi < 18.5 -> "Underweight"
-        bmi < 25 -> "Normal"
-        bmi < 30 -> "Overweight"
-        else -> "Obese"
-    }
     val fat = runCatching { HealthDate.bodyFatNavy(num(waist), num(neck), h, num(hips), male) }.getOrDefault(Double.NaN)
     val ageInt = age.toIntOrNull() ?: 0
     val tdee = runCatching { HealthDate.tdee(w, h, ageInt, tdeeMale, activity) }.getOrDefault(Double.NaN)
@@ -2065,15 +2306,48 @@ fun HealthScreen() {
     LazyColumn(Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(16.dp)) {
         item {
             SectionCard("BMI") {
-                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    Box(Modifier.weight(1f)) { NumField(weight, { weight = it }, "Weight kg") }
-                    Box(Modifier.weight(1f)) { NumField(height, { height = it }, "Height cm") }
+                LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    item {
+                        FilterChip(selected = bmiMetric, onClick = { bmiMetric = true }, label = { Text("Metric") })
+                    }
+                    item {
+                        FilterChip(selected = !bmiMetric, onClick = { bmiMetric = false }, label = { Text("Imperial") })
+                    }
+                }
+                if (bmiMetric) {
+                    Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                        Box(Modifier.weight(1f)) { NumField(weight, { weight = it }, "Weight kg") }
+                        Box(Modifier.weight(1f)) { NumField(height, { height = it }, "Height cm") }
+                    }
+                } else {
+                    Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                        Box(Modifier.weight(1f)) { NumField(htFt, { htFt = it }, "Feet", integer = true) }
+                        Box(Modifier.weight(1f)) { NumField(htIn, { htIn = it }, "Inches") }
+                    }
+                    NumField(wtLb, { wtLb = it }, "Weight lb")
+                }
+                val bw = if (bmiMetric) num(weight) else num(wtLb) * 0.45359237
+                val bh = if (bmiMetric) num(height) else num(htFt) * 30.48 + num(htIn) * 2.54
+                val bmiV = runCatching { HealthDate.bmi(bw, bh) }.getOrDefault(Double.NaN)
+                val bmiCatV = when {
+                    !bmiV.isFinite() || (bw == 0.0 && bh == 0.0) -> "—"
+                    bmiV < 18.5 -> "Underweight"
+                    bmiV < 25 -> "Normal"
+                    bmiV < 30 -> "Overweight"
+                    else -> "Obese"
                 }
                 HorizontalDivider()
-                ResultLine("BMI", fmt(bmi, 1))
-                ResultLine("Category", bmiCat)
-                val bmiD = runCatching { HealthPlus.bmiDelta(w, h) }.getOrNull()
-                ResultLine(
+                ToolResultRow(Icons.Filled.Person, "BMI", fmt(bmiV, 1))
+                ToolResultRow(Icons.Filled.Favorite, "Category", bmiCatV)
+                BmiBar(bmiV)
+                Text(
+                    bmiPlainLabel(bmiCatV, bmiV),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                val bmiD = runCatching { HealthPlus.bmiDelta(bw, bh) }.getOrNull()
+                ToolResultRow(
+                    Icons.Filled.Info,
                     "Healthy delta",
                     when {
                         bmiD == null || !bmiD.isFinite() -> "—"
@@ -2108,7 +2382,7 @@ fun HealthScreen() {
                     }
                 }
                 HorizontalDivider()
-                ResultLine("Body fat", if (fat.isFinite()) fmt(fat, 1) + " %" else "—")
+                ToolResultRow(Icons.Filled.Person, "Body fat", if (fat.isFinite()) fmt(fat, 1) + " %" else "—")
             }
         }
         item {
@@ -2136,7 +2410,7 @@ fun HealthScreen() {
                     }
                 }
                 HorizontalDivider()
-                ResultLine("Daily calories", fmt(tdee, 0) + " kcal")
+                ToolResultRow(Icons.Filled.Favorite, "Daily calories", fmt(tdee, 0) + " kcal")
             }
         }
         item {
@@ -2147,7 +2421,8 @@ fun HealthScreen() {
                     Box(Modifier.weight(1f)) { NumField(bd, { bd = it }, "Day", integer = true) }
                 }
                 HorizontalDivider()
-                ResultLine(
+                ToolResultRow(
+                    Icons.Filled.DateRange,
                     "Age",
                     if (ageRes == null) "invalid date"
                     else "${ageRes.first}y ${ageRes.second}m ${ageRes.third}d"
@@ -2169,9 +2444,9 @@ fun HealthScreen() {
                 }
                 OutlinedTextField(value = zone, onValueChange = { zone = it }, label = { Text("Zone ID") }, singleLine = true, modifier = Modifier.fillMaxWidth())
                 HorizontalDivider()
-                ResultLine("Weekday", weekday ?: "—")
-                ResultLine("Days until", until?.toString() ?: "—")
-                ResultLine(zone.ifBlank { "Zone" }, runCatching { ClockKit.worldTime(zone) }.getOrDefault("—"))
+                ToolResultRow(Icons.Filled.DateRange, "Weekday", weekday ?: "—")
+                ToolResultRow(Icons.Filled.DateRange, "Days until", until?.toString() ?: "—")
+                ToolResultRow(Icons.Filled.DateRange, zone.ifBlank { "Zone" }, runCatching { ClockKit.worldTime(zone) }.getOrDefault("—"))
             }
         }
         item {
@@ -2184,7 +2459,7 @@ fun HealthScreen() {
                     Box(Modifier.weight(1f)) { NumField(wAct, { wAct = it }, "Active min") }
                 }
                 HorizontalDivider()
-                ResultLine("Daily water", ml?.let { runCatching { "${fmt(it, 0)} mL (${fmt(it / 1000.0, 2)} L)" }.getOrDefault("—") } ?: "—")
+                ToolResultRow(Icons.Filled.Favorite, "Daily water", ml?.let { runCatching { "${fmt(it, 0)} mL (${fmt(it / 1000.0, 2)} L)" }.getOrDefault("—") } ?: "—")
             }
         }
         item {
@@ -2197,7 +2472,7 @@ fun HealthScreen() {
                     Box(Modifier.weight(1f)) { NumField(pMin, { pMin = it }, "Minutes") }
                 }
                 HorizontalDivider()
-                ResultLine("Pace", pace?.let { fmt(it, 2) + " min/km" } ?: "—")
+                ToolResultRow(Icons.Filled.Favorite, "Pace", pace?.let { fmt(it, 2) + " min/km" } ?: "—")
             }
         }
         item {
@@ -2210,7 +2485,7 @@ fun HealthScreen() {
                     Box(Modifier.weight(1f)) { NumField(ormR, { ormR = it }, "Reps", integer = true) }
                 }
                 HorizontalDivider()
-                ResultLine("1RM (Epley)", orm?.let { fmt(it, 1) + " kg" } ?: "—")
+                ToolResultRow(Icons.Filled.Person, "1RM (Epley)", orm?.let { fmt(it, 1) + " kg" } ?: "—")
             }
         }
         item {
@@ -2223,7 +2498,7 @@ fun HealthScreen() {
                     Box(Modifier.weight(1f)) { NumField(hrInt, { hrInt = it }, "Intensity %") }
                 }
                 HorizontalDivider()
-                ResultLine("Target HR", hr?.let { fmt(it, 0) + " bpm" } ?: "—")
+                ToolResultRow(Icons.Filled.Favorite, "Target HR", hr?.let { fmt(it, 0) + " bpm" } ?: "—")
             }
         }
     }

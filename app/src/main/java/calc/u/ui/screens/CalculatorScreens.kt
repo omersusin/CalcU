@@ -247,10 +247,10 @@ fun CalculatorScreen(vm: CalcViewModel = hiltViewModel()) {
                         Text(
                             tintExpression(
                                 st.input.ifBlank { "0" },
-                                MaterialTheme.colorScheme.onSurfaceVariant,
-                                MaterialTheme.colorScheme.primary
+                                MaterialTheme.colorScheme.onSurface,
+                                MaterialTheme.colorScheme.onSurface
                             ),
-                            style = MaterialTheme.typography.bodyMedium,
+                            style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
                             maxLines = 3,
                             overflow = TextOverflow.Ellipsis,
                             textAlign = TextAlign.End,
@@ -298,7 +298,7 @@ fun CalculatorScreen(vm: CalcViewModel = hiltViewModel()) {
                             Text(
                                 displayResult(target),
                                 style = MaterialTheme.typography.displayLarge.copy(fontFeatureSettings = "tnum"),
-                                color = MaterialTheme.colorScheme.onSurface,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 maxLines = 2,
                                 overflow = TextOverflow.Ellipsis,
                                 textAlign = TextAlign.End,
@@ -354,10 +354,12 @@ fun CalculatorScreen(vm: CalcViewModel = hiltViewModel()) {
                             )
                         }
                     )
-                    AssistChip(onClick = { vm.onMemClear() }, label = { Text("MC") })
-                    AssistChip(onClick = { vm.onMemRecall() }, label = { Text("MR") })
-                    AssistChip(onClick = { vm.onMemPlus() }, label = { Text("M+") })
-                    AssistChip(onClick = { vm.onMemMinus() }, label = { Text("M-") })
+                    if (st.showMemoryRow) {
+                        AssistChip(onClick = { vm.onMemClear() }, label = { Text("MC") })
+                        AssistChip(onClick = { vm.onMemRecall() }, label = { Text("MR") })
+                        AssistChip(onClick = { vm.onMemPlus() }, label = { Text("M+") })
+                        AssistChip(onClick = { vm.onMemMinus() }, label = { Text("M-") })
+                    }
                 }
             }
             item {
@@ -689,8 +691,8 @@ private fun SciKey(
     val haptics = LocalHapticFeedback.current
     Box(
         modifier = modifier.height(56.dp)
-            .clip(MaterialTheme.shapes.large)
-            .border(1.dp, MaterialTheme.colorScheme.outlineVariant, MaterialTheme.shapes.large)
+            .clip(CircleShape)
+            .border(1.dp, MaterialTheme.colorScheme.outlineVariant, CircleShape)
             .combinedClickable(
                 onClick = onClick,
                 onLongClick = {
@@ -794,7 +796,7 @@ private fun Keypad(
                     modifier = Modifier.weight(1f).height(56.dp)
                         .graphicsLayer(scaleX = backScale, scaleY = backScale)
                         .clip(MaterialTheme.shapes.large)
-                        .border(1.dp, MaterialTheme.colorScheme.outlineVariant, MaterialTheme.shapes.large)
+                        .background(MaterialTheme.colorScheme.inverseSurface)
                         .combinedClickable(
                             interactionSource = backInteractions,
                             indication = LocalIndication.current,
@@ -803,7 +805,11 @@ private fun Keypad(
                         ),
                     contentAlignment = Alignment.Center
                 ) {
-                    Icon(Icons.Filled.Backspace, contentDescription = "Backspace, long-press to clear")
+                    Icon(
+                        Icons.Filled.Backspace,
+                        contentDescription = "Backspace, long-press to clear",
+                        tint = MaterialTheme.colorScheme.inverseOnSurface
+                    )
                 }
             }
         }

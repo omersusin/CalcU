@@ -32,7 +32,8 @@ data class CalcUiState(
     val memory: Double = 0.0,
     val history: List<String> = emptyList(),
     val query: String = "",
-    val showGraphTip: Boolean = false
+    val showGraphTip: Boolean = false,
+    val showMemoryRow: Boolean = true
 ) {
     val canEvaluate: Boolean get() = input.isNotBlank()
 }
@@ -55,6 +56,25 @@ class CalcViewModel @Inject constructor(
         settingsRepo.vibration.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), true)
     val activity: StateFlow<Map<Long, Int>> =
         historyRepo.activityLast14Days().stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyMap())
+    val decimals: StateFlow<Int> =
+        settingsRepo.decimals.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 10)
+    val numberFormat: StateFlow<String> =
+        settingsRepo.numberFormat.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), "locale")
+    val fractions: StateFlow<Boolean> =
+        settingsRepo.fractions.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), true)
+    val memoryRow: StateFlow<Boolean> =
+        settingsRepo.memoryRow.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), true)
+
+    private fun fmt(v: BigDecimal): String =
+        Engine.format(v, decimals.value, numberFormat.value, fractions.value)
+
+    private fun parseResult(s: String): Double? {
+        if (s.isBlank()) return null
+        runCatching {
+            java.text.NumberFormat.getInstance().parse(s)?.toDouble()?.let { return it }
+        }
+        return s.toDoubleOrNull()
+    }
 
     init {
         viewModelScope.launch {
@@ -66,6 +86,13 @@ class CalcViewModel @Inject constructor(
             runCatching {
                 settingsRepo.graphTipSeen.collect { seen ->
                     _uiState.update { it.copy(showGraphTip = !seen) }
+                }
+            }
+        }
+        viewModelScope.launch {
+            runCatching {
+                settingsRepo.memoryRow.collect { show ->
+                    _uiState.update { it.copy(showMemoryRow = show) }
                 }
             }
         }
@@ -114,7 +141,7 @@ class CalcViewModel @Inject constructor(
             return
         }
         runCatching { Engine.eval(st.input, st.angleDeg) }.getOrNull()?.onSuccess {
-            val r = runCatching { Engine.format(it) }.getOrDefault("Error")
+            val r = runCatching { fmt(it) }.getOrDefault("Error")
             if (r != "Error") {
                 lastResult = r
                 if (st.input.trim() != r) runCatching { TapeHolder.add(st.input, r) }
@@ -149,7 +176,7 @@ class CalcViewModel @Inject constructor(
         if (st.input.isBlank()) { _uiState.update { it.copy(result = "") }; return }
         if (Engine.validateExpr(st.input) != null) { _uiState.update { it.copy(result = "") }; return }
         runCatching { Engine.eval(st.input, st.angleDeg) }.getOrNull()?.onSuccess {
-            val formatted = runCatching { Engine.format(it) }.getOrNull()
+            val formatted = runCatching { fmt(it) }.getOrNull()
             if (formatted != null) _uiState.update { s -> s.copy(result = formatted) }
             else _uiState.update { s -> s.copy(result = "") }
         }?.onFailure { _uiState.update { s -> s.copy(result = "") } }
@@ -157,17 +184,17 @@ class CalcViewModel @Inject constructor(
     }
 
     fun onMemPlus() {
-        _uiState.value.result.toDoubleOrNull()?.let { v ->
+        parseResult(_uiState.value.result)?.let { v ->
             _uiState.update { it.copy(memory = it.memory + v) }
         }
     }
     fun onMemMinus() {
-        _uiState.value.result.toDoubleOrNull()?.let { v ->
+        parseResult(_uiState.value.result)?.let { v ->
             _uiState.update { it.copy(memory = it.memory - v) }
         }
     }
     fun onMemRecall() {
-        val formatted = runCatching { Engine.format(BigDecimal.valueOf(safeMemory())) }.getOrNull()
+        val formatted = runCatching { fmt(BigDecimal.valueOf(safeMemory())) }.getOrNull()
         if (formatted != null) {
             _uiState.update { it.copy(input = it.input + formatted) }
             evaluate()

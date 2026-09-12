@@ -25,6 +25,7 @@ class ToolPrefs @Inject constructor(@ApplicationContext private val ctx: Context
 
     private val orderKey = stringPreferencesKey("hub_order")
     private val recentsKey = stringPreferencesKey("recent_tools")
+    private val favKey = stringPreferencesKey("fav_tools")
 
     val hubOrder: Flow<List<String>> = ctx.toolsDataStore.data.map { prefs ->
         prefs[orderKey]?.split(",")?.map { it.trim() }?.filter { it.isNotEmpty() }
@@ -47,6 +48,22 @@ class ToolPrefs @Inject constructor(@ApplicationContext private val ctx: Context
                     ?.filter { it.isNotEmpty() } ?: emptyList()
                 prefs[recentsKey] = ((listOf(route) + current).distinct().take(MAX_RECENTS))
                     .joinToString(",")
+            }
+        }
+    }
+
+    val favTools: Flow<Set<String>> = ctx.toolsDataStore.data.map { prefs ->
+        prefs[favKey]?.split(",")?.map { it.trim() }?.filter { it.isNotEmpty() }
+            ?.toSet() ?: emptySet()
+    }.catch { emit(emptySet()) }
+
+    suspend fun toggleFavTool(route: String) {
+        runCatching {
+            ctx.toolsDataStore.edit { prefs ->
+                val current = prefs[favKey]?.split(",")?.map { it.trim() }
+                    ?.filter { it.isNotEmpty() }?.toSet() ?: emptySet()
+                val updated = if (current.contains(route)) current - route else current + route
+                prefs[favKey] = updated.joinToString(",")
             }
         }
     }

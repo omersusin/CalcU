@@ -16,6 +16,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -155,43 +156,57 @@ fun FluentCalcKey(
         label = "fluent-equals-morph"
     )
     val pressModifier = modifier.graphicsLayer(scaleX = scale, scaleY = scale)
-    val shape = MaterialTheme.shapes.large
-    when (kind) {
-        FluentKeyKind.Equals -> Button(
-            onClick = onClick,
-            modifier = modifier.graphicsLayer(scaleX = equalsScale, scaleY = equalsScale).height(keyHeight),
-            interactionSource = interactions,
-            shape = RoundedCornerShape(equalsCorner),
-            elevation = ButtonDefaults.buttonElevation(
-                defaultElevation = FluentElevation.AccentKey,
-                pressedElevation = FluentElevation.KeyPressed
-            )
-        ) { Text(label, style = MaterialTheme.typography.headlineSmall) }
-        FluentKeyKind.Operator -> FilledTonalButton(
+    val circle = CircleShape
+    // Teardown C is pale blue-gray: map to tertiaryContainer (dynamic-safe, never hardcoded).
+    if (kind == FluentKeyKind.Sci && label == "C") {
+        Button(
             onClick = onClick,
             modifier = pressModifier.height(keyHeight),
             interactionSource = interactions,
-            shape = shape
-        ) { Text(label, style = MaterialTheme.typography.titleLarge) }
-        FluentKeyKind.Digit -> Button(
-            onClick = onClick,
-            modifier = pressModifier.height(keyHeight),
-            interactionSource = interactions,
-            shape = shape,
+            shape = circle,
             colors = ButtonDefaults.buttonColors(
-                containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
-                contentColor = MaterialTheme.colorScheme.onSurface
+                containerColor = MaterialTheme.colorScheme.tertiaryContainer,
+                contentColor = MaterialTheme.colorScheme.onTertiaryContainer
             ),
             elevation = ButtonDefaults.buttonElevation(
                 defaultElevation = FluentElevation.Key,
                 pressedElevation = FluentElevation.KeyPressed
             )
         ) { Text(label, style = MaterialTheme.typography.titleLarge) }
+        return
+    }
+    when (kind) {
+        FluentKeyKind.Equals -> Button(
+            onClick = onClick,
+            modifier = modifier.graphicsLayer(scaleX = equalsScale, scaleY = equalsScale).height(keyHeight * 1.15f),
+            interactionSource = interactions,
+            shape = RoundedCornerShape(equalsCorner),
+            elevation = ButtonDefaults.buttonElevation(
+                defaultElevation = FluentElevation.AccentKey,
+                pressedElevation = FluentElevation.KeyPressed
+            )
+        ) { Text(label, style = MaterialTheme.typography.titleLarge) }
+        FluentKeyKind.Operator -> FilledTonalButton(
+            onClick = onClick,
+            modifier = pressModifier.height(keyHeight),
+            interactionSource = interactions,
+            shape = circle,
+            colors = ButtonDefaults.filledTonalButtonColors(
+                containerColor = MaterialTheme.colorScheme.secondaryContainer,
+                contentColor = MaterialTheme.colorScheme.onSecondaryContainer
+            )
+        ) { Text(label, style = MaterialTheme.typography.titleLarge) }
+        FluentKeyKind.Digit -> FilledTonalButton(
+            onClick = onClick,
+            modifier = pressModifier.height(keyHeight),
+            interactionSource = interactions,
+            shape = circle
+        ) { Text(label, style = MaterialTheme.typography.titleLarge) }
         FluentKeyKind.Sci -> OutlinedButton(
             onClick = onClick,
             modifier = pressModifier.height(keyHeight),
             interactionSource = interactions,
-            shape = shape
+            shape = circle
         ) { Text(label, style = MaterialTheme.typography.titleSmall) }
     }
 }

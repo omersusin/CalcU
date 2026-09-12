@@ -1,6 +1,7 @@
 package calc.u
 
 import android.os.Bundle
+import android.view.WindowManager
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
@@ -48,6 +49,7 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.rememberDrawerState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -124,6 +126,11 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         setContent {
             val theme by settingsRepo.theme.collectAsStateWithLifecycle(initialValue = "system")
+            val keepOn by settingsRepo.keepScreenOn.collectAsStateWithLifecycle(initialValue = false)
+            LaunchedEffect(keepOn) {
+                if (keepOn) window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+                else window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+            }
             CalcUTheme(theme = theme) {
                 val tourSeen by settingsRepo.tourSeen.collectAsStateWithLifecycle(initialValue = true)
                 if (!tourSeen) {

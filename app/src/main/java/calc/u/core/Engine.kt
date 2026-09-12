@@ -41,7 +41,7 @@ object Engine {
         Expression(expr).evaluate().numberValue
     }
 
-    fun format(v: BigDecimal, maxScale: Int = 10): String {
+    fun format(v: BigDecimal, maxScale: Int = 10, grouping: String = "locale", fractions: Boolean = false): String {
         return try {
             val d = v.toDouble()
             if (!d.isFinite()) return "Error"
@@ -49,20 +49,54 @@ object Engine {
             if (scaled.compareTo(BigDecimal.ZERO) == 0) return "0"
             val stripped = scaled.stripTrailingZeros()
             if (stripped.compareTo(BigDecimal.ZERO) == 0) return "0"
+            if (fractions && stripped.scale() > 6) {
+                toFraction(d)?.let { (n, den) -> return "$n/$den" }
+            }
             val symbols = java.text.DecimalFormatSymbols.getInstance()
             val df = java.text.DecimalFormat().apply {
                 decimalFormatSymbols = symbols
-                isGroupingUsed = true
+                isGroupingUsed = grouping != "none"
                 groupingSize = 3
                 maximumFractionDigits = maxScale.coerceAtLeast(0)
                 minimumFractionDigits = 0
                 roundingMode = RoundingMode.HALF_UP
                 isDecimalSeparatorAlwaysShown = false
             }
-            df.format(stripped)
+            val plain = df.format(stripped)
+            when (grouping) {
+                "comma" -> plain
+                    .replace(symbols.groupingSeparator.toString(), "‚")
+                    .replace(symbols.decimalSeparator.toString(), ".")
+                    .replace("‚", ",")
+                "space" -> plain
+                    .replace(symbols.groupingSeparator.toString(), "‚")
+                    .replace(symbols.decimalSeparator.toString(), ".")
+                    .replace("‚", " ")
+                "indian" -> indianFormat(stripped, symbols.decimalSeparator)
+                else -> plain
+            }
         } catch (e: Exception) {
             "Error"
         }
+    }
+
+    private fun indianFormat(v: BigDecimal, decimalSep: Char): String {
+        val s = v.toPlainString()
+        val dot = s.indexOf('.')
+        val intPart = if (dot < 0) s else s.substring(0, dot)
+        val fracPart = if (dot < 0) "" else s.substring(dot)
+        val neg = intPart.startsWith("-")
+        val digits = if (neg) intPart.drop(1) else intPart
+        if (digits.length <= 3) return s
+        val tail = digits.takeLast(3)
+        var head = digits.dropLast(3)
+        val groups = ArrayDeque<String>()
+        while (head.length > 2) {
+            groups.addFirst(head.takeLast(2))
+            head = head.dropLast(2)
+        }
+        if (head.isNotEmpty()) groups.addFirst(head)
+        return (if (neg) "-" else "") + groups.joinToString(",") + "," + tail + fracPart.replace('.', decimalSep)
     }
 
     fun toFraction(value: Double, maxDenominator: Int = 1000): Pair<Long, Long>? {

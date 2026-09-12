@@ -75,4 +75,46 @@ class SettingsRepository @Inject constructor(@ApplicationContext private val ctx
         val coerced = value.coerceIn(10, 2000)
         runCatching { ctx.settingsDataStore.edit { it[historyCapKey] = coerced } }
     }
+
+    private val numberFormatKey = stringPreferencesKey("grouping")
+
+    val numberFormat: Flow<String> = ctx.settingsDataStore.data.map { it[numberFormatKey] ?: "locale" }.catch { emit("locale") }
+
+    suspend fun setNumberFormat(value: String) {
+        val coerced = if (value in setOf("comma", "space", "none", "indian")) value else "comma"
+        runCatching { ctx.settingsDataStore.edit { it[numberFormatKey] = coerced } }
+    }
+
+    private val decimalsKey = androidx.datastore.preferences.core.intPreferencesKey("decimals")
+
+    val decimals: Flow<Int> = ctx.settingsDataStore.data.map { (it[decimalsKey] ?: 10).coerceIn(0, 12) }.catch { emit(10) }
+
+    suspend fun setDecimals(value: Int) {
+        val coerced = value.coerceIn(0, 12)
+        runCatching { ctx.settingsDataStore.edit { it[decimalsKey] = coerced } }
+    }
+
+    private val fractionsKey = booleanPreferencesKey("fractions")
+
+    val fractions: Flow<Boolean> = ctx.settingsDataStore.data.map { it[fractionsKey] ?: true }.catch { emit(true) }
+
+    suspend fun setFractions(value: Boolean) {
+        runCatching { ctx.settingsDataStore.edit { it[fractionsKey] = value } }
+    }
+
+    private val keepScreenOnKey = booleanPreferencesKey("keep_screen_on")
+
+    val keepScreenOn: Flow<Boolean> = ctx.settingsDataStore.data.map { it[keepScreenOnKey] ?: false }.catch { emit(false) }
+
+    suspend fun setKeepScreenOn(value: Boolean) {
+        runCatching { ctx.settingsDataStore.edit { it[keepScreenOnKey] = value } }
+    }
+
+    private val memoryRowKey = booleanPreferencesKey("memory_row")
+
+    val memoryRow: Flow<Boolean> = ctx.settingsDataStore.data.map { it[memoryRowKey] ?: true }.catch { emit(true) }
+
+    suspend fun setMemoryRow(value: Boolean) {
+        runCatching { ctx.settingsDataStore.edit { it[memoryRowKey] = value } }
+    }
 }
