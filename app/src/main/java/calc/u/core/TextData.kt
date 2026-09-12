@@ -854,11 +854,12 @@ object TextData {
         var buffer = 0
         var bitsLeft = 0
         for (b in data) {
-            buffer = (buffer shl 8) or (b.toInt() and 0xFF)
+            buffer = ((buffer and ((1 shl bitsLeft) - 1)) shl 8) or (b.toInt() and 0xFF)
             bitsLeft += 8
             while (bitsLeft >= 5) {
                 bitsLeft -= 5
                 sb.append(B32_ALPHABET[(buffer shr bitsLeft) and 0x1F])
+                buffer = buffer and ((1 shl bitsLeft) - 1)
             }
         }
         if (bitsLeft > 0) {
@@ -1166,6 +1167,52 @@ object TextData {
         }
     }
 
+    private fun chachaBlock(key: ByteArray, nonce: ByteArray, counter: Int): ByteArray {
+        fun le(b: ByteArray, o: Int): Int =
+            (b[o].toInt() and 0xFF) or ((b[o + 1].toInt() and 0xFF) shl 8) or
+                ((b[o + 2].toInt() and 0xFF) shl 16) or ((b[o + 3].toInt() and 0xFF) shl 24)
+        fun rotl(v: Int, n: Int): Int = (v shl n) or (v ushr (32 - n))
+        val s = IntArray(16)
+        s[0] = 0x61707865; s[1] = 0x3320646e; s[2] = 0x79622d32; s[3] = 0x6b206574
+        for (i in 0..7) s[4 + i] = le(key, i * 4)
+        s[12] = counter
+        s[13] = le(nonce, 0); s[14] = le(nonce, 4); s[15] = le(nonce, 8)
+        val w = s.copyOf()
+        fun qr(a: Int, b: Int, c: Int, d: Int) {
+            w[a] += w[b]; w[d] = rotl(w[d] xor w[a], 16)
+            w[c] += w[d]; w[b] = rotl(w[b] xor w[c], 12)
+            w[a] += w[b]; w[d] = rotl(w[d] xor w[a], 8)
+            w[c] += w[d]; w[b] = rotl(w[b] xor w[c], 7)
+        }
+        repeat(10) {
+            qr(0, 4, 8, 12); qr(1, 5, 9, 13); qr(2, 6, 10, 14); qr(3, 7, 11, 15)
+            qr(0, 5, 10, 15); qr(1, 6, 11, 12); qr(2, 7, 8, 13); qr(3, 4, 9, 14)
+        }
+        val out = ByteArray(64)
+        for (i in 0..15) {
+            val v = w[i] + s[i]
+            out[i * 4] = (v and 0xFF).toByte()
+            out[i * 4 + 1] = ((v ushr 8) and 0xFF).toByte()
+            out[i * 4 + 2] = ((v ushr 16) and 0xFF).toByte()
+            out[i * 4 + 3] = ((v ushr 24) and 0xFF).toByte()
+        }
+        return out
+    }
+
+    private fun chachaCrypt(key: ByteArray, nonce: ByteArray, counter: Int, data: ByteArray): ByteArray {
+        val out = ByteArray(data.size)
+        var block = 0
+        var pos = 0
+        while (pos < data.size) {
+            val ks = chachaBlock(key, nonce, counter + block)
+            val n = minOf(64, data.size - pos)
+            for (i in 0 until n) out[pos + i] = (data[pos + i].toInt() xor ks[i].toInt()).toByte()
+            pos += n
+            block++
+        }
+        return out
+    }
+
     fun chacha20Encrypt(keyHex: String, nonceHex: String, counter: Int, plaintext: String): String {
         try {
             val key = hexToBytes(keyHex)
@@ -1173,23 +1220,9 @@ object TextData {
             val nonce = hexToBytes(nonceHex)
             require(nonce.size == 12) { "Nonce must be 12 bytes hex" }
             require(counter >= 0) { "counter must be >= 0" }
-            val cipher = try {
-                javax.crypto.Cipher.getInstance("ChaCha20")
-            } catch (e: java.security.NoSuchAlgorithmException) {
-                throw IllegalArgumentException("ChaCha20 needs Android 9+", e)
-            }
-            require(counter == 0) { "counter must be 0 on this platform" }
-            val params = javax.crypto.spec.IvParameterSpec(nonce)
-            cipher.init(
-                javax.crypto.Cipher.ENCRYPT_MODE,
-                javax.crypto.spec.SecretKeySpec(key, "ChaCha20"),
-                params
-            )
-            return bytesToHex(cipher.doFinal(plaintext.toByteArray(Charsets.UTF_8)))
+            return bytesToHex(chachaCrypt(key, nonce, counter, plaintext.toByteArray(Charsets.UTF_8)))
         } catch (e: IllegalArgumentException) {
             throw e
-        } catch (e: LinkageError) {
-            throw IllegalArgumentException("ChaCha20 needs Android 9+")
         } catch (e: Exception) {
             throw IllegalArgumentException(e.message, e)
         }
@@ -1202,23 +1235,9 @@ object TextData {
             val nonce = hexToBytes(nonceHex)
             require(nonce.size == 12) { "Nonce must be 12 bytes hex" }
             require(counter >= 0) { "counter must be >= 0" }
-            val cipher = try {
-                javax.crypto.Cipher.getInstance("ChaCha20")
-            } catch (e: java.security.NoSuchAlgorithmException) {
-                throw IllegalArgumentException("ChaCha20 needs Android 9+", e)
-            }
-            require(counter == 0) { "counter must be 0 on this platform" }
-            val params = javax.crypto.spec.IvParameterSpec(nonce)
-            cipher.init(
-                javax.crypto.Cipher.DECRYPT_MODE,
-                javax.crypto.spec.SecretKeySpec(key, "ChaCha20"),
-                params
-            )
-            return cipher.doFinal(hexToBytes(ciphertextHex)).toString(Charsets.UTF_8)
+            return chachaCrypt(key, nonce, counter, hexToBytes(ciphertextHex)).toString(Charsets.UTF_8)
         } catch (e: IllegalArgumentException) {
             throw e
-        } catch (e: LinkageError) {
-            throw IllegalArgumentException("ChaCha20 needs Android 9+")
         } catch (e: Exception) {
             throw IllegalArgumentException(e.message, e)
         }

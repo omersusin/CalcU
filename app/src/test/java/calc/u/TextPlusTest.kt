@@ -35,7 +35,7 @@ class TextPlusTest {
 
     @Test fun substring1Based() {
         assertEquals("bcd", TextPlus.substring1("abcdef", 2, 3, false))
-        assertEquals("bc\ngh", TextPlus.substring1("abcd\nefgh", 2, 2, true))
+        assertEquals("bc\nfg", TextPlus.substring1("abcd\nefgh", 2, 2, true))
     }
 
     @Test fun dedupeAll() {

@@ -20,7 +20,7 @@ class CryptoTest {
     @Test fun hmacSha256Rfc4231() {
         val key = "\u000b".repeat(20)
         assertEquals(
-            "b0344c61d8db38535ca8afceaf0bf12b881dc200c9833da726e9bda7132aa",
+            "b0344c61d8db38535ca8afceaf0bf12b881dc200c9833da726e9376c2e32cff7",
             TextData.hmacSha256(key, "Hi There")
         )
     }
@@ -54,8 +54,8 @@ class CryptoTest {
     }
 
     @Test fun base32Foo() {
-        assertEquals("MFRGG===", TextData.base32Encode("foo"))
-        assertEquals("foo", TextData.base32Decode("MFRGG==="))
+        assertEquals("MZXW6===", TextData.base32Encode("foo"))
+        assertEquals("foo", TextData.base32Decode("MZXW6==="))
         assertEquals("", TextData.base32Encode(""))
         assertEquals("", TextData.base32Decode("   "))
     }
@@ -90,7 +90,7 @@ class CryptoTest {
             TextData.sha1("abc")
         )
         assertEquals(
-            "a7ffc6f8bb1ed2643477c6d4f73f14f7215f9d43a2d1ed2d5ad7835f2d177a8b",
+            "3a985da74fe225b2045c172d6bd390bd855f086e3e9d525b46bfe24511431532",
             TextData.sha3_256("abc")
         )
         assertEquals(56, TextData.sha224("abc").length)
@@ -122,8 +122,10 @@ class CryptoTest {
     @Test fun chachaRoundTrip() {
         val key = "00".repeat(32)
         val nonce = "00".repeat(12)
-        val ct = TextData.chacha20Encrypt(key, nonce, 0, "hello chacha")
-        assertEquals("hello chacha", TextData.chacha20Decrypt(key, nonce, 0, ct))
+        val ct = TextData.chacha20Encrypt(key, nonce, 1, "hello chacha")
+        assertEquals("hello chacha", TextData.chacha20Decrypt(key, nonce, 1, ct))
+        assertEquals(ct, TextData.chacha20Encrypt(key, nonce, 1, "hello chacha"))
+        assertEquals(24, ct.length)
     }
 
     @Test fun rc4RoundTrip() {
