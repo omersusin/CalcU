@@ -210,7 +210,7 @@ private fun InlineTape(
     LazyColumn(
         state = listState,
         modifier = modifier.fillMaxWidth().heightIn(max = 120.dp),
-        verticalArrangement = Arrangement.spacedBy(2.dp)
+        verticalArrangement = Arrangement.spacedBy(4.dp)
     ) {
         items(tape, key = { it.id }) { e ->
             Text(
@@ -222,7 +222,7 @@ private fun InlineTape(
                 textAlign = TextAlign.End,
                 modifier = Modifier.fillMaxWidth()
                     .clickable { onRecall(e.result) }
-                    .padding(vertical = 2.dp)
+                    .padding(vertical = 4.dp)
             )
         }
     }
@@ -288,7 +288,7 @@ private fun CalculatorDisplayCard(
                 )
         ) {
             Column(
-                Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 20.dp).animateContentSize()
+                Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 16.dp).animateContentSize()
                     .then(if (compact) Modifier.verticalScroll(displayScroll) else Modifier),
                 verticalArrangement = Arrangement.spacedBy(8.dp),
                 horizontalAlignment = Alignment.End
@@ -511,7 +511,7 @@ fun CalculatorScreen(vm: CalcViewModel = hiltViewModel()) {
         if (isLandscape) {
             Row(
                 Modifier.fillMaxSize().padding(horizontal = 16.dp, vertical = 8.dp),
-                horizontalArrangement = Arrangement.spacedBy(12.dp)
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 Column(
                     Modifier.weight(1f).fillMaxHeight(),
@@ -969,13 +969,13 @@ private fun SciKey(
             onClick = onClick,
             modifier = modifier,
             kind = FluentKeyKind.Sci,
-            keyHeight = if (compact) 32.dp else 40.dp
+            keyHeight = if (compact) 40.dp else 48.dp
         )
         return
     }
     val haptics = LocalHapticFeedback.current
     Box(
-        modifier = modifier.heightIn(min = if (compact) 32.dp else 40.dp)
+        modifier = modifier.heightIn(min = if (compact) 40.dp else 48.dp)
             .clip(CircleShape)
             .border(1.dp, MaterialTheme.colorScheme.outlineVariant, CircleShape)
             .combinedClickable(
@@ -1053,13 +1053,13 @@ private fun DigitKey(
             onClick = { onKey(label) },
             modifier = modifier,
             kind = FluentKeyKind.Digit,
-            keyHeight = if (compact) 38.dp else 48.dp
+            keyHeight = if (compact) 48.dp else 56.dp
         )
         return
     }
     val haptics = LocalHapticFeedback.current
     Box(
-        modifier = modifier.heightIn(min = if (compact) 38.dp else 48.dp)
+        modifier = modifier.heightIn(min = if (compact) 48.dp else 56.dp)
             .clip(CircleShape)
             .background(MaterialTheme.colorScheme.secondaryContainer)
             .combinedClickable(
@@ -1099,7 +1099,7 @@ private fun BackKey(
         label = "back-press"
     )
     Box(
-        modifier = modifier.heightIn(min = if (compact) 32.dp else if (tall) 48.dp else 40.dp)
+        modifier = modifier.heightIn(min = if (compact) 48.dp else if (tall) 64.dp else 56.dp)
             .graphicsLayer(scaleX = backScale, scaleY = backScale)
             .clip(MaterialTheme.shapes.large)
             .background(MaterialTheme.colorScheme.inverseSurface)
@@ -1136,7 +1136,7 @@ private fun SciRowsGrid(
         shape = MaterialTheme.shapes.large
     ) {
         Column(
-            modifier = Modifier.fillMaxWidth().padding(if (compact) 8.dp else 10.dp),
+            modifier = Modifier.fillMaxWidth().padding(8.dp),
             verticalArrangement = Arrangement.spacedBy(gap)
         ) {
             sciRows.forEachIndexed { i, row ->
@@ -1193,7 +1193,7 @@ private fun ParenPercentDivideRow(
 ) {
     // () % ÷ row with pale-tint AC; all circular.
     val gap = if (compact) 6.dp else 8.dp
-    val keyHeight = if (compact) 38.dp else 48.dp
+    val keyHeight = if (compact) 48.dp else 56.dp
     AnimatedVisibility(visible = true, enter = keypadRowEnter(staggerDelay)) {
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(gap)) {
             FluentCalcKey(
@@ -1244,7 +1244,7 @@ private fun DigitRowsGrid(
     // All-circular digit rows with tonal operators; bottom action row lives in
     // ClearBackRow so = stays the largest dark-primary circle beside ⌫.
     val gap = if (compact) 6.dp else 8.dp
-    val keyHeight = if (compact) 38.dp else 48.dp
+    val keyHeight = if (compact) 48.dp else 56.dp
     val rows = listOf(
         listOf("7", "8", "9", "×"),
         listOf("4", "5", "6", "−"),
@@ -1284,7 +1284,7 @@ private fun ClearBackRow(
 ) {
     // Bottom action row: 0 . ⌫ (dark rounded-square) = (dark primary, largest).
     val gap = if (compact) 6.dp else 8.dp
-    val keyHeight = if (compact) 38.dp else 48.dp
+    val keyHeight = if (compact) 48.dp else 56.dp
     AnimatedVisibility(visible = true, enter = keypadRowEnter(staggerDelay)) {
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(gap)) {
             DigitKey(label = "0", onKey = onKey, modifier = Modifier.weight(1f), compact = compact)
