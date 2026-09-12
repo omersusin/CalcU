@@ -303,4 +303,36 @@ class EngineTest {
         assertEquals(0L, Engine.lcm(0L, 5L))
         assertEquals(0.0, calc.u.core.VectorKit.dot(emptyList(), emptyList()), 0.0)
     }
+
+    @Test fun validateEmpty() {
+        assertEquals("Empty", Engine.validateExpr(""))
+        assertEquals("Empty", Engine.validateExpr("   "))
+    }
+
+    @Test fun validateUnbalanced() {
+        assertEquals("Unbalanced brackets", Engine.validateExpr("(2+3"))
+        assertEquals("Unbalanced brackets", Engine.validateExpr("2+3)"))
+    }
+
+    @Test fun validateBadChar() {
+        assertEquals("Invalid character", Engine.validateExpr("2+3\$"))
+        assertEquals("Invalid character", Engine.validateExpr("2@3"))
+    }
+
+    @Test fun validateEmptyBrackets() {
+        assertEquals("Empty brackets", Engine.validateExpr("2+()"))
+    }
+
+    @Test fun validateFactorialRange() {
+        assertEquals("Too large", Engine.validateExpr("171!"))
+        assertNull(Engine.validateExpr("5!"))
+        assertNull(Engine.validateExpr("170!"))
+    }
+
+    @Test fun validateValidPasses() {
+        assertNull(Engine.validateExpr("2+3"))
+        assertNull(Engine.validateExpr("sin(30)"))
+        assertNull(Engine.validateExpr("2+"))
+        assertNull(Engine.validateExpr("5/0"))
+    }
 }

@@ -50,4 +50,15 @@ class UnitPrefsRepository @Inject constructor(@ApplicationContext private val ct
             result
         }.getOrDefault(emptySet())
     }
+
+    fun hiddenFlow(cat: String): Flow<Set<String>> =
+        ctx.unitsDataStore.data.map {
+            runCatching { it[stringSetPreferencesKey("hidden_$cat")] ?: emptySet() }.getOrDefault(emptySet())
+        }.catch { emit(emptySet()) }
+
+    suspend fun setHidden(cat: String, set: Set<String>) {
+        runCatching {
+            ctx.unitsDataStore.edit { it[stringSetPreferencesKey("hidden_$cat")] = set }
+        }
+    }
 }

@@ -22,6 +22,8 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.StarBorder
 import androidx.compose.material.icons.filled.SwapVert
+import androidx.compose.material.icons.filled.Visibility
+import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material3.Button
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -37,6 +39,7 @@ import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -86,6 +89,7 @@ import calc.u.ui.theme.FluentMotion
 import java.util.Calendar
 import kotlin.math.PI
 import kotlin.math.sqrt
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 private fun fmt(v: Double, digits: Int = 4): String {
@@ -342,6 +346,9 @@ private fun UnitExprCard() {
 @Composable
 fun ConvertersScreen() {
     var input by remember { mutableStateOf("1") }
+    var outputOverride by remember { mutableStateOf<String?>(null) }
+    var lastCleared by remember { mutableStateOf<String?>(null) }
+    var undoVisible by remember { mutableStateOf(false) }
     var cat by remember { mutableStateOf("length") }
     var from by remember { mutableStateOf("m") }
     var to by remember { mutableStateOf("ft") }
@@ -361,16 +368,27 @@ fun ConvertersScreen() {
     val units: List<String> = if (cat == "temp") Units.temperature else mapFor(cat).keys.toList()
     val safeFrom = if (from in units) from else units.firstOrNull() ?: ""
     val safeTo = if (to in units) to else units.getOrNull(1) ?: units.firstOrNull() ?: ""
-    val result: String = runCatching {
-        if (cat == "temp") fmt(Units.convertTemp(v, safeFrom, safeTo))
-        else if (cat == "fuel") fmt(convertFuel(v, safeFrom, safeTo))
+    fun convertOrNull(amount: Double, f: String, t: String): Double? = runCatching {
+        if (f.isBlank() || t.isBlank()) null
+        else if (f == t) amount
+        else if (cat == "temp") Units.convertTemp(amount, f, t)
+        else if (cat == "fuel") convertFuel(amount, f, t)
         else {
             val map = mapFor(cat)
-            val f = map[safeFrom]
-            val t = map[safeTo]
-            if (f == null || t == null) "—" else fmt(Units.convert(v, f, t))
+            val ff = map[f] ?: return@runCatching null
+            val tt = map[t] ?: return@runCatching null
+            Units.convert(amount, ff, tt)
+        }?.takeIf { it.isFinite() }
+    }.getOrNull()?.takeIf { it?.isFinite() == true }
+    val forwardVal: Double? = convertOrNull(v, safeFrom, safeTo)
+    val result: String = forwardVal?.let { fmt(it) } ?: "—"
+    fun reverseTo(newBottom: String) {
+        outputOverride = newBottom
+        val parsed = newBottom.toDoubleOrNull() ?: return
+        convertOrNull(parsed, safeTo, safeFrom)?.let { back ->
+            if (back.isFinite()) input = fmt(back)
         }
-    }.getOrDefault("—")
+    }
     val baseLong = baseInput.toLongOrNull()
     val appCtx = LocalContext.current.applicationContext
     val prefs = remember { UnitPrefsRepository(appCtx) }
@@ -381,7 +399,9 @@ fun ConvertersScreen() {
     var swapped by remember { mutableStateOf(false) }
     val rotation by animateFloatAsState(if (swapped) 180f else 0f, label = "swap")
     val favorites by prefs.favoritesFlow(cat).collectAsState(initial = emptySet())
+    val hidden by prefs.hiddenFlow(cat).collectAsState(initial = emptySet())
     LaunchedEffect(cat) {
+        outputOverride = null
         runCatching {
             val (savedFrom, savedTo) = prefs.getPair(cat)
             if (savedFrom != null && savedFrom in units) from = savedFrom
@@ -391,6 +411,12 @@ fun ConvertersScreen() {
     LaunchedEffect(cat, from, to) {
         runCatching {
             if (from in units && to in units) prefs.savePair(cat, from, to)
+        }
+    }
+    if (undoVisible) {
+        LaunchedEffect(lastCleared) {
+            delay(5000)
+            undoVisible = false
         }
     }
     fun previewFor(candidate: String): String = runCatching {
@@ -416,13 +442,15 @@ fun ConvertersScreen() {
     }
     fun pick(unit: String) {
         if (sheetTarget == "from") from = unit else to = unit
+        outputOverride = null
         pickerOpen = false
         sheetTarget = null
         query = ""
     }
-    val visible = units
-        .filter { query.isBlank() || it.contains(query, ignoreCase = true) }
-        .sortedWith(compareBy({ it !in favorites }, { it }))
+    val filtered = units.filter { query.isBlank() || it.contains(query, ignoreCase = true) }
+    val visible = filtered.filterNot { it in hidden }
+        .sortedWith(compareBy({ it !in favorites }, { it })) +
+        filtered.filter { it in hidden }.sorted()
     if (pickerOpen) {
         ModalBottomSheet(
             onDismissRequest = { pickerOpen = false; query = "" },
@@ -440,6 +468,7 @@ fun ConvertersScreen() {
                 )
                 LazyColumn(Modifier.fillMaxWidth().height(360.dp)) {
                     items(visible) { u ->
+                        val isHidden = u in hidden
                         Row(
                             verticalAlignment = Alignment.CenterVertically,
                             modifier = Modifier.fillMaxWidth().clickable { pick(u) }
@@ -449,11 +478,29 @@ fun ConvertersScreen() {
                                 Modifier.weight(1f),
                                 verticalArrangement = Arrangement.spacedBy(2.dp)
                             ) {
-                                Text(u, style = MaterialTheme.typography.bodyLarge)
+                                Text(
+                                    u,
+                                    style = MaterialTheme.typography.bodyLarge,
+                                    color = if (isHidden) MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
+                                    else MaterialTheme.colorScheme.onSurface
+                                )
                                 Text(
                                     previewFor(u),
                                     style = MaterialTheme.typography.bodyMedium,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = if (isHidden) 0.5f else 1f)
+                                )
+                            }
+                            IconButton(
+                                onClick = {
+                                    scope.launch {
+                                        runCatching { prefs.setHidden(cat, if (u in hidden) hidden - u else hidden + u) }
+                                    }
+                                },
+                                modifier = Modifier.size(48.dp)
+                            ) {
+                                Icon(
+                                    if (isHidden) Icons.Filled.VisibilityOff else Icons.Filled.Visibility,
+                                    contentDescription = if (isHidden) "Unhide $u" else "Hide $u"
                                 )
                             }
                             IconButton(
@@ -480,7 +527,31 @@ fun ConvertersScreen() {
         }
         item {
             SectionCard("Value") {
-                NumField(input, { input = it }, "Value to convert")
+                NumField(input, { input = it; outputOverride = null }, "Value to convert")
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    TextButton(
+                        onClick = {
+                            if (input.isNotEmpty() || outputOverride != null) {
+                                lastCleared = input
+                                input = ""
+                                outputOverride = null
+                                undoVisible = true
+                            }
+                        },
+                        enabled = input.isNotEmpty() || outputOverride != null
+                    ) { Text("Clear") }
+                    if (undoVisible && lastCleared != null) {
+                        TextButton(onClick = {
+                            input = lastCleared ?: ""
+                            outputOverride = null
+                            lastCleared = null
+                            undoVisible = false
+                        }) { Text("Undo") }
+                    }
+                }
                 LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     items(cats) { c ->
                         FilterChip(selected = c == cat, onClick = { cat = c }, label = { Text(c) })
@@ -503,6 +574,7 @@ fun ConvertersScreen() {
                         val f = from
                         from = to
                         to = f
+                        outputOverride = null
                         swapped = !swapped
                     }, modifier = Modifier.size(48.dp)) {
                         Icon(
@@ -545,6 +617,12 @@ fun ConvertersScreen() {
                         )
                     }
                 }
+                NumField(outputOverride ?: (if (forwardVal != null) result else ""), { reverseTo(it) }, "Result in ${safeTo.ifBlank { "target" }} (editable)")
+                Text(
+                    "Typing here reverse-converts into ${safeFrom.ifBlank { "source" }}.",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
             }
         }
         item {
@@ -588,11 +666,17 @@ fun ConvertersScreen() {
                     val weight = runCatching {
                         Units.convertCookingToWeight(volMl, num(gramsPerCup))
                     }.getOrDefault(Double.NaN)
+                    val volFrac = runCatching {
+                        Engine.toFraction(volMl)?.let { "${it.first}/${it.second}" }
+                    }.getOrNull()
+                    val wtFrac = runCatching {
+                        Engine.toFraction(weight)?.let { "${it.first}/${it.second}" }
+                    }.getOrNull()
                     HorizontalDivider()
                     FluentStagger(2) {
                         Column {
-                            ResultLine("Volume", "${fmt(volMl, 2)} mL")
-                            ResultLine("Weight", "${fmt(weight, 2)} g")
+                            ResultLine("Volume", "${fmt(volMl, 2)} mL" + (if (volFrac != null) " ($volFrac)" else ""))
+                            ResultLine("Weight", "${fmt(weight, 2)} g" + (if (wtFrac != null) " ($wtFrac)" else ""))
                         }
                     }
                 }
@@ -705,6 +789,41 @@ fun FinanceScreen() {
         Modifier.fillMaxSize().padding(vertical = 16.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
+        item {
+            var pctMode by remember { mutableStateOf(0) }
+            var pctX by remember { mutableStateOf("15") }
+            var pctY by remember { mutableStateOf("200") }
+            val pctModes = listOf("X% of Y", "X is what % of Y", "% difference")
+            val pctValue: Double = runCatching {
+                val x = num(pctX)
+                val y = num(pctY)
+                when (pctMode) {
+                    0 -> x * y / 100.0
+                    1 -> if (y == 0.0) Double.NaN else x / y * 100.0
+                    else -> if ((x + y) == 0.0) Double.NaN else kotlin.math.abs(x - y) / (kotlin.math.abs(x + y) / 2.0) * 100.0
+                }
+            }.getOrDefault(Double.NaN)
+            val pctOut = if (!pctValue.isFinite()) "—"
+            else if (pctMode == 0) fmt(pctValue, 2)
+            else fmt(pctValue, 2) + " %"
+            SectionCard("Percent") {
+                LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    items(pctModes.size) { i ->
+                        FilterChip(selected = pctMode == i, onClick = { pctMode = i }, label = { Text(pctModes[i]) })
+                    }
+                }
+                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Box(Modifier.weight(1f)) {
+                        NumField(pctX, { pctX = it }, if (pctMode == 2) "A" else "X")
+                    }
+                    Box(Modifier.weight(1f)) {
+                        NumField(pctY, { pctY = it }, if (pctMode == 2) "B" else "Y")
+                    }
+                }
+                HorizontalDivider()
+                ResultLine("Result", pctOut)
+            }
+        }
         item {
             SectionCard("Tip and split") {
                 NumField(bill, { bill = it }, "Bill")

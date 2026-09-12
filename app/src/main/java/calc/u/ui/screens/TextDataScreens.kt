@@ -53,7 +53,11 @@ fun TextDataScreen() {
                     "regex" to "Regex",
                     "unix" to "Unix",
                     "totp" to "TOTP",
-                    "cipher" to "Cipher"
+                    "cipher" to "Cipher",
+                    "textplus" to "Text+",
+                    "diff" to "Diff",
+                    "csvjson" to "CSV/JSON",
+                    "cron" to "Cron"
                 )
             ) { (id, label) ->
                 FilterChip(selected = tab == id, onClick = { tab = id }, label = { Text(label) })
@@ -74,6 +78,10 @@ fun TextDataScreen() {
                 "unix" -> UnixTimeCard()
                 "totp" -> TotpCard()
                 "cipher" -> CipherCard()
+                "textplus" -> TextPlusScreen()
+                "diff" -> DiffScreen()
+                "csvjson" -> CsvJsonScreen()
+                "cron" -> CronMiscScreen()
                 else -> HashScreen()
             }
         }
@@ -526,5 +534,251 @@ fun CipherCard() {
         HorizontalDivider()
         ResultLine("Result", output)
         Button(onClick = { runCatching { clipboard.setText(AnnotatedString(output)) } }) { Text("Copy") }
+    }
+}
+
+@Composable
+fun TextPlusScreen() {
+    var rot by remember { mutableStateOf("") }
+    var slug by remember { mutableStateOf("") }
+    var palin by remember { mutableStateOf("") }
+    var email by remember { mutableStateOf("") }
+    val rotOut = remember(rot) { runCatching { TextData.rot13(rot) }.getOrDefault("—") }
+    val slugOut = remember(slug) { runCatching { TextData.slugify(slug) }.getOrDefault("—") }
+    val palinOut = remember(palin) {
+        runCatching { if (TextData.isPalindrome(palin)) "Palindrome" else "Not a palindrome" }.getOrDefault("—")
+    }
+    val emailOut = remember(email) { runCatching { TextData.extractEmails(email) }.getOrDefault(emptyList()) }
+    LazyColumn(Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+        item {
+            SectionCard("ROT13") {
+                OutlinedTextField(
+                    value = rot,
+                    onValueChange = { rot = it },
+                    label = { Text("Text") },
+                    modifier = Modifier.fillMaxWidth(),
+                    minLines = 2
+                )
+                HorizontalDivider()
+                ResultLine("Result", rotOut.ifEmpty { "—" })
+            }
+        }
+        item {
+            SectionCard("Slug") {
+                OutlinedTextField(
+                    value = slug,
+                    onValueChange = { slug = it },
+                    label = { Text("Text") },
+                    modifier = Modifier.fillMaxWidth()
+                )
+                HorizontalDivider()
+                ResultLine("Slug", slugOut.ifEmpty { "—" })
+            }
+        }
+        item {
+            SectionCard("Palindrome") {
+                OutlinedTextField(
+                    value = palin,
+                    onValueChange = { palin = it },
+                    label = { Text("Text") },
+                    modifier = Modifier.fillMaxWidth()
+                )
+                HorizontalDivider()
+                ResultLine("Check", palinOut)
+            }
+        }
+        item {
+            SectionCard("Emails") {
+                OutlinedTextField(
+                    value = email,
+                    onValueChange = { email = it },
+                    label = { Text("Text") },
+                    modifier = Modifier.fillMaxWidth(),
+                    minLines = 3
+                )
+                HorizontalDivider()
+                ResultLine("Found", if (emailOut.isEmpty()) "—" else emailOut.joinToString(", "))
+            }
+        }
+    }
+}
+
+@Composable
+fun DiffScreen() {
+    var a by remember { mutableStateOf("") }
+    var b by remember { mutableStateOf("") }
+    val diff = remember(a, b) {
+        runCatching { TextData.diffLines(a, b).joinToString("\n") }.getOrDefault("—")
+    }
+    LazyColumn(Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+        item {
+            SectionCard("Line diff") {
+                OutlinedTextField(
+                    value = a,
+                    onValueChange = { a = it },
+                    label = { Text("Original") },
+                    modifier = Modifier.fillMaxWidth(),
+                    minLines = 3
+                )
+                OutlinedTextField(
+                    value = b,
+                    onValueChange = { b = it },
+                    label = { Text("Modified") },
+                    modifier = Modifier.fillMaxWidth(),
+                    minLines = 3
+                )
+                HorizontalDivider()
+                ResultLine("Diff", if (diff.isEmpty()) "—" else diff)
+            }
+        }
+    }
+}
+
+@Composable
+fun CsvJsonScreen() {
+    var csv by remember { mutableStateOf("") }
+    var jsonIn by remember { mutableStateOf("") }
+    var csvT by remember { mutableStateOf("") }
+    var sortIn by remember { mutableStateOf("") }
+    var cmpA by remember { mutableStateOf("") }
+    var cmpB by remember { mutableStateOf("") }
+    val csvJson = remember(csv) { runCatching { TextData.csvToJson(csv) }.getOrDefault("—") }
+    val jsonCsv = remember(jsonIn) { runCatching { TextData.jsonToCsv(jsonIn) }.getOrDefault("—") }
+    val transposed = remember(csvT) { runCatching { TextData.transposeCsv(csvT) }.getOrDefault("—") }
+    val sorted = remember(sortIn) { runCatching { TextData.jsonSortKeys(sortIn) }.getOrDefault("—") }
+    val compared = remember(cmpA, cmpB) {
+        runCatching { TextData.jsonCompare(cmpA, cmpB) }.getOrDefault(listOf("—"))
+    }
+    LazyColumn(Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+        item {
+            SectionCard("CSV to JSON") {
+                OutlinedTextField(
+                    value = csv,
+                    onValueChange = { csv = it },
+                    label = { Text("CSV") },
+                    modifier = Modifier.fillMaxWidth(),
+                    minLines = 4
+                )
+                HorizontalDivider()
+                ResultLine("JSON", if (csvJson.isEmpty()) "—" else csvJson)
+            }
+        }
+        item {
+            SectionCard("JSON to CSV") {
+                OutlinedTextField(
+                    value = jsonIn,
+                    onValueChange = { jsonIn = it },
+                    label = { Text("JSON array") },
+                    modifier = Modifier.fillMaxWidth(),
+                    minLines = 4
+                )
+                HorizontalDivider()
+                ResultLine("CSV", if (jsonCsv.isEmpty()) "—" else jsonCsv)
+            }
+        }
+        item {
+            SectionCard("Transpose CSV") {
+                OutlinedTextField(
+                    value = csvT,
+                    onValueChange = { csvT = it },
+                    label = { Text("CSV") },
+                    modifier = Modifier.fillMaxWidth(),
+                    minLines = 3
+                )
+                HorizontalDivider()
+                ResultLine("Transposed", if (transposed.isEmpty()) "—" else transposed)
+            }
+        }
+        item {
+            SectionCard("Sort keys / Compare") {
+                OutlinedTextField(
+                    value = sortIn,
+                    onValueChange = { sortIn = it },
+                    label = { Text("JSON object") },
+                    modifier = Modifier.fillMaxWidth(),
+                    minLines = 2
+                )
+                ResultLine("Sorted", if (sorted.isEmpty()) "—" else sorted)
+                HorizontalDivider()
+                OutlinedTextField(
+                    value = cmpA,
+                    onValueChange = { cmpA = it },
+                    label = { Text("JSON A") },
+                    modifier = Modifier.fillMaxWidth(),
+                    minLines = 2
+                )
+                OutlinedTextField(
+                    value = cmpB,
+                    onValueChange = { cmpB = it },
+                    label = { Text("JSON B") },
+                    modifier = Modifier.fillMaxWidth(),
+                    minLines = 2
+                )
+                ResultLine("Differing paths", if (compared.isEmpty()) "identical" else compared.joinToString(", "))
+            }
+        }
+    }
+}
+
+@Composable
+fun CronMiscScreen() {
+    var expr by remember { mutableStateOf("*/15 * * * *") }
+    var year by remember { mutableStateOf("") }
+    var ts by remember { mutableStateOf("") }
+    var style by remember { mutableStateOf("R") }
+    val explained = remember(expr) { runCatching { TextData.crontabExplain(expr) }.getOrDefault("—") }
+    val leap = remember(year) {
+        val y = year.trim().toIntOrNull()
+        if (y == null) "—"
+        else runCatching { if (TextData.isLeapYear(y)) "Leap year" else "Common year" }.getOrDefault("—")
+    }
+    val discord = remember(ts, style) {
+        val t = ts.trim().toLongOrNull()
+        if (t == null) "—"
+        else runCatching { TextData.discordTimestamp(t, style.trim().ifEmpty { "R" }) }.getOrDefault("—")
+    }
+    LazyColumn(Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+        item {
+            SectionCard("Cron") {
+                OutlinedTextField(
+                    value = expr,
+                    onValueChange = { expr = it },
+                    label = { Text("Crontab (5 fields)") },
+                    modifier = Modifier.fillMaxWidth()
+                )
+                HorizontalDivider()
+                ResultLine("Explains", explained)
+            }
+        }
+        item {
+            SectionCard("Leap year") {
+                OutlinedTextField(
+                    value = year,
+                    onValueChange = { year = it },
+                    label = { Text("Year") },
+                    modifier = Modifier.fillMaxWidth()
+                )
+                HorizontalDivider()
+                ResultLine("Result", leap)
+            }
+        }
+        item {
+            SectionCard("Discord timestamp") {
+                OutlinedTextField(
+                    value = ts,
+                    onValueChange = { ts = it },
+                    label = { Text("Unix seconds") },
+                    modifier = Modifier.fillMaxWidth()
+                )
+                OutlinedTextField(
+                    value = style,
+                    onValueChange = { style = it },
+                    label = { Text("Style (t T d D f F R)") },
+                    modifier = Modifier.fillMaxWidth()
+                )
+                HorizontalDivider()
+                ResultLine("Tag", discord)
+            }
+        }
     }
 }

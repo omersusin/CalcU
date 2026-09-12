@@ -318,3 +318,47 @@ object IdealWeight {
         else 49.0 + 1.7 * (inches - 60.0)
     }
 }
+
+object PasswordKit {
+    private const val LETTERS = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
+    private const val DIGITS = "0123456789"
+    private const val SPECIALS = "!@#\$%^&*()-_=+[]{};:,.<>?/~"
+
+    fun generate(
+        length: Int,
+        digits: Int,
+        specials: Int,
+        rng: java.security.SecureRandom = java.security.SecureRandom()
+    ): String {
+        require(length in 1..128) { "length must be in 1..128" }
+        require(digits >= 0) { "digits must be >= 0" }
+        require(specials >= 0) { "specials must be >= 0" }
+        require(length >= digits + specials) { "length must be >= digits + specials" }
+        val out = CharArray(length)
+        var i = 0
+        repeat(digits) { out[i++] = DIGITS[rng.nextInt(DIGITS.length)] }
+        repeat(specials) { out[i++] = SPECIALS[rng.nextInt(SPECIALS.length)] }
+        while (i < length) {
+            out[i++] = LETTERS[rng.nextInt(LETTERS.length)]
+        }
+        for (j in out.size - 1 downTo 1) {
+            val k = rng.nextInt(j + 1)
+            val t = out[j]
+            out[j] = out[k]
+            out[k] = t
+        }
+        return String(out)
+    }
+}
+
+object PercentKit {
+    fun of(pct: Double, ofValue: Double): Double = ofValue * pct / 100
+    fun whatPercent(part: Double, whole: Double): Double {
+        require(whole != 0.0) { "whole must not be 0" }
+        return part / whole * 100
+    }
+    fun diffPct(a: Double, b: Double): Double {
+        require(a != 0.0) { "a must not be 0" }
+        return (b - a) / a * 100
+    }
+}

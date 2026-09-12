@@ -26,25 +26,33 @@ import androidx.compose.material3.Slider
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.unit.dp
 import calc.u.core.Engine
 import calc.u.core.IdealWeight
 import calc.u.core.PaintKit
+import calc.u.core.PasswordKit
+import calc.u.data.SettingsRepository
 import calc.u.ui.CalcUNumberBox
 import calc.u.ui.ResultLine
 import calc.u.ui.SectionCard
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 
 @Composable
 fun EverydayScreen() {
@@ -58,7 +66,8 @@ fun EverydayScreen() {
                     "words" to "Words",
                     "paint" to "Paint",
                     "weight" to "Weight",
-                    "metro" to "Metro"
+                    "metro" to "Metro",
+                    "password" to "Password"
                 )
             ) { (id, label) ->
                 FilterChip(selected = tab == id, onClick = { tab = id }, label = { Text(label) })
@@ -71,6 +80,7 @@ fun EverydayScreen() {
                 "paint" -> PaintSection()
                 "weight" -> WeightSection()
                 "metro" -> MetronomeSection()
+                "password" -> PasswordSection()
                 else -> TallySection()
             }
         }
@@ -79,7 +89,10 @@ fun EverydayScreen() {
 
 @Composable
 private fun TallySection() {
-    var count by rememberSaveable { mutableStateOf(0) }
+    val appCtx = LocalContext.current.applicationContext
+    val repo = remember { SettingsRepository(appCtx) }
+    val scope = rememberCoroutineScope()
+    val count by repo.tallyCount.collectAsState(initial = 0)
     LazyColumn(Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(16.dp)) {
         item {
             SectionCard("Tally counter") {
@@ -90,13 +103,22 @@ private fun TallySection() {
                 )
                 Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                     Box(Modifier.weight(1f)) {
-                        Button(onClick = { count -= 1 }, modifier = Modifier.fillMaxWidth()) { Text("−1") }
+                        Button(
+                            onClick = { scope.launch { runCatching { repo.setTallyCount(count - 1) } } },
+                            modifier = Modifier.fillMaxWidth()
+                        ) { Text("−1") }
                     }
                     Box(Modifier.weight(1f)) {
-                        Button(onClick = { count += 1 }, modifier = Modifier.fillMaxWidth()) { Text("+1") }
+                        Button(
+                            onClick = { scope.launch { runCatching { repo.setTallyCount(count + 1) } } },
+                            modifier = Modifier.fillMaxWidth()
+                        ) { Text("+1") }
                     }
                     Box(Modifier.weight(1f)) {
-                        OutlinedButton(onClick = { count = 0 }, modifier = Modifier.fillMaxWidth()) { Text("Reset") }
+                        OutlinedButton(
+                            onClick = { scope.launch { runCatching { repo.setTallyCount(0) } } },
+                            modifier = Modifier.fillMaxWidth()
+                        ) { Text("Reset") }
                     }
                 }
                 ResultLine("Count", "$count")
@@ -396,6 +418,99 @@ private fun MetronomeSection() {
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
+            }
+        }
+    }
+}
+
+@Composable
+private fun PasswordSection() {
+    var length by rememberSaveable { mutableStateOf(16f) }
+    var digits by rememberSaveable { mutableStateOf(4) }
+    var specials by rememberSaveable { mutableStateOf(2) }
+    var password by rememberSaveable { mutableStateOf("") }
+    var error by rememberSaveable { mutableStateOf("") }
+    val clipboard = LocalClipboardManager.current
+    val len = length.toInt().coerceIn(4, 64)
+    val safeDigits = digits.coerceIn(0, len)
+    val safeSpecials = specials.coerceIn(0, len - safeDigits)
+    val pools = 1 + (if (safeDigits > 0) 1 else 0) + (if (safeSpecials > 0) 1 else 0)
+    val strength = when {
+        len >= 20 && pools == 3 -> "Very strong"
+        len >= 14 && pools == 3 -> "Strong"
+        len >= 12 && pools >= 2 -> "Good"
+        len >= 8 && pools >= 2 -> "Fair"
+        else -> "Weak"
+    }
+    LazyColumn(Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+        item {
+            SectionCard("Password generator") {
+                Text("$len characters", style = MaterialTheme.typography.titleMedium)
+                Slider(
+                    value = length,
+                    onValueChange = { length = it },
+                    valueRange = 4f..64f,
+                    steps = 59
+                )
+                Row(
+                    Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text("Digits ($safeDigits)", style = MaterialTheme.typography.bodyLarge)
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        OutlinedButton(onClick = { digits = (digits - 1).coerceAtLeast(0) }) { Text("−") }
+                        OutlinedButton(
+                            onClick = { digits = (digits + 1).coerceAtMost(len - safeSpecials) }
+                        ) { Text("+") }
+                    }
+                }
+                Row(
+                    Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text("Specials ($safeSpecials)", style = MaterialTheme.typography.bodyLarge)
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        OutlinedButton(onClick = { specials = (specials - 1).coerceAtLeast(0) }) { Text("−") }
+                        OutlinedButton(
+                            onClick = { specials = (specials + 1).coerceAtMost(len - safeDigits) }
+                        ) { Text("+") }
+                    }
+                }
+                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Box(Modifier.weight(1f)) {
+                        Button(
+                            onClick = {
+                                runCatching { PasswordKit.generate(len, safeDigits, safeSpecials) }
+                                    .onSuccess { password = it; error = "" }
+                                    .onFailure { error = it.message ?: "Invalid options" }
+                            },
+                            modifier = Modifier.fillMaxWidth()
+                        ) { Text("Generate") }
+                    }
+                    Box(Modifier.weight(1f)) {
+                        OutlinedButton(
+                            onClick = { runCatching { clipboard.setText(AnnotatedString(password)) } },
+                            enabled = password.isNotEmpty(),
+                            modifier = Modifier.fillMaxWidth()
+                        ) { Text("Copy") }
+                    }
+                }
+                if (error.isNotEmpty()) {
+                    Text(error, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.error)
+                }
+                if (password.isNotEmpty()) {
+                    Text(
+                        password,
+                        style = MaterialTheme.typography.titleMedium,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                } else {
+                    ResultLine("Password", "—")
+                }
+                HorizontalDivider()
+                ResultLine("Strength", strength)
             }
         }
     }

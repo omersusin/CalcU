@@ -168,4 +168,72 @@ class TextDataTest {
             fail("expected IAE")
         } catch (e: IllegalArgumentException) { }
     }
+
+    @Test fun rot13RoundTrip() {
+        val original = "Hello, World! 123"
+        assertEquals(original, TextData.rot13(TextData.rot13(original)))
+        assertEquals("Uryyb", TextData.rot13("Hello"))
+    }
+
+    @Test fun slugBasic() {
+        assertEquals("hello-world", TextData.slugify("Hello, World!"))
+    }
+
+    @Test fun palindromeClassic() {
+        assertTrue(TextData.isPalindrome("A man a plan a canal Panama"))
+        assertFalse(TextData.isPalindrome("hello"))
+    }
+
+    @Test fun emailsExtractTwo() {
+        val found = TextData.extractEmails("a@b.com and x.y+z@sub.domain.org ok")
+        assertEquals(2, found.size)
+        assertTrue(found.contains("a@b.com"))
+    }
+
+    @Test fun diffBasic() {
+        val d = TextData.diffLines("a\nb\nc", "a\nx\nc")
+        assertTrue(d.contains("- b"))
+        assertTrue(d.contains("+ x"))
+        assertTrue(d.contains("  a"))
+    }
+
+    @Test fun csvRoundTrip() {
+        val csv = "a,b\n1,2\n3,4"
+        val json = TextData.csvToJson(csv)
+        assertTrue(json.contains("\"a\""))
+        assertEquals(csv, TextData.jsonToCsv(json))
+    }
+
+    @Test fun csvQuoteAware() {
+        val json = TextData.csvToJson("a,b\n\"x,y\",2")
+        assertTrue(json.contains("x,y"))
+        assertEquals("a,b\n\"x,y\",2", TextData.jsonToCsv(json))
+    }
+
+    @Test fun cronQuarterHour() {
+        val text = TextData.crontabExplain("*/15 * * * *").lowercase()
+        assertTrue(text.contains("15"))
+        assertTrue(text.contains("minute"))
+    }
+
+    @Test fun leapYears() {
+        assertTrue(TextData.isLeapYear(2024))
+        assertFalse(TextData.isLeapYear(2025))
+        assertFalse(TextData.isLeapYear(1900))
+        assertTrue(TextData.isLeapYear(2000))
+    }
+
+    @Test fun discordFormat() {
+        assertEquals("<t:0:R>", TextData.discordTimestamp(0L, "R"))
+    }
+
+    @Test fun jsonSortAndCompare() {
+        assertEquals("{\"a\":1,\"b\":2}", TextData.jsonSortKeys("{\"b\":2,\"a\":1}"))
+        assertEquals(listOf("a"), TextData.jsonCompare("{\"a\":1}", "{\"a\":2}"))
+        assertTrue(TextData.jsonCompare("{\"a\":1}", "{\"a\":1}").isEmpty())
+    }
+
+    @Test fun transposeBasic() {
+        assertEquals("a,1\nb,2", TextData.transposeCsv("a,b\n1,2"))
+    }
 }

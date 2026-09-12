@@ -146,6 +146,7 @@ fun CalculatorScreen(vm: CalcViewModel = hiltViewModel()) {
     var noteIndex by remember { mutableStateOf<Int?>(null) }
     var noteDraft by remember { mutableStateOf("") }
     var historyOpen by remember { mutableStateOf(false) }
+    var inverse by remember { mutableStateOf(false) }
     if (historyOpen) {
         ModalBottomSheet(
             onDismissRequest = { historyOpen = false },
@@ -248,6 +249,16 @@ fun CalculatorScreen(vm: CalcViewModel = hiltViewModel()) {
                             )
                         }
                     )
+                    FilterChip(
+                        selected = inverse,
+                        onClick = { inverse = !inverse },
+                        label = {
+                            Text(
+                                "INV",
+                                fontWeight = if (inverse) FontWeight.SemiBold else FontWeight.Medium
+                            )
+                        }
+                    )
                     AssistChip(onClick = { vm.onMemClear() }, label = { Text("MC") })
                     AssistChip(onClick = { vm.onMemRecall() }, label = { Text("MR") })
                     AssistChip(onClick = { vm.onMemPlus() }, label = { Text("M+") })
@@ -256,13 +267,22 @@ fun CalculatorScreen(vm: CalcViewModel = hiltViewModel()) {
             }
             item {
                 Keypad(
-                    onKey = { k -> tapFeedback(); if (k == "=") vm.onEquals() else vm.onInput(k) },
+                    onKey = { k ->
+                        tapFeedback()
+                        when (k) {
+                            "=" -> vm.onEquals()
+                            "ANS" -> vm.onAns()
+                            "x²" -> vm.onInput("^2")
+                            else -> vm.onInput(k)
+                        }
+                    },
                     onClear = { tapFeedback(); vm.onClear() },
                     onBack = { tapFeedback(); vm.onBackspace() },
                     onBackLong = {
                         if (vibration) haptics.performHapticFeedback(HapticFeedbackType.LongPress)
                         vm.onClear()
-                    }
+                    },
+                    inverse = inverse
                 )
             }
         }
@@ -522,7 +542,8 @@ private fun Keypad(
     onKey: (String) -> Unit,
     onClear: () -> Unit,
     onBack: () -> Unit,
-    onBackLong: () -> Unit
+    onBackLong: () -> Unit,
+    inverse: Boolean = false
 ) {
     val digitRows = listOf(
         listOf("7", "8", "9", "÷"),
@@ -530,9 +551,14 @@ private fun Keypad(
         listOf("1", "2", "3", "−"),
         listOf("0", ".", "+", "=")
     )
-    val sciRows = listOf(
+    val sciRows = if (!inverse) listOf(
         listOf("(", ")", "^", "√"),
-        listOf("sin(", "cos(", "tan(", "π")
+        listOf("sin(", "cos(", "tan(", "π"),
+        listOf("log(", "ln(", "x²", "1/(")
+    ) else listOf(
+        listOf("(", ")", "^", "x²"),
+        listOf("asin(", "acos(", "atan(", "π"),
+        listOf("10^(", "e^(", "√", "1/(")
     )
     fun rowEnter(delay: Int) =
         fadeIn(tween(FluentMotion.Medium, delayMillis = delay, easing = FluentMotion.Standard)) +
@@ -551,7 +577,7 @@ private fun Keypad(
                     row.forEach { k ->
                         FluentCalcKey(
                             label = k,
-                            onClick = { onKey(k) },
+                            onClick = { onKey(if (k == "x²") "^2" else k) },
                             modifier = Modifier.weight(1f),
                             kind = FluentKeyKind.Sci,
                             keyHeight = 56.dp

@@ -70,9 +70,34 @@ class CalcViewModel @Inject constructor(
         }
     }
 
-    fun onInput(s: String) { _uiState.update { it.copy(input = it.input + s) }; evaluate() }
+    fun onInput(s: String) {
+        _uiState.update {
+            val cur = it.input
+            val needMul = cur.isNotEmpty() && cur.last() in ")!%0123456789πe" &&
+                s.isNotEmpty() && (s.first() == '(' || s.first() == '√' || s.first().isLetter())
+            it.copy(input = if (needMul) cur + "×" + s else cur + s)
+        }
+        evaluate()
+    }
+    private var lastResult: String = ""
+    fun onAns() {
+        val ans = lastResult.ifBlank { "0" }
+        _uiState.update {
+            val cur = it.input
+            val needMul = cur.isNotEmpty() && cur.last() in ")!%0123456789πe"
+            it.copy(input = if (needMul) cur + "×" + ans else cur + ans)
+        }
+        evaluate()
+    }
     fun onClear() { _uiState.update { it.copy(input = "", result = "") } }
-    fun onBackspace() { _uiState.update { it.copy(input = it.input.dropLast(1)) }; evaluate() }
+    fun onBackspace() { _uiState.update { it.copy(input = atomicBackspace(it.input)) }; evaluate() }
+    private fun atomicBackspace(input: String): String {
+        val tokens = listOf("asin(", "acos(", "atan(", "sin(", "cos(", "tan(", "log(", "ln(", "√(", "10^(", "e^(")
+        for (tok in tokens.sortedByDescending { it.length }) {
+            if (input.endsWith(tok)) return input.dropLast(tok.length)
+        }
+        return input.dropLast(1)
+    }
     fun onToggleAngle() { _uiState.update { it.copy(angleDeg = !it.angleDeg) }; evaluate() }
     fun onQueryChange(q: String) { _uiState.update { it.copy(query = q) } }
 
@@ -83,8 +108,13 @@ class CalcViewModel @Inject constructor(
 
     fun onEquals() {
         val st = _uiState.value
+        Engine.validateExpr(st.input)?.let { msg ->
+            _uiState.update { s -> s.copy(result = msg) }
+            return
+        }
         runCatching { Engine.eval(st.input, st.angleDeg) }.getOrNull()?.onSuccess {
             val r = runCatching { Engine.format(it) }.getOrDefault("Error")
+            if (r != "Error") lastResult = r
             _uiState.update { s -> s.copy(result = r) }
             viewModelScope.launch {
                 runCatching { historyRepo.push(st.input, r) }
@@ -113,6 +143,7 @@ class CalcViewModel @Inject constructor(
     private fun evaluate() {
         val st = _uiState.value
         if (st.input.isBlank()) { _uiState.update { it.copy(result = "") }; return }
+        if (Engine.validateExpr(st.input) != null) { _uiState.update { it.copy(result = "") }; return }
         runCatching { Engine.eval(st.input, st.angleDeg) }.getOrNull()?.onSuccess {
             val formatted = runCatching { Engine.format(it) }.getOrNull()
             if (formatted != null) _uiState.update { s -> s.copy(result = formatted) }

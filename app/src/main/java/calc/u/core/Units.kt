@@ -295,4 +295,17 @@ object Units {
         if (neg) sb.insert(0, '-')
         return sb.toString()
     }
+
+    // Magnitude-aware display without grouping (locale-independent, no commas or
+    // spaces) so output stays parseable across phone locales. Six significant
+    // digits via %g; callers needing fixed decimals should keep formatting manually.
+    fun fmtMag(v: Double): String {
+        if (!v.isFinite()) return "—"
+        if (v == 0.0) return "0"
+        return try {
+            String.format(java.util.Locale.US, "%.6g", v)
+        } catch (_: Exception) {
+            "—"
+        }
+    }
 }

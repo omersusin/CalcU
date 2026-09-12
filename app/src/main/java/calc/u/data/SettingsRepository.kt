@@ -50,4 +50,12 @@ class SettingsRepository @Inject constructor(@ApplicationContext private val ctx
     suspend fun setDynamicColor(value: Boolean) {
         runCatching { ctx.settingsDataStore.edit { it[dynamicKey] = value } }
     }
+
+    private val tallyCountKey = androidx.datastore.preferences.core.intPreferencesKey("tally_count")
+
+    val tallyCount: Flow<Int> = ctx.settingsDataStore.data.map { it[tallyCountKey] ?: 0 }.catch { emit(0) }
+
+    suspend fun setTallyCount(value: Int) {
+        runCatching { ctx.settingsDataStore.edit { it[tallyCountKey] = value } }
+    }
 }

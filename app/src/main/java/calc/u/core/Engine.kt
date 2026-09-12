@@ -368,4 +368,25 @@ object Engine {
         }
         return chunks.reversed().joinToString(" ")
     }
+
+    fun validateExpr(input: String): String? {
+        if (input.isBlank()) return "Empty"
+        var t = input.trim()
+            .replace("×", "*")
+            .replace("÷", "/")
+            .replace("−", "-")
+        while (t.isNotEmpty() && t.last() in "+-*/^%") {
+            t = t.dropLast(1).trimEnd()
+        }
+        if (t.isBlank()) return "Empty"
+        if (Regex("[^0-9a-zA-Z+\\-×÷*/^%().!√πe, −]").containsMatchIn(t)) return "Invalid character"
+        if (t.count { it == '(' } != t.count { it == ')' }) return "Unbalanced brackets"
+        if (Regex("\\(\\s*\\)").containsMatchIn(t)) return "Empty brackets"
+        Regex("(\\d+)!").findAll(t).forEach {
+            runCatching { it.groupValues[1].toLong() }.getOrNull()?.let { n ->
+                if (n > 170L) return "Too large"
+            }
+        }
+        return null
+    }
 }
