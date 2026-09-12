@@ -25,6 +25,16 @@ Big waves (5-8 parallel) by default; retry aborts in smaller batches.
 ## Replies (locked)
 Detailed rundowns with proof links every round.
 
+## Business model (locked)
+Free forever: no ads, no IAP, no tracking.
+
+## Sync (locked)
+Local-only forever. JSON backup covers portability. No accounts, no cloud.
+
+## i18n (locked)
+English + Turkish first. (Fluent refs purged 2026-09-12; fork deletion needs
+owner action: Settings → Danger Zone → Delete omersusin/fluentui-android.)
+
 ## Backlog (user-ranked)
 1. Unfinished ideas: foreground-service timer + notifications, engine
    variables, remaining kimon/ConvertAll ideas.
