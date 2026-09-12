@@ -86,6 +86,8 @@ import calc.u.ui.FluentStagger
 import calc.u.ui.ResultLine
 import calc.u.ui.SectionCard
 import calc.u.ui.theme.FluentMotion
+import java.time.LocalDate
+import java.time.temporal.ChronoUnit
 import java.util.Calendar
 import kotlin.math.PI
 import kotlin.math.sqrt
@@ -202,6 +204,68 @@ private fun ageYMD(y: Int, m: Int, d: Int): Triple<Int, Int, Int>? {
         Triple(years, months, days)
     } catch (e: Exception) {
         null
+    }
+}
+
+@Composable
+private fun PieChart(
+    parts: List<Pair<String, Double>>,
+    centerLabel: String,
+    centerValue: String
+) {
+    val safe = parts.map { it.first to (it.second.takeIf { v -> v.isFinite() }?.coerceAtLeast(0.0) ?: 0.0) }
+    val total = safe.sumOf { it.second }.takeIf { it > 0 } ?: 1.0
+    val firstFrac = ((safe.getOrNull(0)?.second ?: 0.0) / total).toFloat().coerceIn(0f, 1f)
+    val hasData = safe.any { it.second > 0 }
+    val primary = MaterialTheme.colorScheme.primary
+    val tertiary = MaterialTheme.colorScheme.tertiary
+    val track = MaterialTheme.colorScheme.surfaceContainerHighest
+    val sweep by animateFloatAsState(
+        if (hasData) 1f else 0f,
+        animationSpec = tween(FluentMotion.Medium, easing = FluentMotion.Standard),
+        label = "pie-sweep"
+    )
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+            Canvas(Modifier.size(132.dp)) {
+                drawArc(
+                    color = track,
+                    startAngle = 0f,
+                    sweepAngle = 360f,
+                    useCenter = false,
+                    style = Stroke(width = 18.dp.toPx(), cap = StrokeCap.Round)
+                )
+                if (sweep > 0f) {
+                    drawArc(
+                        color = primary,
+                        startAngle = -90f,
+                        sweepAngle = 360f * firstFrac * sweep,
+                        useCenter = false,
+                        style = Stroke(width = 18.dp.toPx(), cap = StrokeCap.Round)
+                    )
+                    drawArc(
+                        color = tertiary,
+                        startAngle = -90f + 360f * firstFrac * sweep,
+                        sweepAngle = 360f * (1f - firstFrac) * sweep,
+                        useCenter = false,
+                        style = Stroke(width = 18.dp.toPx(), cap = StrokeCap.Round)
+                    )
+                }
+            }
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                Text(centerLabel, style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
+                Text(
+                    centerValue,
+                    style = MaterialTheme.typography.titleLarge,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
+        }
+        safe.forEach { (label, v) ->
+            ResultLine(label, runCatching { fmt(v, 2) }.getOrDefault("—"))
+        }
     }
 }
 
@@ -1253,6 +1317,154 @@ fun FinanceScreen() {
                 ResultLine("Zakat due", due?.let { fmt(it, 2) } ?: "—")
             }
         }
+        item {
+            var invAmt by remember { mutableStateOf("10000") }
+            var stlAmt by remember { mutableStateOf("12000") }
+            var startD by remember { mutableStateOf("2024-01-01") }
+            var endD by remember { mutableStateOf("2025-01-01") }
+            val days = runCatching {
+                ChronoUnit.DAYS.between(LocalDate.parse(startD.trim()), LocalDate.parse(endD.trim())).toInt()
+            }.getOrNull()
+            val roi = if (days == null) null else runCatching { Finance.investRoi(num(invAmt), num(stlAmt), days) }.getOrNull()
+            SectionCard("Investment ROI") {
+                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Box(Modifier.weight(1f)) { NumField(invAmt, { invAmt = it }, "Invested") }
+                    Box(Modifier.weight(1f)) { NumField(stlAmt, { stlAmt = it }, "Settled") }
+                }
+                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Box(Modifier.weight(1f)) {
+                        OutlinedTextField(
+                            value = startD,
+                            onValueChange = { startD = it },
+                            label = { Text("Start yyyy-MM-dd") },
+                            singleLine = true,
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                    }
+                    Box(Modifier.weight(1f)) {
+                        OutlinedTextField(
+                            value = endD,
+                            onValueChange = { endD = it },
+                            label = { Text("End yyyy-MM-dd") },
+                            singleLine = true,
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                    }
+                }
+                HorizontalDivider()
+                ResultLine("Days", days?.takeIf { it > 0 }?.toString() ?: "—")
+                ResultLine("Profit", roi?.let { fmt(it.first, 2) } ?: "—")
+                ResultLine("Return", roi?.let { fmt(it.second, 2) + " %" } ?: "—")
+                ResultLine("Annualized", roi?.let { fmt(it.third, 2) + " %" } ?: "—")
+            }
+        }
+        item {
+            var gstNet by remember { mutableStateOf("100") }
+            var gstGross by remember { mutableStateOf("118") }
+            var gstRate by remember { mutableStateOf(18.0) }
+            var gstIntra by remember { mutableStateOf(true) }
+            var lastEdited by remember { mutableStateOf("net") }
+            val gstRates = listOf(5.0, 12.0, 18.0, 28.0)
+            val gstRes = runCatching {
+                if (lastEdited == "net") Finance.gstForward(num(gstNet), gstRate, gstIntra)
+                else Finance.gstReverse(num(gstGross), gstRate)
+            }.getOrNull()
+            val gstTax = gstRes?.second ?: Double.NaN
+            SectionCard("GST") {
+                NumField(gstNet, { gstNet = it; lastEdited = "net" }, "Net amount")
+                NumField(gstGross, { gstGross = it; lastEdited = "gross" }, "Gross amount")
+                LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    items(gstRates) { r ->
+                        FilterChip(
+                            selected = gstRate == r,
+                            onClick = { gstRate = r },
+                            label = { Text("${fmt(r, 0)}%") }
+                        )
+                    }
+                }
+                LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    item {
+                        FilterChip(selected = gstIntra, onClick = { gstIntra = true }, label = { Text("Intra-state") })
+                    }
+                    item {
+                        FilterChip(selected = !gstIntra, onClick = { gstIntra = false }, label = { Text("Inter-state") })
+                    }
+                }
+                HorizontalDivider()
+                ResultLine("Net", gstRes?.let { fmt(it.first, 2) } ?: "—")
+                if (gstIntra) {
+                    ResultLine("CGST", runCatching { fmt(gstTax / 2, 2) }.getOrDefault("—"))
+                    ResultLine("SGST", runCatching { fmt(gstTax / 2, 2) }.getOrDefault("—"))
+                } else {
+                    ResultLine("IGST", runCatching { fmt(gstTax, 2) }.getOrDefault("—"))
+                }
+                ResultLine("Gross", gstRes?.let { fmt(it.third, 2) } ?: "—")
+            }
+        }
+        item {
+            var lpP by remember { mutableStateOf("100000") }
+            var lpR by remember { mutableStateOf("9") }
+            var lpM by remember { mutableStateOf("60") }
+            val lpMonths = (lpM.toIntOrNull() ?: 0).coerceIn(1, 360)
+            val lpPrin = num(lpP)
+            val lpEmi = runCatching { Finance.emi(lpPrin, num(lpR), lpMonths) }.getOrNull()
+            val lpInt = if (lpEmi == null) Double.NaN else runCatching { lpEmi * lpMonths - lpPrin }.getOrDefault(Double.NaN)
+            SectionCard("Loan breakdown") {
+                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Box(Modifier.weight(1f)) { NumField(lpP, { lpP = it }, "Principal") }
+                    Box(Modifier.weight(1f)) { NumField(lpR, { lpR = it }, "Annual %") }
+                }
+                NumField(lpM, { lpM = it }, "Months", integer = true)
+                HorizontalDivider()
+                ResultLine("Monthly EMI", lpEmi?.let { fmt(it, 2) } ?: "—")
+                ResultLine("Total interest", runCatching { fmt(lpInt, 2) }.getOrDefault("—"))
+                PieChart(
+                    listOf("Principal" to lpPrin.coerceAtLeast(0.0), "Interest" to lpInt.coerceAtLeast(0.0)),
+                    "Monthly",
+                    lpEmi?.let { fmt(it, 2) } ?: "—"
+                )
+            }
+        }
+        item {
+            var bdP by remember { mutableStateOf("10000") }
+            var bdR by remember { mutableStateOf("6") }
+            var bdY by remember { mutableStateOf("5") }
+            var bdMode by remember { mutableStateOf(1) }
+            val bdLabels = listOf("Monthly", "Quarterly", "Half-yearly", "Yearly", "Lump sum")
+            val bdFreqs = listOf(12, 4, 2, 1, 0)
+            val bdFreq = bdFreqs.getOrNull(bdMode) ?: 4
+            val bdRes = runCatching {
+                if (bdFreq == 0) {
+                    val (si, total) = Finance.simple(num(bdP), num(bdR), num(bdY))
+                    Triple(num(bdP), si, total)
+                } else {
+                    Finance.fd(num(bdP), num(bdR), num(bdY), bdFreq)
+                }
+            }.getOrNull()
+            SectionCard("Bank deposit") {
+                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Box(Modifier.weight(1f)) { NumField(bdP, { bdP = it }, "Principal") }
+                    Box(Modifier.weight(1f)) { NumField(bdR, { bdR = it }, "Rate %") }
+                    Box(Modifier.weight(1f)) { NumField(bdY, { bdY = it }, "Years") }
+                }
+                LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    items(bdLabels.size) { i ->
+                        FilterChip(selected = bdMode == i, onClick = { bdMode = i }, label = { Text(bdLabels[i]) })
+                    }
+                }
+                HorizontalDivider()
+                ResultLine("Interest", bdRes?.let { fmt(it.second, 2) } ?: "—")
+                ResultLine("Maturity", bdRes?.let { fmt(it.third, 2) } ?: "—")
+                PieChart(
+                    listOf(
+                        "Principal" to (bdRes?.first ?: 0.0).coerceAtLeast(0.0),
+                        "Interest" to (bdRes?.second ?: 0.0).coerceAtLeast(0.0)
+                    ),
+                    "Maturity",
+                    bdRes?.let { fmt(it.third, 2) } ?: "—"
+                )
+            }
+        }
     }
 }
 
@@ -1484,6 +1696,48 @@ private fun NumbersContent() {
                 ResultLine("Mode", vals.let { runCatching { fmt(Engine.statsMode(it)) }.getOrDefault("—") })
                 ResultLine("Variance", vals.let { runCatching { fmt(Engine.statsVariance(it)) }.getOrDefault("—") })
                 ResultLine("Stdev", vals.let { runCatching { fmt(Engine.statsStdev(it)) }.getOrDefault("—") })
+            }
+        }
+        item {
+            var statVals by remember { mutableStateOf(listOf("10", "20", "30")) }
+            val parsed = statVals.mapNotNull { it.trim().toDoubleOrNull() }
+            val longs = statVals.map { it.trim().toLongOrNull() }
+            val allIntegral = parsed.isNotEmpty() && parsed.size == statVals.size && longs.all { it != null }
+            SectionCard("List statistics") {
+                statVals.forEachIndexed { i, v ->
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Box(Modifier.weight(1f)) {
+                            NumField(
+                                v,
+                                { nv -> statVals = statVals.toMutableList().also { it[i] = nv } },
+                                "Value ${i + 1}"
+                            )
+                        }
+                        if (statVals.size > 1) {
+                            TextButton(onClick = { statVals = statVals.filterIndexed { j, _ -> j != i } }) { Text("X") }
+                        }
+                    }
+                }
+                Button(onClick = { statVals = statVals + "" }) { Text("Add value") }
+                HorizontalDivider()
+                ResultLine("Count", "${parsed.size}")
+                ResultLine("Mean", runCatching { fmt(Engine.mean(parsed)) }.getOrDefault("—"))
+                ResultLine("Median", runCatching { fmt(Engine.statsMedian(parsed)) }.getOrDefault("—"))
+                ResultLine("Stdev", runCatching { fmt(Engine.statsStdev(parsed)) }.getOrDefault("—"))
+                if (allIntegral) {
+                    val intVals = longs.filterNotNull()
+                    ResultLine(
+                        "GCD",
+                        runCatching { "${intVals.reduce { x, y -> Engine.gcd(x, y) }}" }.getOrDefault("—")
+                    )
+                    ResultLine(
+                        "LCM",
+                        runCatching { "${intVals.reduce { x, y -> Engine.lcm(x, y) }}" }.getOrDefault("—")
+                    )
+                }
             }
         }
         item {
@@ -1818,6 +2072,16 @@ fun HealthScreen() {
                 HorizontalDivider()
                 ResultLine("BMI", fmt(bmi, 1))
                 ResultLine("Category", bmiCat)
+                val bmiD = runCatching { HealthPlus.bmiDelta(w, h) }.getOrNull()
+                ResultLine(
+                    "Healthy delta",
+                    when {
+                        bmiD == null || !bmiD.isFinite() -> "—"
+                        bmiD == 0.0 -> "At healthy weight"
+                        bmiD > 0 -> "−${fmt(bmiD, 1)} kg to reach healthy"
+                        else -> "+${fmt(-bmiD, 1)} kg to reach healthy"
+                    }
+                )
             }
         }
         item {

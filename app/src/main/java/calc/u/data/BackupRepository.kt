@@ -26,6 +26,17 @@ data class Backup(
     val favorites: Map<String, Set<String>> = emptyMap()
 )
 
+@Serializable
+data class BackupV2(
+    val version: Int,
+    val history: List<String> = emptyList(),
+    val theme: String = "system",
+    val vibration: Boolean = true,
+    val favorites: Map<String, Set<String>> = emptyMap()
+)
+
+private val backupLenientJson = Json { ignoreUnknownKeys = true }
+
 @Singleton
 class BackupRepository @Inject constructor(@ApplicationContext private val ctx: Context) {
     suspend fun export(): String {
@@ -48,16 +59,19 @@ class BackupRepository @Inject constructor(@ApplicationContext private val ctx: 
                     )
                 }?.toMap() ?: emptyMap()
             }.getOrDefault(emptyMap())
-            Json.encodeToString(Backup(history, theme, vibration, favorites))
-        }.getOrDefault("{\"history\":[],\"theme\":\"system\",\"vibration\":true,\"favorites\":{}}")
+            Json.encodeToString(BackupV2(2, history, theme, vibration, favorites))
+        }.getOrDefault("{\"version\":2,\"history\":[],\"theme\":\"system\",\"vibration\":true,\"favorites\":{}}")
     }
 
     suspend fun import(json: String): Int {
-        val backup = try {
-            Json.decodeFromString<Backup>(json)
-        } catch (e: Exception) {
-            throw IllegalArgumentException("Invalid file")
-        }
+        val backup = runCatching { backupLenientJson.decodeFromString<BackupV2>(json) }
+            .map { Backup(it.history, it.theme, it.vibration, it.favorites) }
+            .getOrNull()
+            ?: try {
+                backupLenientJson.decodeFromString<Backup>(json)
+            } catch (e: Exception) {
+                throw IllegalArgumentException("Invalid file")
+            }
         require(backup.history.size < 10000) { "Invalid file" }
         require(backup.favorites.size < 10000) { "Invalid file" }
         require(backup.favorites.values.all { it.size < 10000 }) { "Invalid file" }

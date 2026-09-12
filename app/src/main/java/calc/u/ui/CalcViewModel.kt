@@ -9,6 +9,7 @@ import androidx.lifecycle.viewModelScope
 import calc.u.core.Engine
 import calc.u.data.HistoryRepository
 import calc.u.data.SettingsRepository
+import calc.u.data.TapeHolder
 import calc.u.widget.CalcUWidget
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -114,7 +115,10 @@ class CalcViewModel @Inject constructor(
         }
         runCatching { Engine.eval(st.input, st.angleDeg) }.getOrNull()?.onSuccess {
             val r = runCatching { Engine.format(it) }.getOrDefault("Error")
-            if (r != "Error") lastResult = r
+            if (r != "Error") {
+                lastResult = r
+                if (st.input.trim() != r) runCatching { TapeHolder.add(st.input, r) }
+            }
             _uiState.update { s -> s.copy(result = r) }
             viewModelScope.launch {
                 runCatching { historyRepo.push(st.input, r) }
@@ -189,6 +193,12 @@ class CalcViewModel @Inject constructor(
         evaluate()
     }
     fun onDeleteHistoryAt(index: Int) { viewModelScope.launch { runCatching { historyRepo.deleteAt(index) } } }
+    fun onTapeRecall(result: String) {
+        if (result.isBlank()) return
+        _uiState.update { it.copy(input = it.input + result) }
+        evaluate()
+    }
+    fun onTapeDelete(id: Long) { runCatching { TapeHolder.remove(id) } }
     fun onSetHistoryNote(index: Int, note: String) { viewModelScope.launch { runCatching { historyRepo.setNote(index, note) } } }
     fun onDismissGraphTip() {
         _uiState.update { it.copy(showGraphTip = false) }

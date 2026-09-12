@@ -15,6 +15,7 @@ import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.LocalIndication
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
@@ -25,9 +26,12 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
@@ -60,6 +64,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
@@ -79,7 +84,10 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import calc.u.core.AutocompleteIndex
 import calc.u.core.Engine
+import calc.u.core.Suggestion
+import calc.u.data.TapeHolder
 import calc.u.ui.CalcEffect
 import calc.u.ui.CalcViewModel
 import calc.u.ui.FluentCalcKey
@@ -120,6 +128,41 @@ private fun historyBody(entry: String): String {
 private fun historyNote(entry: String): String =
     if (entry.count { it == '|' } >= 2) entry.substringAfterLast("|") else ""
 
+@Composable
+private fun InlineTape(
+    onRecall: (String) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val tape by TapeHolder.entries.collectAsStateWithLifecycle()
+    if (tape.isEmpty()) return
+    val listState = rememberLazyListState()
+    val lastId = tape.lastOrNull()?.id
+    LaunchedEffect(lastId) {
+        runCatching {
+            if (tape.isNotEmpty()) listState.scrollToItem(tape.lastIndex)
+        }
+    }
+    LazyColumn(
+        state = listState,
+        modifier = modifier.fillMaxWidth().heightIn(max = 120.dp),
+        verticalArrangement = Arrangement.spacedBy(2.dp)
+    ) {
+        items(tape, key = { it.id }) { e ->
+            Text(
+                e.expression + " = " + e.result,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = 1,
+                overflow = TextOverflow.StartEllipsis,
+                textAlign = TextAlign.End,
+                modifier = Modifier.fillMaxWidth()
+                    .clickable { onRecall(e.result) }
+                    .padding(vertical = 2.dp)
+            )
+        }
+    }
+}
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun CalculatorScreen(vm: CalcViewModel = hiltViewModel()) {
@@ -147,6 +190,24 @@ fun CalculatorScreen(vm: CalcViewModel = hiltViewModel()) {
     var noteDraft by remember { mutableStateOf("") }
     var historyOpen by remember { mutableStateOf(false) }
     var inverse by remember { mutableStateOf(false) }
+    var percentMode by rememberSaveable { mutableStateOf("off") }
+    remember {
+        AutocompleteIndex.build(
+            listOf("sin", "cos", "tan", "asin", "acos", "atan", "log", "ln", "sqrt")
+                .map { Suggestion.function(it) },
+            listOf("m", "km", "ft", "mi", "kg", "lb", "N", "J", "W", "Pa", "s", "min")
+                .map { Suggestion.unit(it) }
+        )
+    }
+    val completion = remember(st.input) { AutocompleteIndex.query(st.input, st.input.length) }
+    fun displayResult(target: String): String {
+        if (percentMode == "off" || target.isBlank()) return target
+        val v = runCatching {
+            java.text.NumberFormat.getInstance().parse(target.trim())?.toDouble()
+        }.getOrNull() ?: return target
+        if (!v.isFinite()) return target
+        return runCatching { Engine.formatPercentMode(v, percentMode) }.getOrDefault(target)
+    }
     if (historyOpen) {
         ModalBottomSheet(
             onDismissRequest = { historyOpen = false },
@@ -168,6 +229,9 @@ fun CalculatorScreen(vm: CalcViewModel = hiltViewModel()) {
             Modifier.fillMaxSize().padding(vertical = 16.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
+            item {
+                InlineTape(onRecall = { vm.onTapeRecall(it) })
+            }
             item {
                 Card(
                     colors = CardDefaults.cardColors(
@@ -192,6 +256,37 @@ fun CalculatorScreen(vm: CalcViewModel = hiltViewModel()) {
                             textAlign = TextAlign.End,
                             modifier = Modifier.fillMaxWidth()
                         )
+                        if (completion.items.isNotEmpty()) {
+                            LazyRow(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                items(completion.items, key = { it.name }) { s ->
+                                    AssistChip(
+                                        onClick = {
+                                            tapFeedback()
+                                            val count = completion.end - completion.start
+                                            repeat(count) { vm.onBackspace() }
+                                            vm.onInput(s.insertBefore + s.insertAfter)
+                                        },
+                                        label = { Text(s.name) }
+                                    )
+                                }
+                            }
+                            Text(
+                                completion.relevantText + " → " +
+                                    completion.items.first().title.ifBlank {
+                                        completion.items.first().name
+                                    },
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                                textAlign = TextAlign.End,
+                                modifier = Modifier.fillMaxWidth()
+                            )
+                        }
                         AnimatedContent(
                             targetState = st.result,
                             transitionSpec = {
@@ -201,7 +296,7 @@ fun CalculatorScreen(vm: CalcViewModel = hiltViewModel()) {
                             label = "result"
                         ) { target ->
                             Text(
-                                target.ifBlank { "" },
+                                displayResult(target),
                                 style = MaterialTheme.typography.displayLarge.copy(fontFeatureSettings = "tnum"),
                                 color = MaterialTheme.colorScheme.onSurface,
                                 maxLines = 2,
@@ -263,6 +358,30 @@ fun CalculatorScreen(vm: CalcViewModel = hiltViewModel()) {
                     AssistChip(onClick = { vm.onMemRecall() }, label = { Text("MR") })
                     AssistChip(onClick = { vm.onMemPlus() }, label = { Text("M+") })
                     AssistChip(onClick = { vm.onMemMinus() }, label = { Text("M-") })
+                }
+            }
+            item {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    FilterChip(
+                        selected = percentMode == "percent",
+                        onClick = {
+                            tapFeedback()
+                            percentMode = if (percentMode == "percent") "off" else "percent"
+                        },
+                        label = { Text("%") }
+                    )
+                    FilterChip(
+                        selected = percentMode == "permille",
+                        onClick = {
+                            tapFeedback()
+                            percentMode = if (percentMode == "permille") "off" else "permille"
+                        },
+                        label = { Text("‰") }
+                    )
                 }
             }
             item {
@@ -536,6 +655,59 @@ private fun HistorySheetContent(
     }
 }
 
+private val InverseLongPress = mapOf(
+    "sin(" to "asin(",
+    "cos(" to "acos(",
+    "tan(" to "atan(",
+    "asin(" to "sin(",
+    "acos(" to "cos(",
+    "atan(" to "tan(",
+    "log(" to "10^(",
+    "ln(" to "e^(",
+    "10^(" to "log(",
+    "e^(" to "ln("
+)
+
+@OptIn(ExperimentalFoundationApi::class)
+@Composable
+private fun SciKey(
+    label: String,
+    onClick: () -> Unit,
+    onLongClick: (() -> Unit)?,
+    modifier: Modifier = Modifier
+) {
+    if (onLongClick == null) {
+        FluentCalcKey(
+            label = label,
+            onClick = onClick,
+            modifier = modifier,
+            kind = FluentKeyKind.Sci,
+            keyHeight = 56.dp
+        )
+        return
+    }
+    val haptics = LocalHapticFeedback.current
+    Box(
+        modifier = modifier.height(56.dp)
+            .clip(MaterialTheme.shapes.large)
+            .border(1.dp, MaterialTheme.colorScheme.outlineVariant, MaterialTheme.shapes.large)
+            .combinedClickable(
+                onClick = onClick,
+                onLongClick = {
+                    runCatching { haptics.performHapticFeedback(HapticFeedbackType.LongPress) }
+                    onLongClick()
+                }
+            ),
+        contentAlignment = Alignment.Center
+    ) {
+        Text(
+            label,
+            style = MaterialTheme.typography.titleSmall,
+            color = MaterialTheme.colorScheme.primary
+        )
+    }
+}
+
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun Keypad(
@@ -575,12 +747,12 @@ private fun Keypad(
             AnimatedVisibility(visible = true, enter = rowEnter(i * 32)) {
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                     row.forEach { k ->
-                        FluentCalcKey(
+                        val alt = InverseLongPress[k]
+                        SciKey(
                             label = k,
                             onClick = { onKey(if (k == "x²") "^2" else k) },
-                            modifier = Modifier.weight(1f),
-                            kind = FluentKeyKind.Sci,
-                            keyHeight = 56.dp
+                            onLongClick = alt?.let { a -> { onKey(if (a == "x²") "^2" else a) } },
+                            modifier = Modifier.weight(1f)
                         )
                     }
                 }

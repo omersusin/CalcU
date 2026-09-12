@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Apps
 import androidx.compose.material.icons.filled.AttachMoney
+import androidx.compose.material.icons.filled.BarChart
 import androidx.compose.material.icons.filled.Build
 import androidx.compose.material.icons.filled.Calculate
 import androidx.compose.material.icons.filled.Explore
@@ -23,6 +24,7 @@ import androidx.compose.material.icons.filled.QrCode
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.ShortText
 import androidx.compose.material.icons.filled.ShowChart
+import androidx.compose.material.icons.filled.Straighten
 import androidx.compose.material.icons.filled.SwapHoriz
 import androidx.compose.material.icons.filled.Timeline
 import androidx.compose.material.icons.filled.Timer
@@ -57,11 +59,14 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
+import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import calc.u.data.SettingsRepository
+import calc.u.ui.CalcViewModel
+import calc.u.ui.screens.AnalyzeScreen
 import calc.u.ui.screens.CalculatorScreen
 import calc.u.ui.screens.ConvertersScreen
 import calc.u.ui.screens.FinanceScreen
@@ -74,6 +79,7 @@ import calc.u.ui.screens.TimeLabScreen
 import calc.u.ui.screens.ElectroScreen
 import calc.u.ui.screens.EverydayScreen
 import calc.u.ui.screens.QrScanScreen
+import calc.u.ui.screens.RulerScreen
 import calc.u.ui.screens.SensorScreen
 import calc.u.ui.screens.ToolsHub
 import calc.u.ui.screens.TourScreen
@@ -100,6 +106,8 @@ private val ToolDests = listOf(
     Dest("everyday", "Everyday", Icons.Filled.Apps),
     Dest("qrscan", "QR Scan", Icons.Filled.QrCode),
     Dest("sensors", "Sensors", Icons.Filled.Explore),
+    Dest("ruler", "Ruler", Icons.Filled.Straighten),
+    Dest("analyze", "Analyze", Icons.Filled.BarChart),
     Dest("tools", "Tools", Icons.Filled.Apps)
 )
 
@@ -126,11 +134,11 @@ class MainActivity : ComponentActivity() {
                     val drawer = rememberDrawerState(DrawerValue.Closed)
                     val scope = rememberCoroutineScope()
                     val startRoute = intent?.getStringExtra("dest")?.takeIf {
-                        it in setOf("graph", "time", "electro", "textdata", "everyday", "sensors", "tools", "qrscan")
+                        it in setOf("graph", "time", "electro", "textdata", "everyday", "sensors", "tools", "qrscan", "ruler", "analyze")
                     } ?: "calc"
                     var route by remember { mutableStateOf(startRoute) }
                     fun go(r: String) {
-                        val safe = r.takeIf { it in setOf("calc", "graph", "convert", "finance", "math", "steps", "time", "electro", "textdata", "everyday", "sensors", "tools", "qrscan", "settings") } ?: return
+                        val safe = r.takeIf { it in setOf("calc", "graph", "convert", "finance", "math", "steps", "time", "electro", "textdata", "everyday", "sensors", "tools", "qrscan", "ruler", "analyze", "settings") } ?: return
                         route = safe
                         runCatching { nav.navigate(safe) { launchSingleTop = true; popUpTo("calc") } }
                     }
@@ -230,7 +238,19 @@ class MainActivity : ComponentActivity() {
                                         composable("textdata") { Centered { TextDataScreen() } }
                                         composable("everyday") { Centered { EverydayScreen() } }
                                         composable("sensors") { Centered { SensorScreen() } }
+                                        composable("ruler") { Centered { RulerScreen() } }
                                         composable("qrscan") { Centered { QrScanScreen() } }
+                                        composable("analyze") {
+                                            val vm: CalcViewModel = hiltViewModel()
+                                            val activity by vm.activity.collectAsStateWithLifecycle()
+                                            val st by vm.uiState.collectAsStateWithLifecycle()
+                                            Centered {
+                                                AnalyzeScreen(
+                                                    activity = activity,
+                                                    historyCount = st.history.size
+                                                )
+                                            }
+                                        }
                                         composable("tools") { Centered { ToolsHub(onOpen = { go(it) }) } }
                                         composable("settings") { Centered { SettingsScreen() } }
                                     }

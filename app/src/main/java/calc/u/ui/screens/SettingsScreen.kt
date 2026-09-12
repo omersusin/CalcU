@@ -353,6 +353,38 @@ fun SettingsScreen(vm: SettingsViewModel = hiltViewModel()) {
                 }
             }
         }
+        item {
+            val context = LocalContext.current
+            var floatOn by remember { mutableStateOf(false) }
+            androidx.compose.runtime.LaunchedEffect(Unit) {
+                floatOn = runCatching { calc.u.system.FloatCalcService.isOverlayGranted(context) }.getOrDefault(false)
+            }
+            SectionCard("Floating calculator") {
+                Row(
+                    modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        "Floating mini-calculator",
+                        style = MaterialTheme.typography.bodyLarge,
+                        modifier = Modifier.weight(1f)
+                    )
+                    Switch(
+                        checked = floatOn,
+                        onCheckedChange = { on ->
+                            if (on) {
+                                floatOn = runCatching {
+                                    calc.u.system.FloatCalcService.startOrRequestPermission(context.applicationContext)
+                                }.getOrDefault(false)
+                            } else {
+                                runCatching { calc.u.system.FloatCalcService.stop(context.applicationContext) }
+                                floatOn = false
+                            }
+                        }
+                    )
+                }
+            }
+        }
     }
 }
 
