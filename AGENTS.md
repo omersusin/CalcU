@@ -16,6 +16,21 @@ Propose packs, user picks, then build. Never add tool packs unprompted.
 Sensitive categories (pregnancy, ovulation, alcohol, medical diagnosis) are
 excluded by default — ask first.
 
+## Releases (locked)
+Rolling `latest` per push. Versioned releases and Play prep only on request.
+
+## Agents (locked)
+Big waves (5-8 parallel) by default; retry aborts in smaller batches.
+
+## Replies (locked)
+Detailed rundowns with proof links every round.
+
+## Backlog (user-ranked)
+1. Unfinished ideas: foreground-service timer + notifications, engine
+   variables, remaining kimon/ConvertAll ideas.
+2. Big screens + accessibility.
+3. Performance (startup, APK size, battery, baseline profiles).
+
 ## "From scratch" (locked)
 Means depth-first rebuild energy on the existing repo. Never wipe git history.
 
