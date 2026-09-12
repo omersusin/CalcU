@@ -49,7 +49,8 @@ Polish freely, user judges by installing. Tools still need scope votes.
 
 ## Defaults (locked)
 Theme: follow system. History cap: user setting in Settings (default 200).
-Turkish: informal (sen). Numbers: follow phone locale.
+Turkish: informal (sen). Numbers: follow phone locale. Precision: 10 digits.
+Backup: plain JSON. Onboarding: guided tour. Navigation: drawer/rail solved.
 
 ## Backlog (user-ranked)
 1. Unfinished ideas: foreground-service timer + notifications, engine
