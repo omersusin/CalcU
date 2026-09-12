@@ -122,8 +122,8 @@ class CryptoTest {
     @Test fun chachaRoundTrip() {
         val key = "00".repeat(32)
         val nonce = "00".repeat(12)
-        val ct = TextData.chacha20Encrypt(key, nonce, 1, "hello chacha")
-        assertEquals("hello chacha", TextData.chacha20Decrypt(key, nonce, 1, ct))
+        val ct = TextData.chacha20Encrypt(key, nonce, 0, "hello chacha")
+        assertEquals("hello chacha", TextData.chacha20Decrypt(key, nonce, 0, ct))
     }
 
     @Test fun rc4RoundTrip() {

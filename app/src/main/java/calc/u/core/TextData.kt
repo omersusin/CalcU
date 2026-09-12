@@ -1178,7 +1178,8 @@ object TextData {
             } catch (e: java.security.NoSuchAlgorithmException) {
                 throw IllegalArgumentException("ChaCha20 needs Android 9+", e)
             }
-            val params = javax.crypto.spec.ChaCha20ParameterSpec(nonce, counter)
+            require(counter == 0) { "counter must be 0 on this platform" }
+            val params = javax.crypto.spec.IvParameterSpec(nonce)
             cipher.init(
                 javax.crypto.Cipher.ENCRYPT_MODE,
                 javax.crypto.spec.SecretKeySpec(key, "ChaCha20"),
@@ -1206,7 +1207,8 @@ object TextData {
             } catch (e: java.security.NoSuchAlgorithmException) {
                 throw IllegalArgumentException("ChaCha20 needs Android 9+", e)
             }
-            val params = javax.crypto.spec.ChaCha20ParameterSpec(nonce, counter)
+            require(counter == 0) { "counter must be 0 on this platform" }
+            val params = javax.crypto.spec.IvParameterSpec(nonce)
             cipher.init(
                 javax.crypto.Cipher.DECRYPT_MODE,
                 javax.crypto.spec.SecretKeySpec(key, "ChaCha20"),
@@ -1472,7 +1474,7 @@ object TextData {
         val randA = rand.nextInt(1 shl 12).toLong()
         val randB = rand.nextLong() and 0x3FFFFFFFFFFFFFFFL
         val msb = (tsMs shl 16) or 0x7000L or randA
-        val lsb = 0x8000000000000000L or randB
+        val lsb = Long.MIN_VALUE or randB
         return formatUuid(msb, lsb)
     }
 
