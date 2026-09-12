@@ -86,7 +86,7 @@ class CryptoTest {
 
     @Test fun shaVectors() {
         assertEquals(
-            "a9993e364706816aba3e25717850c26c9cd0d4d",
+            "a9993e364706816aba3e25717850c26c9cd0d89d",
             TextData.sha1("abc")
         )
         assertEquals(
