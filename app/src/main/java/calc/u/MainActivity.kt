@@ -76,6 +76,7 @@ import calc.u.ui.screens.EverydayScreen
 import calc.u.ui.screens.QrScanScreen
 import calc.u.ui.screens.SensorScreen
 import calc.u.ui.screens.ToolsHub
+import calc.u.ui.screens.TourScreen
 import calc.u.ui.theme.CalcUTheme
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.launch
@@ -116,6 +117,11 @@ class MainActivity : ComponentActivity() {
         setContent {
             val theme by settingsRepo.theme.collectAsStateWithLifecycle(initialValue = "system")
             CalcUTheme(theme = theme) {
+                val tourSeen by settingsRepo.tourSeen.collectAsStateWithLifecycle(initialValue = true)
+                if (!tourSeen) {
+                    val tourScope = rememberCoroutineScope()
+                    TourScreen(onDone = { tourScope.launch { settingsRepo.setTourSeen() } })
+                } else {
                 val nav = rememberNavController()
                     val drawer = rememberDrawerState(DrawerValue.Closed)
                     val scope = rememberCoroutineScope()
@@ -244,6 +250,7 @@ class MainActivity : ComponentActivity() {
                             )
                         }
                     }
+                }
             }
         }
     }

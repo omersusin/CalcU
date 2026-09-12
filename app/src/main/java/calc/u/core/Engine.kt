@@ -47,7 +47,19 @@ object Engine {
             if (!d.isFinite()) return "Error"
             val scaled = if (v.scale() > maxScale) v.setScale(maxScale, RoundingMode.HALF_UP) else v
             if (scaled.compareTo(BigDecimal.ZERO) == 0) return "0"
-            scaled.stripTrailingZeros().toPlainString()
+            val stripped = scaled.stripTrailingZeros()
+            if (stripped.compareTo(BigDecimal.ZERO) == 0) return "0"
+            val symbols = java.text.DecimalFormatSymbols.getInstance()
+            val df = java.text.DecimalFormat().apply {
+                decimalFormatSymbols = symbols
+                isGroupingUsed = true
+                groupingSize = 3
+                maximumFractionDigits = maxScale.coerceAtLeast(0)
+                minimumFractionDigits = 0
+                roundingMode = RoundingMode.HALF_UP
+                isDecimalSeparatorAlwaysShown = false
+            }
+            df.format(stripped)
         } catch (e: Exception) {
             "Error"
         }

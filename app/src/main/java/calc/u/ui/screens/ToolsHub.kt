@@ -21,7 +21,9 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import calc.u.R
 
 private data class ToolEntry(val name: String, val category: String, val route: String)
 
@@ -59,6 +61,20 @@ private val HubTools = listOf(
 )
 
 @Composable
+private fun categoryLabel(category: String): String = when (category) {
+    "Finance" -> stringResource(R.string.tool_cat_finance)
+    "Math" -> stringResource(R.string.tool_cat_math)
+    "Health" -> stringResource(R.string.tool_cat_health)
+    "Time" -> stringResource(R.string.tool_cat_time)
+    "Electro" -> stringResource(R.string.tool_cat_electro)
+    "Network" -> stringResource(R.string.tool_cat_network)
+    "Text+Data" -> stringResource(R.string.tool_cat_textdata)
+    "Everyday" -> stringResource(R.string.tool_cat_everyday)
+    "Sensors" -> stringResource(R.string.tool_cat_sensors)
+    else -> category
+}
+
+@Composable
 fun ToolsHub(onOpen: (String) -> Unit) {
     var query by remember { mutableStateOf("") }
     val filtered = remember(query) {
@@ -71,7 +87,7 @@ fun ToolsHub(onOpen: (String) -> Unit) {
             OutlinedTextField(
                 value = query,
                 onValueChange = { query = it },
-                label = { Text("Search tools") },
+                label = { Text(stringResource(R.string.hub_search)) },
                 singleLine = true,
                 modifier = Modifier.fillMaxWidth()
             )
@@ -79,7 +95,7 @@ fun ToolsHub(onOpen: (String) -> Unit) {
         grouped.forEach { (category, tools) ->
             item {
                 Text(
-                    category,
+                    categoryLabel(category),
                     style = MaterialTheme.typography.titleMedium,
                     modifier = Modifier.semantics { heading() }
                 )
@@ -94,7 +110,7 @@ fun ToolsHub(onOpen: (String) -> Unit) {
                     Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                         Text(tool.name, style = MaterialTheme.typography.titleMedium)
                         Text(
-                            tool.category,
+                            categoryLabel(tool.category),
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -103,7 +119,7 @@ fun ToolsHub(onOpen: (String) -> Unit) {
             }
         }
         if (filtered.isEmpty()) {
-            item { Text("No tools match.", style = MaterialTheme.typography.bodyMedium) }
+            item { Text(stringResource(R.string.hub_empty), style = MaterialTheme.typography.bodyMedium) }
         }
     }
 }

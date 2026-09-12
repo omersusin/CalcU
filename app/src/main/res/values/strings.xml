@@ -8,4 +8,15 @@
     <string name="shortcut_tools">Tools</string>
     <string name="shortcut_electro">Electro</string>
     <string name="shortcut_textdata">Text Data</string>
+    <string name="hub_search">Search tools</string>
+    <string name="hub_empty">No tools match.</string>
+    <string name="tool_cat_finance">Finance</string>
+    <string name="tool_cat_math">Math</string>
+    <string name="tool_cat_health">Health</string>
+    <string name="tool_cat_time">Time</string>
+    <string name="tool_cat_electro">Electro</string>
+    <string name="tool_cat_network">Network</string>
+    <string name="tool_cat_textdata">Text+Data</string>
+    <string name="tool_cat_everyday">Everyday</string>
+    <string name="tool_cat_sensors">Sensors</string>
 </resources>

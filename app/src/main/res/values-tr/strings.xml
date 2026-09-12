@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">CalcU</string>
+    <string name="tile_label">CalcU</string>
+    <string name="shortcut_calc">Hesap Makinesi</string>
+    <string name="shortcut_graph">Grafik</string>
+    <string name="shortcut_time">Zaman</string>
+    <string name="shortcut_tools">Araçlar</string>
+    <string name="shortcut_electro">Elektro</string>
+    <string name="shortcut_textdata">Metin Verisi</string>
+    <string name="hub_search">Araç ara</string>
+    <string name="hub_empty">Eşleşen araç yok.</string>
+    <string name="tool_cat_finance">Finans</string>
+    <string name="tool_cat_math">Matematik</string>
+    <string name="tool_cat_health">Sağlık</string>
+    <string name="tool_cat_time">Zaman</string>
+    <string name="tool_cat_electro">Elektro</string>
+    <string name="tool_cat_network">Ağ</string>
+    <string name="tool_cat_textdata">Metin+Veri</string>
+    <string name="tool_cat_everyday">Günlük</string>
+    <string name="tool_cat_sensors">Sensörler</string>
+</resources>

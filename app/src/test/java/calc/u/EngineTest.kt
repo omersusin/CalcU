@@ -335,4 +335,25 @@ class EngineTest {
         assertNull(Engine.validateExpr("2+"))
         assertNull(Engine.validateExpr("5/0"))
     }
+
+    @Test fun formatLocaleAwareGroupingAndRoundTrip() {
+        val symbols = java.text.DecimalFormatSymbols.getInstance()
+        val out = Engine.format(BigDecimal("1000.5"))
+        assertTrue(out.contains(symbols.groupingSeparator) || out.contains(symbols.decimalSeparator))
+        val parsed = java.text.NumberFormat.getInstance().parse(out)
+        assertNotNull(parsed)
+        assertEquals(1000.5, parsed!!.toDouble(), 1e-9)
+    }
+
+    @Test fun formatUsesDeviceLocaleSeparators() {
+        val prev = java.util.Locale.getDefault()
+        try {
+            java.util.Locale.setDefault(java.util.Locale("tr", "TR"))
+            assertEquals("1.234,56", Engine.format(BigDecimal("1234.56")))
+        } finally {
+            java.util.Locale.setDefault(prev)
+        }
+        val out = Engine.format(BigDecimal("1234.56"))
+        assertEquals(1234.56, java.text.NumberFormat.getInstance().parse(out)!!.toDouble(), 1e-9)
+    }
 }

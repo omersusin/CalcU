@@ -23,6 +23,7 @@ import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Switch
@@ -71,6 +72,8 @@ class SettingsViewModel @Inject constructor(
             SharingStarted.WhileSubscribed(5000),
             Build.VERSION.SDK_INT >= 31
         )
+    val historyCap: StateFlow<Int> =
+        repo.historyCap.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 200)
 
     fun setTheme(value: String) {
         viewModelScope.launch { repo.setTheme(value) }
@@ -83,6 +86,10 @@ class SettingsViewModel @Inject constructor(
     fun setDynamicColor(value: Boolean) {
         viewModelScope.launch { repo.setDynamicColor(value) }
     }
+
+    fun setHistoryCap(value: Int) {
+        viewModelScope.launch { repo.setHistoryCap(value) }
+    }
 }
 
 @Composable
@@ -90,6 +97,7 @@ fun SettingsScreen(vm: SettingsViewModel = hiltViewModel()) {
     val theme by vm.theme.collectAsStateWithLifecycle()
     val vibration by vm.vibration.collectAsStateWithLifecycle()
     val dynamicColor by vm.dynamicColor.collectAsStateWithLifecycle()
+    val historyCap by vm.historyCap.collectAsStateWithLifecycle()
     val options = listOf(
         "system" to "System",
         "light" to "Light",
@@ -183,6 +191,24 @@ fun SettingsScreen(vm: SettingsViewModel = hiltViewModel()) {
             }
         }
         item {
+            SectionCard("History") {
+                Text(
+                    "Keep last $historyCap entries",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    listOf(50, 100, 200, 500, 1000).forEach { cap ->
+                        FilterChip(
+                            selected = historyCap == cap,
+                            onClick = { vm.setHistoryCap(cap) },
+                            label = { Text("$cap") }
+                        )
+                    }
+                }
+            }
+        }
+        item {
             SectionCard("About") {
                 Text(
                     "CalcU is a fast offline-first calculator with unit conversion, finance, math, geometry and health tools.",
@@ -267,6 +293,62 @@ fun SettingsScreen(vm: SettingsViewModel = hiltViewModel()) {
                     }
                     backupStatus?.let {
                         Text(it, style = MaterialTheme.typography.bodyMedium)
+                    }
+                }
+            }
+        }
+        item {
+            val context = LocalContext.current
+            var lastCrash by remember { mutableStateOf<String?>(null) }
+            androidx.compose.runtime.LaunchedEffect(Unit) {
+                lastCrash = runCatching { calc.u.system.CrashReporter.readLast(context.applicationContext) }.getOrNull()
+            }
+            SectionCard("Diagnostics") {
+                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Text(
+                        lastCrash?.lineSequence()?.take(3)?.joinToString("\n")?.ifBlank { "No recorded crashes" }
+                            ?: "No recorded crashes",
+                        style = MaterialTheme.typography.bodyMedium
+                    )
+                    Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                        Button(
+                            onClick = {
+                                runCatching {
+                                    val text = lastCrash ?: return@runCatching
+                                    val clipboard = context.getSystemService(android.content.Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
+                                    clipboard.setPrimaryClip(android.content.ClipData.newPlainText("crash", text))
+                                }
+                            },
+                            enabled = lastCrash != null
+                        ) {
+                            Text("Copy")
+                        }
+                        Button(
+                            onClick = {
+                                runCatching {
+                                    val text = lastCrash ?: return@runCatching
+                                    val send = android.content.Intent(android.content.Intent.ACTION_SEND).apply {
+                                        type = "text/plain"
+                                        putExtra(android.content.Intent.EXTRA_TEXT, text)
+                                    }
+                                    context.startActivity(android.content.Intent.createChooser(send, "Share crash log"))
+                                }
+                            },
+                            enabled = lastCrash != null
+                        ) {
+                            Text("Share")
+                        }
+                        Button(
+                            onClick = {
+                                runCatching {
+                                    calc.u.system.CrashReporter.clear(context.applicationContext)
+                                    lastCrash = null
+                                }
+                            },
+                            enabled = lastCrash != null
+                        ) {
+                            Text("Clear")
+                        }
                     }
                 }
             }

@@ -58,4 +58,21 @@ class SettingsRepository @Inject constructor(@ApplicationContext private val ctx
     suspend fun setTallyCount(value: Int) {
         runCatching { ctx.settingsDataStore.edit { it[tallyCountKey] = value } }
     }
+
+    private val tourSeenKey = booleanPreferencesKey("tour_seen")
+
+    val tourSeen: Flow<Boolean> = ctx.settingsDataStore.data.map { it[tourSeenKey] ?: false }.catch { emit(false) }
+
+    suspend fun setTourSeen() {
+        runCatching { ctx.settingsDataStore.edit { it[tourSeenKey] = true } }
+    }
+
+    private val historyCapKey = androidx.datastore.preferences.core.intPreferencesKey("history_cap")
+
+    val historyCap: Flow<Int> = ctx.settingsDataStore.data.map { (it[historyCapKey] ?: 200).coerceIn(10, 2000) }.catch { emit(200) }
+
+    suspend fun setHistoryCap(value: Int) {
+        val coerced = value.coerceIn(10, 2000)
+        runCatching { ctx.settingsDataStore.edit { it[historyCapKey] = coerced } }
+    }
 }
