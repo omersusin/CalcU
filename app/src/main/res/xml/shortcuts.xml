@@ -55,6 +55,7 @@
                 android:name="dest"
                 android:value="tools" />
         </intent>
+    </shortcut>
     <shortcut
         android:enabled="true"
         android:icon="@mipmap/ic_launcher"
