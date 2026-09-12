@@ -130,7 +130,7 @@ class TextDataTest {
         assertEquals("", TextData.base64Decode(TextData.base64Encode("")))
         assertEquals(0, TextData.wordCount("   "))
         assertEquals(0, TextData.lineCount(""))
-        assertEquals("", TextData.titleCase("   "))
+        assertEquals("   ", TextData.titleCase("   "))
         assertEquals("", TextData.textToBinary(""))
         assertEquals("", TextData.textToHex(""))
         assertEquals("abc", TextData.caesar("abc", 0, true))

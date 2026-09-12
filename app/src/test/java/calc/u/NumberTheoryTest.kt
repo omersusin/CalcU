@@ -47,7 +47,7 @@ class NumberTheoryTest {
 
     @Test fun crashHardeningEdges() {
         assertEquals(1L, NumberTheory.totient(1L))
-        assertEquals(1L, NumberTheory.fibonacci(0))
+        assertEquals(0L, NumberTheory.fibonacci(0))
         assertEquals(7540113804746346429L, NumberTheory.fibonacci(92))
         assertEquals(0, NumberTheory.collatzSteps(1L))
         assertEquals(listOf(13L), NumberTheory.primeFactors(13L))
