@@ -475,6 +475,7 @@ private fun BmiBar(bmi: Double) {
         Color(0xFFF44336)
     )
     val frac = if (!bmi.isFinite()) -1f else ((bmi - 14.0) / (36.0 - 14.0)).toFloat().coerceIn(0f, 1f)
+    val marker = MaterialTheme.colorScheme.onSurface
     Canvas(modifier = Modifier.fillMaxWidth().height(12.dp)) {
         val gap = 4.dp.toPx()
         val segW = (size.width - gap * (segments.size - 1)) / segments.size
@@ -490,7 +491,7 @@ private fun BmiBar(bmi: Double) {
             val markerW = 3.dp.toPx()
             val x = (frac * size.width).coerceIn(0f, size.width)
             drawRoundRect(
-                color = Color.Black,
+                color = marker,
                 topLeft = Offset(
                     x = (x - markerW / 2).coerceIn(0f, (size.width - markerW).coerceAtLeast(0f)),
                     y = -2.dp.toPx()
