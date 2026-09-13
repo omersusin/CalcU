@@ -175,6 +175,16 @@ private fun mapFor(cat: String): Map<String, Units.UnitDef> = when (cat) {
     "magnetic" -> Units.magnetic
     "density" -> Units.density
     "specificenergy" -> Units.specificenergy
+    "glucose" -> Units.glucose
+    "pace" -> Units.pace
+    "luminance" -> Units.luminance
+    "magflux" -> Units.magflux
+    "luminous" -> Units.luminous
+    "ev" -> Units.ev
+    "scheduling" -> Units.scheduling
+    "conductance" -> Units.conductance
+    "gasflow" -> Units.gasflow
+    "rvalue" -> Units.rvalue
     else -> emptyMap()
 }
 
@@ -653,7 +663,9 @@ fun ConvertersScreen() {
         "pressure", "energy", "power", "data", "fuel",
         "cooking", "shoe", "ring", "historic",
         "angle", "force", "torque", "acceleration", "flow", "datarate",
-        "viscosity", "radiation", "illuminance", "magnetic", "density", "specificenergy"
+        "viscosity", "radiation", "illuminance", "magnetic", "density", "specificenergy",
+        "glucose", "pace", "luminance", "magflux", "luminous", "ev",
+        "scheduling", "conductance", "gasflow", "rvalue"
     )
     val v = num(input)
     val units: List<String> = if (cat == "temp") Units.temperature else mapFor(cat).keys.toList()
@@ -1325,26 +1337,71 @@ fun ConvertersScreen() {
 fun FinanceScreen(onNavigate: (String) -> Unit = {}) {
     var bill by remember { mutableStateOf("100") }
     var tipPct by remember { mutableFloatStateOf(15f) }
+    var tipPctText by remember { mutableStateOf("15") }
+    var tipRound by remember { mutableStateOf("None") }
     var split by remember { mutableStateOf("2") }
     var principal by remember { mutableStateOf("10000") }
     var rate by remember { mutableStateOf("5") }
     var monthsF by remember { mutableFloatStateOf(24f) }
+    var monthsText by remember { mutableStateOf("24") }
     var years by remember { mutableStateOf("5") }
     var price by remember { mutableStateOf("100") }
     var taxRate by remember { mutableStateOf("10") }
     var inclusive by remember { mutableStateOf(false) }
     var priceA by remember { mutableStateOf("3.99") }
     var qtyA by remember { mutableStateOf("500") }
+    var unitAName by remember { mutableStateOf("g") }
     var priceB by remember { mutableStateOf("5.49") }
     var qtyB by remember { mutableStateOf("750") }
+    var unitBName by remember { mutableStateOf("g") }
     val billV = num(bill)
-    val splitV = split.toIntOrNull()?.coerceAtLeast(1) ?: 1
-    val (tipAmt, grand, per) = runCatching { Finance.tip(billV, tipPct.toDouble(), splitV) }.getOrDefault(Triple(Double.NaN, Double.NaN, Double.NaN))
+    val splitParsed = split.toIntOrNull()
+    val splitV = splitParsed?.coerceAtLeast(1) ?: 1
+    val tipPctEff = tipPctText.toDoubleOrNull()?.coerceAtLeast(0.0) ?: tipPct.toDouble()
+    val tipBase = runCatching { Finance.tip(billV, tipPctEff, splitV) }.getOrNull()
+    val tipRounded: Triple<Double, Double, Double>? = runCatching {
+        val base = tipBase ?: throw IllegalStateException("bad tip")
+        when (tipRound) {
+            "Up" -> {
+                val roundedTotal = kotlin.math.ceil(base.second)
+                Triple(roundedTotal - billV, roundedTotal, roundedTotal / splitV)
+            }
+            "Nearest" -> {
+                val roundedTotal = kotlin.math.round(base.second)
+                Triple(roundedTotal - billV, roundedTotal, roundedTotal / splitV)
+            }
+            else -> base
+        }
+    }.getOrNull()
+    val (tipAmt, grand, per) = tipRounded ?: Triple(Double.NaN, Double.NaN, Double.NaN)
+    val tipBillErr = if (bill.trim().toDoubleOrNull() == null || billV <= 0) "Enter a bill amount greater than 0." else null
+    val tipSplitErr = if (splitParsed == null || (splitParsed ?: 0) < 1) "People must be at least 1." else null
     val p = num(principal)
     val annual = num(rate)
-    val months = monthsF.toInt().coerceIn(1, 360)
-    val emi = runCatching { Finance.emi(p, annual, months) }.getOrDefault(Double.NaN)
-    val (sched, totalInt) = runCatching { amortPreview(p, annual, months) }.getOrDefault(emptyList<AmortRow>() to Double.NaN)
+    val monthsParsed = monthsText.toIntOrNull()
+    val months = (monthsParsed ?: monthsF.toInt()).coerceIn(1, 360)
+    val emiRes = runCatching { Finance.emi(p, annual, months) }
+    val emi = emiRes.getOrDefault(Double.NaN)
+    val emiPrincipalErr = if (p <= 0) "Principal must be greater than 0." else null
+    val emiMonthsErr = if (monthsParsed != null && (monthsParsed < 1 || monthsParsed > 360)) "Months must be 1..360." else null
+    val (schedPreview, totalIntPreview) = runCatching { amortPreview(p, annual, months) }.getOrDefault(emptyList<AmortRow>() to Double.NaN)
+    val fullSched: List<AmortRow> = runCatching {
+        if (p <= 0 || months < 1) throw IllegalStateException("invalid loan")
+        val payment = Finance.emi(p, annual, months)
+        val r = annual / 1200
+        var bal = p
+        buildList {
+            for (i in 1..months) {
+                val interest = if (r == 0.0) 0.0 else bal * r
+                var princ = (payment - interest).coerceAtLeast(0.0)
+                if (i == months) princ = bal.coerceAtLeast(0.0)
+                bal = (bal - princ).coerceAtLeast(0.0)
+                add(AmortRow(i, interest, princ, bal))
+            }
+        }
+    }.getOrDefault(emptyList())
+    val loanTotalPaid = if (emi.isFinite() && months >= 1 && p > 0) emi * months else Double.NaN
+    val loanTotalInt = if (loanTotalPaid.isFinite() && p > 0) loanTotalPaid - p else Double.NaN
     val yrs = num(years)
     val (si, siTotal) = runCatching { Finance.simple(p, annual, yrs) }.getOrDefault(0.0 to Double.NaN)
     val ci = runCatching { Finance.compound(p, annual, yrs) }.getOrDefault(Double.NaN)
@@ -1412,14 +1469,38 @@ fun FinanceScreen(onNavigate: (String) -> Unit = {}) {
         item {
             SectionCard("Tip and split") {
                 NumField(bill, { bill = it }, "Bill")
-                Text("Tip: ${tipPct.toInt()}%", style = MaterialTheme.typography.labelLarge)
-                Slider(value = tipPct, onValueChange = { tipPct = it }, valueRange = 0f..30f)
+                Text("Tip: ${fmt(tipPctEff, 2)}%", style = MaterialTheme.typography.labelLarge)
+                Slider(
+                    value = tipPct.coerceIn(0f, 30f),
+                    onValueChange = {
+                        tipPct = it
+                        tipPctText = fmt(it.toDouble(), 0)
+                    },
+                    valueRange = 0f..30f
+                )
+                NumField(tipPctText, { v ->
+                    tipPctText = v
+                    v.toDoubleOrNull()?.let { tipPct = it.toFloat().coerceIn(0f, 30f) }
+                }, "Tip % (any value)")
+                LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    listOf("None", "Up", "Nearest").forEach { mode ->
+                        item {
+                            FilterChip(
+                                selected = tipRound == mode,
+                                onClick = { tipRound = mode },
+                                label = { Text(mode) }
+                            )
+                        }
+                    }
+                }
                 NumField(split, { split = it }, "Split between", integer = true)
-                HelperCaption("Total is split equally across people.")
+                HelperCaption("Total is split equally across people. Slider caps at 30% — type any % above for higher tips. Rounding applies to the grand total (Up = ceil, Nearest = round). Amounts shown without currency.")
+                ToolErrorLine(tipBillErr)
+                ToolErrorLine(tipSplitErr)
                 HorizontalDivider()
-                ToolResultRow(Icons.Filled.AttachMoney, "Tip", fmt(tipAmt, 2))
-                ToolResultRow(Icons.Filled.AttachMoney, "Total", fmt(grand, 2))
-                ToolResultRow(Icons.Filled.AttachMoney, "Per person", fmt(per, 2))
+                ToolResultRow(Icons.Filled.AttachMoney, "Tip", if (tipBillErr != null || tipSplitErr != null) "—" else fmt(tipAmt, 2))
+                ToolResultRow(Icons.Filled.AttachMoney, "Total", if (tipBillErr != null || tipSplitErr != null) "—" else fmt(grand, 2))
+                ToolResultRow(Icons.Filled.AttachMoney, "Per person", if (tipBillErr != null || tipSplitErr != null) "—" else fmt(per, 2))
             }
         }
         item {
@@ -1430,25 +1511,91 @@ fun FinanceScreen(onNavigate: (String) -> Unit = {}) {
                     "Term: $months months (${fmt(months / 12.0, 1)} years)",
                     style = MaterialTheme.typography.labelLarge
                 )
-                Slider(value = monthsF, onValueChange = { monthsF = it }, valueRange = 6f..360f)
-                HelperCaption("First 3 months plus the final balance are previewed.")
+                Slider(
+                    value = monthsF.coerceIn(6f, 360f),
+                    onValueChange = {
+                        monthsF = it
+                        monthsText = it.toInt().toString()
+                    },
+                    valueRange = 6f..360f
+                )
+                NumField(monthsText, { v ->
+                    monthsText = v
+                    v.toIntOrNull()?.let { monthsF = it.toFloat().coerceIn(6f, 360f) }
+                }, "Months (1..360)")
+                HelperCaption("Slider covers 6..360 months — type 1..5 below for shorter terms. Term minimum is 1 month. Full schedule below scrolls independently.")
+                ToolErrorLine(emiPrincipalErr)
+                ToolErrorLine(emiMonthsErr)
                 HorizontalDivider()
-                ToolResultRow(Icons.Filled.AttachMoney, "Monthly EMI", fmt(emi, 2))
-                ToolResultRow(Icons.Filled.AttachMoney, "Total interest", fmt(totalInt, 2))
-                sched.forEach { row ->
-                    val tag = if (row.n == months && months > 3) "Month $months (last)" else "Month ${row.n}"
-                    ToolResultRow(Icons.Filled.DateRange, tag, "int ${fmt(row.interest, 2)} · bal ${fmt(row.balance, 2)}")
+                ToolResultRow(Icons.Filled.AttachMoney, "Monthly EMI", if (emiPrincipalErr != null) "—" else fmt(emi, 2))
+                ToolResultRow(Icons.Filled.AttachMoney, "Total paid", if (emiPrincipalErr != null) "—" else fmt(loanTotalPaid, 2))
+                ToolResultRow(Icons.Filled.AttachMoney, "Total interest", if (emiPrincipalErr != null) "—" else fmt(loanTotalInt, 2))
+                if (emiPrincipalErr == null && fullSched.isNotEmpty()) {
+                    schedPreview.take(3).forEach { row ->
+                        ToolResultRow(Icons.Filled.DateRange, "Month ${row.n}", "int ${fmt(row.interest, 2)} · bal ${fmt(row.balance, 2)}")
+                    }
+                    val yearGroups = fullSched.groupBy { (it.n - 1) / 12 }
+                    yearGroups.toSortedMap().forEach { (y, rows) ->
+                        ToolResultRow(
+                            Icons.Filled.Info,
+                            "Year ${y + 1} subtotal",
+                            "int ${fmt(rows.sumOf { it.interest }, 2)} · princ ${fmt(rows.sumOf { it.principal }, 2)}"
+                        )
+                    }
+                    Box(Modifier.fillMaxWidth().height(280.dp)) {
+                        LazyColumn(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                            items(fullSched) { row ->
+                                val tag = if (row.n == months) "Month $months (last)" else "Month ${row.n}"
+                                ToolResultRow(Icons.Filled.DateRange, tag, "int ${fmt(row.interest, 2)} · bal ${fmt(row.balance, 2)}")
+                            }
+                        }
+                    }
+                } else if (emiPrincipalErr == null) {
+                    HelperCaption("Schedule unavailable — check inputs.")
                 }
             }
         }
         item {
+            var ioP by remember { mutableStateOf("10000") }
+            var ioR by remember { mutableStateOf("5") }
+            var ioY by remember { mutableStateOf("5") }
+            var ioFreq by remember { mutableStateOf("Yearly") }
+            val ioFreqN = when (ioFreq) {
+                "Quarterly" -> 4
+                "Monthly" -> 12
+                else -> 1
+            }
+            val ioPv = num(ioP)
+            val ioRv = num(ioR)
+            val ioYv = num(ioY)
+            val ioRes = runCatching {
+                val (siI, siT) = Finance.simple(ioPv, ioRv, ioYv)
+                val ciT = Finance.compound(ioPv, ioRv, ioYv, ioFreqN)
+                Triple(siI to siT, ciT, ciT - ioPv)
+            }
+            val ioErr = when {
+                ioPv <= 0 -> "Principal must be greater than 0."
+                ioYv <= 0 -> "Years must be greater than 0."
+                else -> ioRes.exceptionOrNull()?.message
+            }
             SectionCard("Interest over time") {
-                NumField(years, { years = it }, "Years")
-                HelperCaption("Simple interest uses principal only; compound reinvests yearly.")
+                NumField(ioP, { ioP = it }, "Principal")
+                NumField(ioR, { ioR = it }, "Annual %")
+                NumField(ioY, { ioY = it }, "Years")
+                LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    listOf("Yearly", "Quarterly", "Monthly").forEach { f ->
+                        item {
+                            FilterChip(selected = ioFreq == f, onClick = { ioFreq = f }, label = { Text(f) })
+                        }
+                    }
+                }
+                HelperCaption("Simple: I = P·r·t. Compound: A = P·(1 + r/$ioFreqN)^(${ioFreqN}·t). Independent of the EMI card.")
+                ToolErrorLine(ioErr)
                 HorizontalDivider()
-                ToolResultRow(Icons.Filled.AttachMoney, "Simple interest", fmt(si, 2))
-                ToolResultRow(Icons.Filled.AttachMoney, "Simple total", fmt(siTotal, 2))
-                ToolResultRow(Icons.Filled.AttachMoney, "Compound total", fmt(ci, 2))
+                ToolResultRow(Icons.Filled.AttachMoney, "Simple interest", if (ioErr != null) "—" else fmt(ioRes.getOrNull()?.first?.first ?: Double.NaN, 2))
+                ToolResultRow(Icons.Filled.AttachMoney, "Simple total", if (ioErr != null) "—" else fmt(ioRes.getOrNull()?.first?.second ?: Double.NaN, 2))
+                ToolResultRow(Icons.Filled.AttachMoney, "Compound total", if (ioErr != null) "—" else fmt(ioRes.getOrNull()?.second ?: Double.NaN, 2))
+                ToolResultRow(Icons.Filled.AttachMoney, "Compound interest", if (ioErr != null) "—" else fmt(ioRes.getOrNull()?.third ?: Double.NaN, 2))
             }
         }
         item {
@@ -1482,34 +1629,68 @@ fun FinanceScreen(onNavigate: (String) -> Unit = {}) {
                     Box(Modifier.weight(1f)) { NumField(priceA, { priceA = it }, "Price A") }
                     Box(Modifier.weight(1f)) { NumField(qtyA, { qtyA = it }, "Qty A") }
                 }
+                OutlinedTextField(value = unitAName, onValueChange = { unitAName = it }, label = { Text("Unit A (e.g. g, ml)") }, singleLine = true, modifier = Modifier.fillMaxWidth())
                 Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                     Box(Modifier.weight(1f)) { NumField(priceB, { priceB = it }, "Price B") }
                     Box(Modifier.weight(1f)) { NumField(qtyB, { qtyB = it }, "Qty B") }
                 }
+                OutlinedTextField(value = unitBName, onValueChange = { unitBName = it }, label = { Text("Unit B (e.g. g, ml)") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+                val qtyAv = qtyA.toDoubleOrNull()
+                val qtyBv = qtyB.toDoubleOrNull()
+                val qtyErr = when {
+                    qtyAv == null || qtyAv <= 0 -> "Quantity A must be greater than 0."
+                    qtyBv == null || qtyBv <= 0 -> "Quantity B must be greater than 0."
+                    else -> null
+                }
                 HorizontalDivider()
-                ToolResultRow(Icons.Filled.AttachMoney, "Unit price A", fmt(unitA, 4))
-                ToolResultRow(Icons.Filled.AttachMoney, "Unit price B", fmt(unitB, 4))
+                ToolResultRow(Icons.Filled.AttachMoney, "Unit price A", if (qtyErr != null || unitARes.isFailure) "—" else fmt(unitA, 4) + " / " + unitAName.ifBlank { "unit" })
+                ToolResultRow(Icons.Filled.AttachMoney, "Unit price B", if (qtyErr != null || unitBRes.isFailure) "—" else fmt(unitB, 4) + " / " + unitBName.ifBlank { "unit" })
+                ToolErrorLine(qtyErr)
                 ToolErrorLine(unitARes.exceptionOrNull()?.message)
                 ToolErrorLine(unitBRes.exceptionOrNull()?.message)
-                ToolResultRow(Icons.Filled.Info, "Verdict", verdict)
+                ToolResultRow(Icons.Filled.Info, "Verdict", if (qtyErr != null) "Enter valid quantities" else verdict)
             }
         }
         item {
             var sipMf by remember { mutableFloatStateOf(5000f) }
+            var sipMText by remember { mutableStateOf("5000") }
             var sipRf by remember { mutableFloatStateOf(12f) }
+            var sipRText by remember { mutableStateOf("12") }
             var sipYf by remember { mutableFloatStateOf(10f) }
-            val res = runCatching { Finance.sip(sipMf.toDouble(), sipRf.toDouble(), sipYf.toDouble()) }.getOrNull()
+            var sipYText by remember { mutableStateOf("10") }
+            val sipM = sipMText.toDoubleOrNull() ?: sipMf.toDouble()
+            val sipR = sipRText.toDoubleOrNull() ?: sipRf.toDouble()
+            val sipY = sipYText.toDoubleOrNull() ?: sipYf.toDouble()
+            val res = runCatching { Finance.sip(sipM, sipR, sipY) }.getOrNull()
+            val sipErr = if (sipY <= 0) "Years must be greater than 0." else if (sipM < 0) "Monthly must be >= 0." else null
+            val sipYears = sipY.toInt().coerceIn(0, 40)
+            val sipBreakdown: List<Triple<Int, Double, Double>> = runCatching {
+                if (sipErr != null) throw IllegalStateException("bad sip")
+                val r = sipR / 1200
+                buildList {
+                    for (y in 1..sipYears) {
+                        val n = y * 12
+                        val invested = sipM * n
+                        val total = if (r == 0.0) invested else sipM * (Math.pow(1 + r, n.toDouble()) - 1) / r * (1 + r)
+                        add(Triple(y, invested, total))
+                    }
+                }
+            }.getOrDefault(emptyList())
             SectionCard("SIP") {
                 Text("Monthly: ${sipMf.toInt()}", style = MaterialTheme.typography.labelLarge)
-                Slider(value = sipMf, onValueChange = { sipMf = it }, valueRange = 500f..100000f)
+                Slider(value = sipMf, onValueChange = { sipMf = it; sipMText = it.toInt().toString() }, valueRange = 500f..100000f)
+                NumField(sipMText, { v -> sipMText = v; v.toDoubleOrNull()?.let { sipMf = it.toFloat().coerceIn(500f, 100000f) } }, "Monthly (exact)")
                 Text("Annual %: ${fmt(sipRf.toDouble(), 1)}", style = MaterialTheme.typography.labelLarge)
-                Slider(value = sipRf, onValueChange = { sipRf = it }, valueRange = 0f..30f)
+                Slider(value = sipRf, onValueChange = { sipRf = it; sipRText = fmt(it.toDouble(), 1) }, valueRange = 0f..30f)
+                NumField(sipRText, { v -> sipRText = v; v.toDoubleOrNull()?.let { sipRf = it.toFloat().coerceIn(0f, 30f) } }, "Annual % (exact)")
                 Text("Years: ${sipYf.toInt()}", style = MaterialTheme.typography.labelLarge)
-                Slider(value = sipYf, onValueChange = { sipYf = it }, valueRange = 1f..40f)
+                Slider(value = sipYf, onValueChange = { sipYf = it; sipYText = it.toInt().toString() }, valueRange = 1f..40f)
+                NumField(sipYText, { v -> sipYText = v; v.toDoubleOrNull()?.let { sipYf = it.toFloat().coerceIn(1f, 40f) } }, "Years (exact)")
+                ToolErrorLine(sipErr)
                 HorizontalDivider()
-                ToolResultRow(Icons.Filled.AttachMoney, "Invested", fmt(res?.first ?: Double.NaN, 2))
-                ToolResultRow(Icons.Filled.AttachMoney, "Gain", fmt(res?.second ?: Double.NaN, 2))
-                ToolResultRow(Icons.Filled.AttachMoney, "Total", fmt(res?.third ?: Double.NaN, 2))
+                ToolResultRow(Icons.Filled.AttachMoney, "Invested", if (sipErr != null) "—" else fmt(res?.first ?: Double.NaN, 2))
+                ToolResultRow(Icons.Filled.AttachMoney, "Gain", if (sipErr != null) "—" else fmt(res?.second ?: Double.NaN, 2))
+                ToolResultRow(Icons.Filled.AttachMoney, "Total", if (sipErr != null) "—" else fmt(res?.third ?: Double.NaN, 2))
                 val sipInvested = res?.first ?: 0.0
                 val sipGain = res?.second ?: 0.0
                 val sipTotal = res?.third ?: 0.0
@@ -1549,37 +1730,82 @@ fun FinanceScreen(onNavigate: (String) -> Unit = {}) {
                         }
                     }
                 }
+                Row(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Box(Modifier.size(12.dp).background(sipPrimary, RoundedCornerShape(4.dp)))
+                    Text("Invested ${if (sipErr != null) "—" else fmt(sipInvested, 2)}", style = MaterialTheme.typography.labelSmall)
+                    Box(Modifier.size(12.dp).background(sipTertiary, RoundedCornerShape(4.dp)))
+                    Text("Gain ${if (sipErr != null) "—" else fmt(sipGain, 2)}", style = MaterialTheme.typography.labelSmall)
+                }
+                if (sipErr == null && sipBreakdown.isNotEmpty()) {
+                    HelperCaption("Year-end invested vs total (monthly compounding).")
+                    Box(Modifier.fillMaxWidth().height(220.dp)) {
+                        LazyColumn(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                            items(sipBreakdown) { row ->
+                                ToolResultRow(Icons.Filled.DateRange, "Year ${row.first}", "in ${fmt(row.second, 0)} · tot ${fmt(row.third, 0)}")
+                            }
+                        }
+                    }
+                }
             }
         }
         item {
             var cagrI by remember { mutableStateOf("10000") }
             var cagrF by remember { mutableStateOf("20000") }
             var cagrY by remember { mutableStateOf("10") }
-            val r = runCatching { Finance.cagr(num(cagrI), num(cagrF), num(cagrY)) }.getOrNull()
+            val cagrIv = num(cagrI)
+            val cagrYv = num(cagrY)
+            val cagrRes = runCatching { Finance.cagr(cagrIv, num(cagrF), cagrYv) }
+            val r = cagrRes.getOrNull()
+            val cagrErr = when {
+                cagrIv <= 0 -> "Initial must be greater than 0."
+                cagrYv <= 0 -> "Years must be greater than 0."
+                else -> cagrRes.exceptionOrNull()?.message
+            }
             SectionCard("CAGR") {
                 Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                     Box(Modifier.weight(1f)) { NumField(cagrI, { cagrI = it }, "Initial") }
                     Box(Modifier.weight(1f)) { NumField(cagrF, { cagrF = it }, "Final") }
                     Box(Modifier.weight(1f)) { NumField(cagrY, { cagrY = it }, "Years") }
                 }
+                HelperCaption("CAGR = (Final / Initial)^(1 / Years) − 1.")
+                ToolErrorLine(cagrErr)
                 HorizontalDivider()
-                ToolResultRow(Icons.Filled.Percent, "CAGR %", if (r == null) "—" else fmt(r * 100, 2))
+                ToolResultRow(Icons.Filled.Percent, "CAGR %", if (cagrErr != null) "—" else fmt((r ?: Double.NaN) * 100, 2))
             }
         }
         item {
             var fdP by remember { mutableStateOf("10000") }
             var fdR by remember { mutableStateOf("6") }
             var fdY by remember { mutableStateOf("5") }
-            val res = runCatching { Finance.fd(num(fdP), num(fdR), num(fdY), 4) }.getOrNull()
+            var fdMode by remember { mutableStateOf(2) }
+            val fdLabels = listOf("Monthly", "Quarterly", "Half-yearly", "Yearly")
+            val fdFreqs = listOf(12, 4, 2, 1)
+            val fdFreq = fdFreqs.getOrNull(fdMode) ?: 4
+            val fdPv = num(fdP)
+            val fdYv = num(fdY)
+            val fdRes = runCatching { Finance.fd(fdPv, num(fdR), fdYv, fdFreq) }
+            val fdErr = when {
+                fdPv < 0 -> "Principal must be >= 0."
+                fdYv <= 0 -> "Years must be greater than 0."
+                else -> fdRes.exceptionOrNull()?.message
+            }
+            val res = fdRes.getOrNull()
             SectionCard("Fixed deposit") {
                 Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                     Box(Modifier.weight(1f)) { NumField(fdP, { fdP = it }, "Principal") }
                     Box(Modifier.weight(1f)) { NumField(fdR, { fdR = it }, "Rate %") }
                     Box(Modifier.weight(1f)) { NumField(fdY, { fdY = it }, "Years") }
                 }
+                LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    items(fdLabels.size) { i ->
+                        FilterChip(selected = fdMode == i, onClick = { fdMode = i }, label = { Text(fdLabels[i]) })
+                    }
+                }
+                HelperCaption("A = P·(1 + r/$fdFreq)^(${fdFreq}·t). Frequency matches the Bank deposit card.")
+                ToolErrorLine(fdErr)
                 HorizontalDivider()
-                ToolResultRow(Icons.Filled.AttachMoney, "Interest", fmt(res?.second ?: Double.NaN, 2))
-                ToolResultRow(Icons.Filled.AttachMoney, "Total", fmt(res?.third ?: Double.NaN, 2))
+                ToolResultRow(Icons.Filled.AttachMoney, "Interest", if (fdErr != null) "—" else fmt(res?.second ?: Double.NaN, 2))
+                ToolResultRow(Icons.Filled.AttachMoney, "Total", if (fdErr != null) "—" else fmt(res?.third ?: Double.NaN, 2))
             }
         }
         item {
@@ -1617,8 +1843,20 @@ fun FinanceScreen(onNavigate: (String) -> Unit = {}) {
             var cons by remember { mutableStateOf("7.5") }
             var fuelPrice by remember { mutableStateOf("1.8") }
             var avg by remember { mutableStateOf("90") }
-            val cost = runCatching { TripKit.fuelCost(num(dist), num(cons), num(fuelPrice)) }.getOrNull()
-            val time = runCatching { TripKit.tripTime(num(dist), num(avg)) }.getOrNull()
+            val distV = num(dist)
+            val consV = num(cons)
+            val avgV = avg.toDoubleOrNull()
+            val avgErr = if (avgV == null || avgV <= 0) "Average speed must be greater than 0." else null
+            val cost = runCatching { TripKit.fuelCost(distV, consV, num(fuelPrice)) }.getOrNull()
+            val time = if (avgErr != null) null else runCatching { TripKit.tripTime(distV, avgV ?: 0.0) }.getOrNull()
+            val liters = runCatching { distV / 100 * consV }.getOrNull()
+            val timeHmm = runCatching {
+                val t = time ?: throw IllegalStateException("bad time")
+                if (!t.isFinite() || t < 0) throw IllegalStateException("bad time")
+                val h = t.toInt()
+                val m = ((t - h) * 60).toInt().coerceIn(0, 59)
+                "%d:%02d".format(h, m)
+            }.getOrNull()
             SectionCard("Trip cost") {
                 Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                     Box(Modifier.weight(1f)) { NumField(dist, { dist = it }, "Km") }
@@ -1628,9 +1866,11 @@ fun FinanceScreen(onNavigate: (String) -> Unit = {}) {
                     Box(Modifier.weight(1f)) { NumField(fuelPrice, { fuelPrice = it }, "Price/L") }
                     Box(Modifier.weight(1f)) { NumField(avg, { avg = it }, "Avg km/h") }
                 }
+                ToolErrorLine(avgErr)
                 HorizontalDivider()
-                ToolResultRow(Icons.Filled.AttachMoney, "Fuel cost", cost?.let { fmt(it, 2) } ?: "—")
-                ToolResultRow(Icons.Filled.DateRange, "Drive time h", time?.let { fmt(it, 2) } ?: "—")
+                ToolResultRow(Icons.Filled.AttachMoney, "Fuel cost", if (avgErr != null) cost?.let { fmt(it, 2) } ?: "—" else cost?.let { fmt(it, 2) } ?: "—")
+                ToolResultRow(Icons.Filled.AttachMoney, "Fuel needed (L)", liters?.let { fmt(it, 2) } ?: "—")
+                ToolResultRow(Icons.Filled.DateRange, "Drive time (H:MM)", if (avgErr != null || timeHmm == null) "—" else timeHmm + " (${fmt(time ?: Double.NaN, 2)} h)")
             }
         }
         item {
@@ -1679,83 +1919,175 @@ fun FinanceScreen(onNavigate: (String) -> Unit = {}) {
             }
         }
         item {
-            var gpaG1 by remember { mutableStateOf("4") }
-            var gpaC1 by remember { mutableStateOf("3") }
-            var gpaG2 by remember { mutableStateOf("3") }
-            var gpaC2 by remember { mutableStateOf("3") }
-            var gpaG3 by remember { mutableStateOf("3") }
-            var gpaC3 by remember { mutableStateOf("3") }
+            var gpaScale by remember { mutableStateOf("4.0") }
+            var gpaRows by remember { mutableStateOf(listOf("4" to "3", "3" to "3", "3" to "3")) }
+            fun letterToPoint(letter: String): Double? = when (letter.trim().uppercase()) {
+                "A+", "A" -> 4.0
+                "A-" -> 3.7
+                "B+" -> 3.3
+                "B" -> 3.0
+                "B-" -> 2.7
+                "C+" -> 2.3
+                "C" -> 2.0
+                "C-" -> 1.7
+                "D+" -> 1.3
+                "D" -> 1.0
+                "F" -> 0.0
+                else -> null
+            }
+            fun gradeToPoint(raw: String): Double? {
+                return when (gpaScale) {
+                    "Letter" -> letterToPoint(raw)
+                    "100" -> raw.toDoubleOrNull()?.let { (it / 100 * 4.0).coerceIn(0.0, 4.0) }
+                    else -> raw.toDoubleOrNull()
+                }
+            }
+            val gpaCreditsErr = if (gpaRows.any { (it.second.toDoubleOrNull() ?: -1.0) <= 0 }) "Each course needs credits greater than 0." else null
+            val gpaGradeErr = if (gpaRows.any { gradeToPoint(it.first) == null }) "Check grade entries for the selected scale (4.0 number, 0..100, or A+..F)." else null
             val gpaRes = runCatching {
-                Finance.gpa(listOf(num(gpaG1) to num(gpaC1), num(gpaG2) to num(gpaC2), num(gpaG3) to num(gpaC3)))
+                if (gpaCreditsErr != null || gpaGradeErr != null) throw IllegalStateException("fix inputs")
+                Finance.gpa(gpaRows.map { (gradeToPoint(it.first) ?: throw IllegalStateException("bad grade")) to num(it.second) })
             }
             val gpa = gpaRes.getOrNull()
             SectionCard("GPA") {
-                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    Box(Modifier.weight(1f)) { NumField(gpaG1, { gpaG1 = it }, "Grade 1") }
-                    Box(Modifier.weight(1f)) { NumField(gpaC1, { gpaC1 = it }, "Credits 1") }
+                LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    listOf("4.0", "100", "Letter").forEach { s ->
+                        item {
+                            FilterChip(selected = gpaScale == s, onClick = { gpaScale = s }, label = { Text(s) })
+                        }
+                    }
                 }
-                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    Box(Modifier.weight(1f)) { NumField(gpaG2, { gpaG2 = it }, "Grade 2") }
-                    Box(Modifier.weight(1f)) { NumField(gpaC2, { gpaC2 = it }, "Credits 2") }
+                HelperCaption("Letter map: A+/A=4.0, A-=3.7, B+=3.3, B=3.0, B-=2.7, C+=2.3, C=2.0, C-=1.7, D+=1.3, D=1.0, F=0.0. 100-scale converts as score/100·4.")
+                gpaRows.forEachIndexed { idx, row ->
+                    Row(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Box(Modifier.weight(1f)) {
+                            if (gpaScale == "Letter") {
+                                OutlinedTextField(value = row.first, onValueChange = { v ->
+                                    gpaRows = gpaRows.toMutableList().also { it[idx] = v to row.second }
+                                }, label = { Text("Grade ${idx + 1}") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+                            } else {
+                                NumField(row.first, { v ->
+                                    gpaRows = gpaRows.toMutableList().also { it[idx] = v to row.second }
+                                }, "Grade ${idx + 1}")
+                            }
+                        }
+                        Box(Modifier.weight(1f)) {
+                            NumField(row.second, { v ->
+                                gpaRows = gpaRows.toMutableList().also { it[idx] = row.first to v }
+                            }, "Credits ${idx + 1}")
+                        }
+                        TextButton(onClick = { gpaRows = gpaRows.filterIndexed { i, _ -> i != idx } }, enabled = gpaRows.size > 1) { Text("X") }
+                    }
                 }
-                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    Box(Modifier.weight(1f)) { NumField(gpaG3, { gpaG3 = it }, "Grade 3") }
-                    Box(Modifier.weight(1f)) { NumField(gpaC3, { gpaC3 = it }, "Credits 3") }
-                }
+                TextButton(onClick = { gpaRows = gpaRows + ("3" to "3") }) { Text("+ Add course") }
+                ToolErrorLine(gpaCreditsErr)
+                ToolErrorLine(gpaGradeErr ?: gpaRes.exceptionOrNull()?.message?.takeIf { gpaCreditsErr == null && gpaGradeErr == null })
                 HorizontalDivider()
-                ToolResultRow(Icons.Filled.Info, "GPA", gpa?.let { fmt(it, 2) } ?: "—")
-                ToolErrorLine(gpaRes.exceptionOrNull()?.message)
+                ToolResultRow(Icons.Filled.Info, "GPA", if (gpaCreditsErr != null || gpaGradeErr != null) "—" else gpa?.let { fmt(it, 2) } ?: "—")
             }
         }
         item {
             var gnCur by remember { mutableStateOf("85") }
             var gnDone by remember { mutableStateOf("60") }
             var gnTarget by remember { mutableStateOf("90") }
-            val needed = runCatching { Finance.gradeNeeded(num(gnCur), num(gnDone), num(gnTarget)) }.getOrNull()
+            val gnDoneV = gnDone.toDoubleOrNull()
+            val gnWeightErr = if (gnDoneV == null || gnDoneV < 0 || gnDoneV > 100) "Weight done must be 0..100 (use <100)." else null
+            val neededRes = if (gnWeightErr != null) null else runCatching { Finance.gradeNeeded(num(gnCur), gnDoneV ?: 0.0, num(gnTarget)) }
+            val needed = neededRes?.getOrNull()
+            val gnState: String? = when {
+                gnWeightErr != null -> null
+                needed == null -> null
+                needed > 100 -> "Impossible — needs over 100% on the remainder."
+                needed <= 0 -> "Already met — no score needed on the remainder."
+                else -> null
+            }
             SectionCard("Grade needed") {
                 Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                     Box(Modifier.weight(1f)) { NumField(gnCur, { gnCur = it }, "Current %") }
                     Box(Modifier.weight(1f)) { NumField(gnDone, { gnDone = it }, "Weight done %") }
                     Box(Modifier.weight(1f)) { NumField(gnTarget, { gnTarget = it }, "Target %") }
                 }
+                HelperCaption("Weight done must be 0..100 and below 100; >100% needed is impossible, <=0% means already met.")
+                ToolErrorLine(gnWeightErr)
+                ToolErrorLine(neededRes?.exceptionOrNull()?.message)
+                if (gnState != null) {
+                    Text(gnState, style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.error)
+                }
                 HorizontalDivider()
-                ToolResultRow(Icons.Filled.Percent, "Needed on remainder", needed?.let { fmt(it, 2) + " %" } ?: "—")
+                ToolResultRow(Icons.Filled.Percent, "Needed on remainder", if (gnWeightErr != null || needed == null) "—" else fmt(needed, 2) + " %")
             }
         }
         item {
             var pcRate by remember { mutableStateOf("20") }
             var pcHours by remember { mutableStateOf("40") }
             var pcTax by remember { mutableStateOf("20") }
-            val res = runCatching { Finance.paycheck(num(pcRate), num(pcHours), num(pcTax)) }
+            var pcOtHours by remember { mutableStateOf("0") }
+            var pcOtMult by remember { mutableStateOf("1.5") }
+            var pcFreq by remember { mutableStateOf("Monthly") }
+            val pcBase = runCatching { Finance.paycheck(num(pcRate), num(pcHours), num(pcTax)) }
+            val pcOtPay = runCatching { num(pcOtHours) * num(pcRate) * num(pcOtMult) * 52 / 12 }.getOrDefault(Double.NaN)
+            val pcGrossM = (pcBase.getOrNull()?.first ?: Double.NaN) + if (pcOtPay.isFinite()) pcOtPay else 0.0
+            val pcTaxM = if (pcGrossM.isFinite()) pcGrossM * num(pcTax) / 100 else Double.NaN
+            val pcNetM = if (pcGrossM.isFinite() && pcTaxM.isFinite()) pcGrossM - pcTaxM else Double.NaN
+            val pcDiv = when (pcFreq) {
+                "Weekly" -> 52.0 / 12.0
+                "Biweekly" -> 26.0 / 12.0
+                else -> 1.0
+            }
+            fun perPeriod(m: Double) = if (!m.isFinite()) Double.NaN else m / pcDiv
             SectionCard("Paycheck") {
                 Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                     Box(Modifier.weight(1f)) { NumField(pcRate, { pcRate = it }, "Hourly rate") }
                     Box(Modifier.weight(1f)) { NumField(pcHours, { pcHours = it }, "Hours/week") }
                     Box(Modifier.weight(1f)) { NumField(pcTax, { pcTax = it }, "Tax %") }
                 }
+                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Box(Modifier.weight(1f)) { NumField(pcOtHours, { pcOtHours = it }, "OT hrs/week") }
+                    Box(Modifier.weight(1f)) { NumField(pcOtMult, { pcOtMult = it }, "OT multiplier") }
+                }
+                LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    listOf("Weekly", "Biweekly", "Monthly").forEach { f ->
+                        item {
+                            FilterChip(selected = pcFreq == f, onClick = { pcFreq = f }, label = { Text(f) })
+                        }
+                    }
+                }
+                HelperCaption("Monthly assumes hourly × hours × 52 / 12; weekly = monthly ÷ (52/12), biweekly = monthly ÷ (26/12). Overtime adds OT-hrs × rate × multiplier × 52 / 12.")
                 HorizontalDivider()
-                ToolResultRow(Icons.Filled.AttachMoney, "Gross / month", res.getOrNull()?.let { fmt(it.first, 2) } ?: "—")
-                ToolResultRow(Icons.Filled.AttachMoney, "Tax / month", res.getOrNull()?.let { fmt(it.second, 2) } ?: "—")
-                ToolResultRow(Icons.Filled.AttachMoney, "Net / month", res.getOrNull()?.let { fmt(it.third, 2) } ?: "—")
-                ToolErrorLine(res.exceptionOrNull()?.message)
+                ToolResultRow(Icons.Filled.AttachMoney, "Gross / $pcFreq", fmt(perPeriod(pcGrossM), 2))
+                ToolResultRow(Icons.Filled.AttachMoney, "Tax / $pcFreq", fmt(perPeriod(pcTaxM), 2))
+                ToolResultRow(Icons.Filled.AttachMoney, "Net / $pcFreq", fmt(perPeriod(pcNetM), 2))
+                ToolErrorLine(pcBase.exceptionOrNull()?.message)
             }
         }
         item {
             var poBal by remember { mutableStateOf("1000") }
             var poApr by remember { mutableStateOf("12") }
             var poPay by remember { mutableStateOf("100") }
-            val res = runCatching { Finance.creditPayoff(num(poBal), num(poApr), num(poPay)) }
+            val poBalV = num(poBal)
+            val poAprV = num(poApr)
+            val poPayV = num(poPay)
+            val poMonthlyInt = poBalV * poAprV / 1200
+            val neverPays = poBalV > 0 && poAprV > 0 && poPayV.isFinite() && poPayV <= poMonthlyInt
+            val res = if (neverPays) null else runCatching { Finance.creditPayoff(poBalV, poAprV, poPayV) }
             SectionCard("Credit payoff") {
                 Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                     Box(Modifier.weight(1f)) { NumField(poBal, { poBal = it }, "Balance") }
                     Box(Modifier.weight(1f)) { NumField(poApr, { poApr = it }, "APR %") }
                     Box(Modifier.weight(1f)) { NumField(poPay, { poPay = it }, "Monthly pay") }
                 }
+                if (neverPays) {
+                    Text(
+                        "Payment covers only interest (${fmt(poMonthlyInt, 2)}/mo) — balance never decreases. Increase the payment.",
+                        style = MaterialTheme.typography.labelLarge,
+                        color = MaterialTheme.colorScheme.error
+                    )
+                }
                 HorizontalDivider()
-                ToolResultRow(Icons.Filled.DateRange, "Months", res.getOrNull()?.first?.toString() ?: "—")
-                ToolResultRow(Icons.Filled.AttachMoney, "Total interest", res.getOrNull()?.let { fmt(it.second, 2) } ?: "—")
-                ToolResultRow(Icons.Filled.AttachMoney, "Total paid", res.getOrNull()?.let { fmt(it.third, 2) } ?: "—")
-                ToolErrorLine(res.exceptionOrNull()?.message)
+                ToolResultRow(Icons.Filled.DateRange, "Months", if (neverPays) "—" else res?.getOrNull()?.first?.toString() ?: "—")
+                ToolResultRow(Icons.Filled.AttachMoney, "Total interest", if (neverPays) "—" else res?.getOrNull()?.let { fmt(it.second, 2) } ?: "—")
+                ToolResultRow(Icons.Filled.AttachMoney, "Total paid", if (neverPays) "—" else res?.getOrNull()?.let { fmt(it.third, 2) } ?: "—")
+                ToolErrorLine(if (neverPays) null else res?.exceptionOrNull()?.message)
             }
         }
         item {
@@ -1766,6 +2098,12 @@ fun FinanceScreen(onNavigate: (String) -> Unit = {}) {
             val res = runCatching {
                 Finance.loanCompare(num(lcP), num(lcRa), num(lcRb), lcM.toIntOrNull() ?: 0)
             }
+            val saving = res.getOrNull()?.third
+            val savingLabel = when {
+                saving == null || !saving.isFinite() -> "Difference total (A−B)"
+                saving >= 0 -> "Savings total (A−B)"
+                else -> "B costs ${fmt(-saving, 2)} more (A−B negative)"
+            }
             SectionCard("Loan compare") {
                 Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                     Box(Modifier.weight(1f)) { NumField(lcP, { lcP = it }, "Principal") }
@@ -1775,10 +2113,11 @@ fun FinanceScreen(onNavigate: (String) -> Unit = {}) {
                     Box(Modifier.weight(1f)) { NumField(lcRa, { lcRa = it }, "Rate A %") }
                     Box(Modifier.weight(1f)) { NumField(lcRb, { lcRb = it }, "Rate B %") }
                 }
+                HelperCaption("Positive = A saves vs B; negative = B costs more than A.")
                 HorizontalDivider()
                 ToolResultRow(Icons.Filled.AttachMoney, "EMI A", res.getOrNull()?.let { fmt(it.first, 2) } ?: "—")
                 ToolResultRow(Icons.Filled.AttachMoney, "EMI B", res.getOrNull()?.let { fmt(it.second, 2) } ?: "—")
-                ToolResultRow(Icons.Filled.AttachMoney, "Savings total (B-A)", res.getOrNull()?.let { fmt(it.third, 2) } ?: "—")
+                ToolResultRow(Icons.Filled.AttachMoney, savingLabel, res.getOrNull()?.let { fmt(it.third, 2) } ?: "—")
                 ToolErrorLine(res.exceptionOrNull()?.message)
             }
         }
@@ -1804,12 +2143,22 @@ fun FinanceScreen(onNavigate: (String) -> Unit = {}) {
             val stale by repo.isStale.collectAsState(initial = true)
             val source by repo.source.collectAsState()
             var cryptoAmt by remember { mutableStateOf("100") }
+            var cryptoQuery by remember { mutableStateOf("") }
             val scope = rememberCoroutineScope()
             LaunchedEffect(Unit) { runCatching { repo.refresh() }.onFailure { } }
-            val coins = listOf("bitcoin", "ethereum", "solana", "bnb", "xrp", "cardano", "dogecoin")
+            val coins = listOf(
+                "bitcoin", "ethereum", "tether", "bnb", "solana", "usd-coin", "xrp",
+                "dogecoin", "toncoin", "cardano", "avalanche-2", "shiba-inu", "chainlink",
+                "polkadot", "bitcoin-cash", "near", "litecoin", "uniswap", "dai", "tron"
+            )
+            val amtParsed = cryptoAmt.toDoubleOrNull()
             val amt = num(cryptoAmt)
+            val cryptoErr = if (amtParsed == null || amtParsed <= 0) "Enter a USD amount greater than 0." else null
+            val filtered = if (cryptoQuery.isBlank()) coins else coins.filter { it.contains(cryptoQuery.trim().lowercase()) }
             SectionCard("Crypto") {
                 NumField(cryptoAmt, { cryptoAmt = it }, "USD amount")
+                OutlinedTextField(value = cryptoQuery, onValueChange = { cryptoQuery = it }, label = { Text("Search coins") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+                ToolErrorLine(cryptoErr)
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.SpaceBetween,
@@ -1822,14 +2171,17 @@ fun FinanceScreen(onNavigate: (String) -> Unit = {}) {
             Button(onClick = { scope.launch { runCatching { repo.refresh() } } }) { Text("Refresh") }
                 }
                 HorizontalDivider()
-                coins.forEach { id ->
+                if (filtered.isEmpty()) {
+                    HelperCaption("No coins match your search.")
+                }
+                filtered.forEach { id ->
                     val coin = prices[id]
                     if (coin == null) {
                         ToolResultRow(Icons.Filled.AttachMoney, id, "—")
                     } else {
                         val change = coin.usd_24h_change
                         val changeTxt = if (change == null) "n/a" else fmt(change, 2) + " %"
-                        val qty = if (coin.usd.isFinite() && coin.usd > 0 && amt.isFinite()) amt / coin.usd else Double.NaN
+                        val qty = if (cryptoErr != null || !coin.usd.isFinite() || coin.usd <= 0) Double.NaN else amt / coin.usd
                         ToolResultRow(Icons.Filled.AttachMoney, id, fmt(coin.usd, 2) + " USD (" + changeTxt + ") → " + fmt(qty, 6))
                     }
                 }
@@ -1839,7 +2191,10 @@ fun FinanceScreen(onNavigate: (String) -> Unit = {}) {
             var zakAssets by remember { mutableStateOf("10000") }
             var zakDebts by remember { mutableStateOf("1000") }
             var zakNisab by remember { mutableStateOf("0") }
-            val zakRes = runCatching { Finance.zakat(num(zakAssets), num(zakDebts), num(zakNisab)) }
+            val zakNisabV = zakNisab.toDoubleOrNull()
+            val zakNet = num(zakAssets) - num(zakDebts)
+            val belowNisab = zakNisabV != null && zakNisabV > 0 && zakNet < zakNisabV
+            val zakRes = runCatching { Finance.zakat(num(zakAssets), num(zakDebts), zakNisabV ?: 0.0) }
             val due = zakRes.getOrNull()
             SectionCard("Zakat") {
                 Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -1847,8 +2202,9 @@ fun FinanceScreen(onNavigate: (String) -> Unit = {}) {
                     Box(Modifier.weight(1f)) { NumField(zakDebts, { zakDebts = it }, "Debts") }
                 }
                 NumField(zakNisab, { zakNisab = it }, "Nisab")
+                HelperCaption("Nisab = minimum net assets before zakat is due (ask your school for the current value in your currency). Zakat = 2.5% of net assets at/above nisab.")
                 HorizontalDivider()
-                ToolResultRow(Icons.Filled.AttachMoney, "Zakat due", due?.let { fmt(it, 2) } ?: "—")
+                ToolResultRow(Icons.Filled.AttachMoney, "Zakat due", if (belowNisab) "0 due (below nisab)" else due?.let { fmt(it, 2) } ?: "—")
                 ToolErrorLine(zakRes.exceptionOrNull()?.message)
             }
         }
@@ -1857,10 +2213,13 @@ fun FinanceScreen(onNavigate: (String) -> Unit = {}) {
             var stlAmt by remember { mutableStateOf("12000") }
             var startD by remember { mutableStateOf("2024-01-01") }
             var endD by remember { mutableStateOf("2025-01-01") }
-            val days = runCatching {
+            val startParsed = runCatching { LocalDate.parse(startD.trim()) }.getOrNull()
+            val endParsed = runCatching { LocalDate.parse(endD.trim()) }.getOrNull()
+            val dateOrderErr = if (startParsed != null && endParsed != null && endParsed.isBefore(startParsed)) "End date is before start date." else null
+            val days = if (dateOrderErr != null) null else runCatching {
                 ChronoUnit.DAYS.between(LocalDate.parse(startD.trim()), LocalDate.parse(endD.trim())).toInt()
             }.getOrNull()
-            val roiRes = if (days == null) null else runCatching { Finance.investRoi(num(invAmt), num(stlAmt), days) }
+            val roiRes = if (days == null || dateOrderErr != null) null else runCatching { Finance.investRoi(num(invAmt), num(stlAmt), days) }
             val roi = roiRes?.getOrNull()
             SectionCard("Investment ROI") {
                 Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -1887,11 +2246,13 @@ fun FinanceScreen(onNavigate: (String) -> Unit = {}) {
                         )
                     }
                 }
+                HelperCaption("Annualized = (Settled / Invested)^(365 / days) − 1, compounding daily-equivalent.")
+                ToolErrorLine(dateOrderErr)
                 HorizontalDivider()
-                ToolResultRow(Icons.Filled.DateRange, "Days", days?.takeIf { it > 0 }?.toString() ?: "—")
-                ToolResultRow(Icons.Filled.AttachMoney, "Profit", roi?.let { fmt(it.first, 2) } ?: "—")
-                ToolResultRow(Icons.Filled.Percent, "Return", roi?.let { fmt(it.second, 2) + " %" } ?: "—")
-                ToolResultRow(Icons.Filled.Percent, "Annualized", roi?.let { fmt(it.third, 2) + " %" } ?: "—")
+                ToolResultRow(Icons.Filled.DateRange, "Days", if (dateOrderErr != null) "—" else days?.takeIf { it > 0 }?.toString() ?: "—")
+                ToolResultRow(Icons.Filled.AttachMoney, "Profit", if (dateOrderErr != null) "—" else roi?.let { fmt(it.first, 2) } ?: "—")
+                ToolResultRow(Icons.Filled.Percent, "Return", if (dateOrderErr != null) "—" else roi?.let { fmt(it.second, 2) + " %" } ?: "—")
+                ToolResultRow(Icons.Filled.Percent, "Annualized", if (dateOrderErr != null) "—" else roi?.let { fmt(it.third, 2) + " %" } ?: "—")
                 ToolErrorLine(roiRes?.exceptionOrNull()?.message)
             }
         }
@@ -1899,26 +2260,41 @@ fun FinanceScreen(onNavigate: (String) -> Unit = {}) {
             var gstNet by remember { mutableStateOf("100") }
             var gstGross by remember { mutableStateOf("118") }
             var gstRate by remember { mutableStateOf(18.0) }
+            var gstCustom by remember { mutableStateOf("") }
             var gstIntra by remember { mutableStateOf(true) }
-            var lastEdited by remember { mutableStateOf("net") }
+            var gstDir by remember { mutableStateOf("net") }
             val gstRates = listOf(5.0, 12.0, 18.0, 28.0)
+            val gstEffRate = gstCustom.toDoubleOrNull()?.takeIf { it >= 0 } ?: gstRate
             val gstRes = runCatching {
-                if (lastEdited == "net") Finance.gstForward(num(gstNet), gstRate, gstIntra)
-                else Finance.gstReverse(num(gstGross), gstRate)
+                if (gstDir == "net") Finance.gstForward(num(gstNet), gstEffRate, gstIntra)
+                else Finance.gstReverse(num(gstGross), gstEffRate)
             }.getOrNull()
             val gstTax = gstRes?.second ?: Double.NaN
             SectionCard("GST") {
-                NumField(gstNet, { gstNet = it; lastEdited = "net" }, "Net amount")
-                NumField(gstGross, { gstGross = it; lastEdited = "gross" }, "Gross amount")
+                LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    item {
+                        FilterChip(selected = gstDir == "net", onClick = { gstDir = "net" }, label = { Text("Net → Gross") })
+                    }
+                    item {
+                        FilterChip(selected = gstDir == "gross", onClick = { gstDir = "gross" }, label = { Text("Gross → Net") })
+                    }
+                }
+                if (gstDir == "net") {
+                    NumField(gstNet, { gstNet = it }, "Net amount")
+                } else {
+                    NumField(gstGross, { gstGross = it }, "Gross amount")
+                }
+                HelperCaption(if (gstDir == "net") "Enter net only — gross is computed." else "Enter gross only — net is computed. Intra/inter split is honored in both directions.")
                 LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     items(gstRates) { r ->
                         FilterChip(
-                            selected = gstRate == r,
-                            onClick = { gstRate = r },
+                            selected = gstCustom.toDoubleOrNull() == null && gstRate == r,
+                            onClick = { gstRate = r; gstCustom = "" },
                             label = { Text("${fmt(r, 0)}%") }
                         )
                     }
                 }
+                NumField(gstCustom, { gstCustom = it }, "Custom rate % (optional)")
                 LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     item {
                         FilterChip(selected = gstIntra, onClick = { gstIntra = true }, label = { Text("Intra-state") })
@@ -2164,16 +2540,61 @@ private fun NumbersContent() {
             }
         }
         item {
+            var stdevMode by remember { mutableStateOf("Population") }
+            val rawTokens = remember(listInput) {
+                listInput.split(",", ";", " ", "\n").map { it.trim() }.filter { it.isNotEmpty() }
+            }
+            val parsedVals = remember(rawTokens) {
+                rawTokens.mapNotNull { it.toDoubleOrNull() }
+            }
+            val badTokens = remember(rawTokens) {
+                rawTokens.filter { it.toDoubleOrNull() == null }
+            }
+            val mVals = parsedVals
+            val mSorted = mVals.sorted()
+            val mMean = runCatching { Engine.mean(mVals) }.getOrNull()
+            val mMedian = runCatching { Engine.statsMedian(mVals) }.getOrNull()
+            val mMode = runCatching { Engine.statsMode(mVals) }.getOrNull()
+            val mVarPop = runCatching { Engine.statsVariance(mVals) }.getOrNull()
+            val mStdevPop = runCatching { Engine.statsStdev(mVals) }.getOrNull()
+            val mVar = if (stdevMode == "Sample") {
+                if (mVals.size > 1 && mMean != null) {
+                    runCatching {
+                        mVals.sumOf { (it - mMean) * (it - mMean) } / (mVals.size - 1)
+                    }.getOrNull()
+                } else null
+            } else mVarPop
+            val mStdev = if (stdevMode == "Sample") {
+                mVar?.let { runCatching { sqrt(it) }.getOrNull() }
+            } else mStdevPop
             SectionCard("Statistics") {
                 NumField(listInput, { listInput = it }, "Values, comma separated")
                 HelperCaption("Separate values with commas, spaces, or new lines.")
                 LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    items(listOf("Mean", "Median", "Min", "Max", "Sum", "Count")) { s ->
-                        FilterChip(selected = stat == s, onClick = { stat = s }, label = { Text(s) })
+                    item {
+                        FilterChip(selected = stdevMode == "Population", onClick = { stdevMode = "Population" }, label = { Text("Population") })
+                    }
+                    item {
+                        FilterChip(selected = stdevMode == "Sample", onClick = { stdevMode = "Sample" }, label = { Text("Sample") })
                     }
                 }
+                HelperCaption(if (stdevMode == "Population") "Stdev ÷ N." else "Stdev ÷ (N − 1). Needs ≥ 2 values.")
                 HorizontalDivider()
-                ToolResultRow(Icons.Filled.Info, stat, statValue)
+                ToolResultRow(Icons.Filled.Info, "Mean", mMean?.let { fmt(it) } ?: "—")
+                ToolResultRow(Icons.Filled.Info, "Median", mMedian?.let { fmt(it) } ?: "—")
+                ToolResultRow(Icons.Filled.Info, "Mode", mMode?.let { fmt(it) } ?: "—")
+                ToolResultRow(Icons.Filled.Info, "Stdev ($stdevMode)", mStdev?.let { fmt(it) } ?: "—")
+                ToolResultRow(Icons.Filled.Info, "Variance ($stdevMode)", mVar?.let { fmt(it) } ?: "—")
+                ToolResultRow(Icons.Filled.Info, "Min", mSorted.firstOrNull()?.let { fmt(it) } ?: "—")
+                ToolResultRow(Icons.Filled.Info, "Max", mSorted.lastOrNull()?.let { fmt(it) } ?: "—")
+                ToolResultRow(Icons.Filled.Info, "Count", "${mVals.size}")
+                if (badTokens.isNotEmpty()) {
+                    ToolErrorLine("Invalid token(s): " + badTokens.joinToString(", "))
+                } else if (mVals.isEmpty()) {
+                    ToolErrorLine("Enter at least one number.")
+                } else if (stdevMode == "Sample" && mVals.size < 2) {
+                    ToolErrorLine("Sample stdev needs at least 2 values.")
+                }
             }
         }
         item {
@@ -2318,48 +2739,82 @@ private fun NumbersContent() {
             }
         }
         item {
-            var statsIn by remember { mutableStateOf("1, 2, 3, 4, 5") }
-            val vals = parseList(statsIn)
-            SectionCard("Distribution stats") {
-                NumField(statsIn, { statsIn = it }, "Values, comma separated")
-                HorizontalDivider()
-                ToolResultRow(Icons.Filled.Info, "Median", vals.let { runCatching { fmt(Engine.statsMedian(it)) }.getOrDefault("—") })
-                ToolResultRow(Icons.Filled.Info, "Mode", vals.let { runCatching { fmt(Engine.statsMode(it)) }.getOrDefault("—") })
-                ToolResultRow(Icons.Filled.Info, "Variance", vals.let { runCatching { fmt(Engine.statsVariance(it)) }.getOrDefault("—") })
-                ToolResultRow(Icons.Filled.Info, "Stdev", vals.let { runCatching { fmt(Engine.statsStdev(it)) }.getOrDefault("—") })
+            var listMode by remember { mutableStateOf("Manual") }
+            var pasteInput by remember { mutableStateOf("10\n20\n30") }
+            val parsed = remember(statVals) { statVals.mapNotNull { it.trim().toDoubleOrNull() } }
+            val pasteTokens = remember(pasteInput) {
+                pasteInput.split(",", ";", " ", "\n").map { it.trim() }.filter { it.isNotEmpty() }
             }
-        }
-        item {
-            var statVals by remember { mutableStateOf(listOf("10", "20", "30")) }
-            val parsed = statVals.mapNotNull { it.trim().toDoubleOrNull() }
-            val longs = statVals.map { it.trim().toLongOrNull() }
-            val allIntegral = parsed.isNotEmpty() && parsed.size == statVals.size && longs.all { it != null }
+            val pasteBad = remember(pasteTokens) { pasteTokens.filter { it.toDoubleOrNull() == null } }
+            val pasteVals = remember(pasteTokens) { pasteTokens.mapNotNull { it.toDoubleOrNull() } }
+            val activeVals = if (listMode == "Paste") pasteVals else parsed
+            val manualBad = remember(statVals) {
+                statVals.mapIndexedNotNull { idx, v ->
+                    val t = v.trim()
+                    if (t.isEmpty() || t.toDoubleOrNull() == null) "Row ${idx + 1} ('$v')" else null
+                }
+            }
             SectionCard("List statistics") {
-                statVals.forEachIndexed { i, v ->
-                    Row(
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Box(Modifier.weight(1f)) {
-                            NumField(
-                                v,
-                                { nv -> statVals = statVals.toMutableList().also { it[i] = nv } },
-                                "Value ${i + 1}"
-                            )
-                        }
-                        if (statVals.size > 1) {
-                            TextButton(onClick = { statVals = statVals.filterIndexed { j, _ -> j != i } }) { Text("X") }
-                        }
+                LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    item {
+                        FilterChip(selected = listMode == "Manual", onClick = { listMode = "Manual" }, label = { Text("Manual") })
+                    }
+                    item {
+                        FilterChip(selected = listMode == "Paste", onClick = { listMode = "Paste" }, label = { Text("Paste list") })
                     }
                 }
-                Button(onClick = { statVals = statVals + "" }) { Text("Add value") }
+                if (listMode == "Manual") {
+                    statVals.forEachIndexed { i, v ->
+                        Row(
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Box(Modifier.weight(1f)) {
+                                NumField(
+                                    v,
+                                    { nv -> statVals = statVals.toMutableList().also { it[i] = nv } },
+                                    "Value ${i + 1}"
+                                )
+                            }
+                            if (statVals.size > 1) {
+                                TextButton(onClick = { statVals = statVals.filterIndexed { j, _ -> j != i } }) { Text("X") }
+                            }
+                        }
+                    }
+                    Button(onClick = { statVals = statVals + "" }) { Text("Add value") }
+                } else {
+                    OutlinedTextField(
+                        value = pasteInput,
+                        onValueChange = { pasteInput = it },
+                        label = { Text("Paste values (multiline)") },
+                        modifier = Modifier.fillMaxWidth(),
+                        minLines = 3,
+                        maxLines = 6
+                    )
+                    HelperCaption("Separators: commas, spaces, or new lines.")
+                }
                 HorizontalDivider()
-                ToolResultRow(Icons.Filled.Info, "Count", "${parsed.size}")
-                ToolResultRow(Icons.Filled.Info, "Mean", runCatching { fmt(Engine.mean(parsed)) }.getOrDefault("—"))
-                ToolResultRow(Icons.Filled.Info, "Median", runCatching { fmt(Engine.statsMedian(parsed)) }.getOrDefault("—"))
-                ToolResultRow(Icons.Filled.Info, "Stdev", runCatching { fmt(Engine.statsStdev(parsed)) }.getOrDefault("—"))
-                if (allIntegral) {
-                    val intVals = longs.filterNotNull()
+                ToolResultRow(Icons.Filled.Info, "Count", "${activeVals.size}")
+                ToolResultRow(Icons.Filled.Info, "Mean", runCatching { fmt(Engine.mean(activeVals)) }.getOrDefault("—"))
+                ToolResultRow(Icons.Filled.Info, "Median", runCatching { fmt(Engine.statsMedian(activeVals)) }.getOrDefault("—"))
+                ToolResultRow(Icons.Filled.Info, "Stdev", runCatching { fmt(Engine.statsStdev(activeVals)) }.getOrDefault("—"))
+                if (listMode == "Paste" && pasteBad.isNotEmpty()) {
+                    ToolErrorLine("Invalid token(s): " + pasteBad.joinToString(", "))
+                }
+                if (listMode == "Manual" && manualBad.isNotEmpty()) {
+                    ToolErrorLine("Invalid row(s): " + manualBad.joinToString(", "))
+                }
+                if (activeVals.isEmpty()) {
+                    ToolErrorLine("Enter at least one valid number.")
+                }
+                val activeLongs = remember(activeVals) {
+                    activeVals.map {
+                        if (it == kotlin.math.floor(it) && it >= Long.MIN_VALUE.toDouble() && it <= Long.MAX_VALUE.toDouble()) it.toLong() else null
+                    }
+                }
+                val activeIntegral = activeVals.isNotEmpty() && activeLongs.all { it != null }
+                if (activeIntegral) {
+                    val intVals = activeLongs.filterNotNull()
                     ToolResultRow(
                         Icons.Filled.Info,
                         "GCD",
@@ -2385,6 +2840,7 @@ private fun NumbersContent() {
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth()
                 )
+                HelperCaption("Tap a row to copy its value · ${Constants.all.size} constants with units shown.")
                 HorizontalDivider()
                 hits.forEach { c ->
                     Row(
@@ -2393,7 +2849,10 @@ private fun NumbersContent() {
                         }.padding(vertical = 4.dp),
                         horizontalArrangement = Arrangement.SpaceBetween
                     ) {
-                        Text("${c.symbol} · ${c.name}", style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f))
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text("${c.symbol} · ${c.name}", style = MaterialTheme.typography.bodyMedium)
+                            Text("tap to copy", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
                         Text(fmt(c.value, 6), style = MaterialTheme.typography.bodyMedium)
                     }
                 }
@@ -2404,17 +2863,77 @@ private fun NumbersContent() {
             var sw by remember { mutableStateOf("1920") }
             var sh by remember { mutableStateOf("1080") }
             var diag by remember { mutableStateOf("6.1") }
-            val aspect = runCatching { ScreenKit.aspectRatio(sw.toIntOrNull() ?: 0, sh.toIntOrNull() ?: 0) }.getOrNull()
-            val ppiV = runCatching { ScreenKit.ppi(sw.toIntOrNull() ?: 0, sh.toIntOrNull() ?: 0, num(diag)) }.getOrNull()
+            var ppiIn by remember { mutableStateOf("400") }
+            var screenMode by remember { mutableStateOf("PPI from diagonal") }
+            val wInt = sw.trim().toIntOrNull()
+            val hInt = sh.trim().toIntOrNull()
+            val dVal = diag.trim().toDoubleOrNull()
+            val ppiVal = ppiIn.trim().toDoubleOrNull()
+            val screenErr: String? = when {
+                wInt == null || hInt == null -> "Width and height must be whole numbers."
+                wInt <= 0 || hInt <= 0 -> "Width and height must be > 0."
+                screenMode == "PPI from diagonal" && dVal == null -> "Diagonal must be a number."
+                screenMode == "PPI from diagonal" && dVal <= 0.0 -> "Diagonal must be > 0."
+                screenMode == "Diagonal from PPI" && ppiVal == null -> "PPI must be a number."
+                screenMode == "Diagonal from PPI" && ppiVal <= 0.0 -> "PPI must be > 0."
+                else -> null
+            }
+            val aspect = runCatching {
+                if (wInt == null || hInt == null) throw IllegalArgumentException("Width and height must be whole numbers.")
+                ScreenKit.aspectRatio(wInt, hInt)
+            }
+            val ppiRes = runCatching {
+                if (wInt == null || hInt == null) throw IllegalArgumentException("Width and height must be whole numbers.")
+                if (wInt <= 0 || hInt <= 0) throw IllegalArgumentException("Width and height must be > 0.")
+                if (dVal == null) throw IllegalArgumentException("Diagonal must be a number.")
+                if (dVal <= 0.0) throw IllegalArgumentException("Diagonal must be > 0.")
+                ScreenKit.ppi(wInt, hInt, dVal)
+            }
+            val diagRes = runCatching {
+                if (wInt == null || hInt == null) throw IllegalArgumentException("Width and height must be whole numbers.")
+                if (wInt <= 0 || hInt <= 0) throw IllegalArgumentException("Width and height must be > 0.")
+                if (ppiVal == null) throw IllegalArgumentException("PPI must be a number.")
+                if (ppiVal <= 0.0) throw IllegalArgumentException("PPI must be > 0.")
+                sqrt(wInt.toDouble() * wInt + hInt.toDouble() * hInt) / ppiVal
+            }
+            val shownPpi = if (screenMode == "PPI from diagonal") ppiRes.getOrNull() else ppiVal
+            val dpiBucket = shownPpi?.let {
+                when {
+                    !it.isFinite() -> null
+                    it < 120 -> "ldpi"
+                    it < 160 -> "mdpi"
+                    it < 240 -> "hdpi"
+                    it < 320 -> "xhdpi"
+                    it < 480 -> "xxhdpi"
+                    else -> "xxxhdpi"
+                }
+            }
             SectionCard("Screen") {
+                LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    item {
+                        FilterChip(selected = screenMode == "PPI from diagonal", onClick = { screenMode = "PPI from diagonal" }, label = { Text("PPI from diagonal") })
+                    }
+                    item {
+                        FilterChip(selected = screenMode == "Diagonal from PPI", onClick = { screenMode = "Diagonal from PPI" }, label = { Text("Diagonal from PPI") })
+                    }
+                }
                 Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                     Box(Modifier.weight(1f)) { NumField(sw, { sw = it }, "W px", integer = true) }
                     Box(Modifier.weight(1f)) { NumField(sh, { sh = it }, "H px", integer = true) }
-                    Box(Modifier.weight(1f)) { NumField(diag, { diag = it }, "Inch") }
+                    Box(Modifier.weight(1f)) {
+                        if (screenMode == "PPI from diagonal") NumField(diag, { diag = it }, "Inch")
+                        else NumField(ppiIn, { ppiIn = it }, "PPI")
+                    }
                 }
                 HorizontalDivider()
-                ToolResultRow(Icons.Filled.Info, "Aspect", aspect ?: "—")
-                ToolResultRow(Icons.Filled.Info, "PPI", ppiV?.let { fmt(it, 1) } ?: "—")
+                ToolResultRow(Icons.Filled.Info, "Aspect", aspect.getOrNull() ?: "—")
+                if (screenMode == "PPI from diagonal") {
+                    ToolResultRow(Icons.Filled.Info, "PPI", ppiRes.getOrNull()?.let { fmt(it, 1) } ?: "—")
+                } else {
+                    ToolResultRow(Icons.Filled.Info, "Diagonal", diagRes.getOrNull()?.let { fmt(it, 2) + " in" } ?: "—")
+                }
+                ToolResultRow(Icons.Filled.Info, "DPI bucket", dpiBucket ?: "—")
+                ToolErrorLine(screenErr ?: aspect.exceptionOrNull()?.message ?: (if (screenMode == "PPI from diagonal") ppiRes.exceptionOrNull()?.message else diagRes.exceptionOrNull()?.message))
             }
         }
         item {
@@ -2474,28 +2993,67 @@ private fun NumbersContent() {
             var vbx by remember { mutableStateOf("4") }
             var vby by remember { mutableStateOf("5") }
             var vbz by remember { mutableStateOf("6") }
-            val va = listOf(num(vax), num(vay), num(vaz))
-            val vb = listOf(num(vbx), num(vby), num(vbz))
+            var vecDim by remember { mutableStateOf("3D") }
+            val va = if (vecDim == "2D") listOf(num(vax), num(vay)) else listOf(num(vax), num(vay), num(vaz))
+            val vb = if (vecDim == "2D") listOf(num(vbx), num(vby)) else listOf(num(vbx), num(vby), num(vbz))
+            val magA = runCatching { VectorKit.magnitude(va) }.getOrNull()
+            val magB = runCatching { VectorKit.magnitude(vb) }.getOrNull()
+            val unitA = if (magA != null && magA.isFinite() && magA > 0) va.map { it / magA } else null
+            val unitB = if (magB != null && magB.isFinite() && magB > 0) vb.map { it / magB } else null
+            val proj = if (magB != null && magB.isFinite() && magB > 0) {
+                runCatching {
+                    val dot = VectorKit.dot(va, vb)
+                    val scale = dot / (magB * magB)
+                    vb.map { it * scale }
+                }.getOrNull()
+            } else null
             SectionCard("Vectors") {
+                LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    item {
+                        FilterChip(selected = vecDim == "2D", onClick = { vecDim = "2D" }, label = { Text("2D") })
+                    }
+                    item {
+                        FilterChip(selected = vecDim == "3D", onClick = { vecDim = "3D" }, label = { Text("3D") })
+                    }
+                }
                 Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                     Box(Modifier.weight(1f)) { NumField(vax, { vax = it }, "ax") }
                     Box(Modifier.weight(1f)) { NumField(vay, { vay = it }, "ay") }
-                    Box(Modifier.weight(1f)) { NumField(vaz, { vaz = it }, "az") }
+                    if (vecDim == "3D") Box(Modifier.weight(1f)) { NumField(vaz, { vaz = it }, "az") }
                 }
                 Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                     Box(Modifier.weight(1f)) { NumField(vbx, { vbx = it }, "bx") }
                     Box(Modifier.weight(1f)) { NumField(vby, { vby = it }, "by") }
-                    Box(Modifier.weight(1f)) { NumField(vbz, { vbz = it }, "bz") }
+                    if (vecDim == "3D") Box(Modifier.weight(1f)) { NumField(vbz, { vbz = it }, "bz") }
                 }
                 HorizontalDivider()
                 ToolResultRow(Icons.Filled.Info, "Dot", runCatching { fmt(VectorKit.dot(va, vb)) }.getOrDefault("—"))
+                if (vecDim == "3D") {
+                    ToolResultRow(
+                        Icons.Filled.Info,
+                        "Cross",
+                        runCatching { VectorKit.cross(va, vb).joinToString(prefix = "[", postfix = "]") { fmt(it) } }.getOrDefault("—")
+                    )
+                } else {
+                    HelperCaption("Cross product is 3D only.")
+                }
+                ToolResultRow(Icons.Filled.Info, "Magnitude a", magA?.let { fmt(it) } ?: "—")
+                ToolResultRow(Icons.Filled.Info, "Magnitude b", magB?.let { fmt(it) } ?: "—")
                 ToolResultRow(
                     Icons.Filled.Info,
-                    "Cross",
-                    runCatching { VectorKit.cross(va, vb).joinToString(prefix = "[", postfix = "]") { fmt(it) } }.getOrDefault("—")
+                    "Unit a",
+                    unitA?.joinToString(prefix = "[", postfix = "]") { fmt(it, 3) } ?: "—"
                 )
-                ToolResultRow(Icons.Filled.Info, "Magnitude a", runCatching { fmt(VectorKit.magnitude(va)) }.getOrDefault("—"))
-                ToolResultRow(Icons.Filled.Info, "Magnitude b", runCatching { fmt(VectorKit.magnitude(vb)) }.getOrDefault("—"))
+                ToolResultRow(
+                    Icons.Filled.Info,
+                    "Unit b",
+                    unitB?.joinToString(prefix = "[", postfix = "]") { fmt(it, 3) } ?: "—"
+                )
+                ToolResultRow(
+                    Icons.Filled.Info,
+                    "Proj a→b",
+                    proj?.joinToString(prefix = "[", postfix = "]") { fmt(it, 3) } ?: "—"
+                )
                 ToolResultRow(
                     Icons.Filled.Info,
                     "Angle",
@@ -2506,14 +3064,28 @@ private fun NumbersContent() {
         item {
             var ch by remember { mutableStateOf("3") }
             var cmi by remember { mutableStateOf("15") }
-            val ang = runCatching { ClockAngle.angle(ch.toIntOrNull() ?: 0, cmi.toIntOrNull() ?: 0) }.getOrNull()
+            val hInt = ch.trim().toIntOrNull()
+            val mInt = cmi.trim().toIntOrNull()
+            val clockErr: String? = when {
+                hInt == null -> "Hour must be a whole number 1..12."
+                hInt !in 1..12 -> "Hour must be in 1..12 (got $hInt)."
+                mInt == null -> "Minute must be a whole number 0..59."
+                mInt !in 0..59 -> "Minute must be in 0..59 (got $mInt)."
+                else -> null
+            }
+            val ang = runCatching {
+                if (hInt == null || hInt !in 1..12) throw IllegalArgumentException("Hour must be in 1..12.")
+                if (mInt == null || mInt !in 0..59) throw IllegalArgumentException("Minute must be in 0..59.")
+                ClockAngle.angle(hInt, mInt)
+            }
             SectionCard("Clock angle") {
                 Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    Box(Modifier.weight(1f)) { NumField(ch, { ch = it }, "Hour", integer = true) }
-                    Box(Modifier.weight(1f)) { NumField(cmi, { cmi = it }, "Minute", integer = true) }
+                    Box(Modifier.weight(1f)) { NumField(ch, { ch = it }, "Hour 1..12", integer = true) }
+                    Box(Modifier.weight(1f)) { NumField(cmi, { cmi = it }, "Minute 0..59", integer = true) }
                 }
                 HorizontalDivider()
-                ToolResultRow(Icons.Filled.DateRange, "Angle", ang?.let { fmt(it, 2) + "°" } ?: "—")
+                ToolResultRow(Icons.Filled.DateRange, "Angle", ang.getOrNull()?.let { fmt(it, 2) + "°" } ?: "—")
+                ToolErrorLine(clockErr ?: ang.exceptionOrNull()?.message)
             }
         }
         item {
@@ -2522,13 +3094,23 @@ private fun NumbersContent() {
             var ntM by remember { mutableStateOf("26") }
             var ntF by remember { mutableStateOf("20") }
             val nL = ntN.toLongOrNull()
+            val fibInt = ntF.trim().toIntOrNull()
+            val fibRes = runCatching {
+                if (fibInt == null) throw IllegalArgumentException("fib n must be a whole number 0..92.")
+                NumberTheory.fibonacci(fibInt)
+            }
+            val modRes = runCatching {
+                val av = ntA.trim().toLongOrNull() ?: throw IllegalArgumentException("a must be a whole number.")
+                val mv = ntM.trim().toLongOrNull() ?: throw IllegalArgumentException("m must be a whole number > 1.")
+                NumberTheory.modInverse(av, mv)
+            }
             SectionCard("Advanced number theory") {
                 NumField(ntN, { ntN = it }, "n", integer = true)
                 Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                     Box(Modifier.weight(1f)) { NumField(ntA, { ntA = it }, "a", integer = true) }
                     Box(Modifier.weight(1f)) { NumField(ntM, { ntM = it }, "m", integer = true) }
                 }
-                NumField(ntF, { ntF = it }, "fib n", integer = true)
+                NumField(ntF, { ntF = it }, "fib n (0..92)", integer = true)
                 HorizontalDivider()
                 ToolResultRow(
                     Icons.Filled.Info,
@@ -2538,12 +3120,12 @@ private fun NumbersContent() {
                 ToolResultRow(
                     Icons.Filled.Info,
                     "Mod inverse a⁻¹ mod m",
-                    runCatching {
-                        val av = ntA.toLongOrNull() ?: return@runCatching "—"
-                        val mv = ntM.toLongOrNull() ?: return@runCatching "—"
-                        "${NumberTheory.modInverse(av, mv)}"
-                    }.getOrDefault("—")
+                    modRes.getOrNull()?.toString() ?: "—"
                 )
+                if (modRes.isFailure) {
+                    val msg = modRes.exceptionOrNull()?.message ?: ""
+                    ToolErrorLine(if (msg.contains("no modular inverse", ignoreCase = true)) "no inverse (not coprime)" else msg.ifBlank { "no inverse (not coprime)" })
+                }
                 ToolResultRow(
                     Icons.Filled.Info,
                     "Prime factors",
@@ -2554,8 +3136,9 @@ private fun NumbersContent() {
                 ToolResultRow(
                     Icons.Filled.Info,
                     "Fibonacci",
-                    ntF.toIntOrNull()?.let { runCatching { "${NumberTheory.fibonacci(it)}" }.getOrDefault("—") } ?: "—"
+                    fibRes.getOrNull()?.toString() ?: "—"
                 )
+                ToolErrorLine(fibRes.exceptionOrNull()?.message?.let { "fib n must be in 0..92." })
             }
         }
     }
@@ -2606,81 +3189,161 @@ fun GeometryScreen() {
         "trapezoid" -> listOf("Base a", "Base b", "Height")
         else -> emptyList()
     }
+    var geoUnit by remember { mutableStateOf("m") }
+    var showGeoSteps by remember { mutableStateOf(false) }
+    val toM = when (geoUnit) { "cm" -> 0.01; "inch" -> 0.0254; else -> 1.0 }
+    val areaToM2 = toM * toM
+    val volToM3 = toM * toM * toM
+    val areaUnit = when (geoUnit) { "cm" -> "cm²"; "inch" -> "in²"; else -> "m²" }
+    val volUnit = when (geoUnit) { "cm" -> "cm³"; "inch" -> "in³"; else -> "m³" }
     val dims = listOf(f1, f2, f3)
     val setters: List<(String) -> Unit> = listOf({ f1 = it }, { f2 = it }, { f3 = it })
+    val xr = f1.trim().toDoubleOrNull()
+    val yr = f2.trim().toDoubleOrNull()
+    val zr = f3.trim().toDoubleOrNull()
+    fun needPos(v: Double?, name: String): Double {
+        if (v == null) throw IllegalArgumentException("$name must be a number > 0.")
+        if (v <= 0.0) throw IllegalArgumentException("$name must be > 0.")
+        return v
+    }
+    val geoErr = runCatching {
+        when (shape) {
+            "circle", "square", "pentagon", "hexagon" -> needPos(xr, labels.firstOrNull() ?: "Input")
+            "sphere" -> if (sphereSolve == "Radius from Volume") {
+                if (xr == null) throw IllegalArgumentException("Volume must be a number.")
+                if (xr < 0.0) throw IllegalArgumentException("Volume must be >= 0.")
+            } else needPos(xr, "Radius")
+            "cube" -> when (cubeSolve) {
+                "Side from Volume" -> { if (xr == null) throw IllegalArgumentException("Volume must be a number."); if (xr < 0.0) throw IllegalArgumentException("Volume must be >= 0.") }
+                "Side from Surface" -> { if (xr == null) throw IllegalArgumentException("Surface must be a number."); if (xr < 0.0) throw IllegalArgumentException("Surface must be >= 0.") }
+                else -> needPos(xr, "Side")
+            }
+            "arc" -> { needPos(xr, "Radius"); if (yr == null) throw IllegalArgumentException("Degrees must be a number.") }
+            else -> {
+                val n = labels.size
+                if (n >= 1) needPos(xr, labels.getOrNull(0) ?: "Input 1")
+                if (n >= 2 && shape != "arc") needPos(yr, labels.getOrNull(1) ?: "Input 2")
+                if (n >= 3) needPos(zr, labels.getOrNull(2) ?: "Input 3")
+                if (shape == "sphereCap" || shape == "sphereZone") {
+                    val r = xr ?: 0.0; val hh = yr ?: 0.0
+                    if (hh > 2 * r) throw IllegalArgumentException("Height must be ≤ 2R.")
+                }
+            }
+        }
+    }.exceptionOrNull()?.message
     val x = num(f1)
     val y = num(f2)
     val z = num(f3)
+    val geoFormula: String = when (shape) {
+        "circle" -> "Steps: A = πr², C = 2πr."
+        "rectangle" -> "Steps: A = w·h, P = 2(w+h)."
+        "triangle" -> "Steps: A = b·h/2. Perimeter needs all 3 sides — see Triangle SSS."
+        "sphere" -> "Steps: V = 4/3πr³, S = 4πr²."
+        "cylinder" -> "Steps: V = πr²h, S = 2πr(r+h)."
+        "cone" -> "Steps: V = πr²h/3, S = πr(r+√(r²+h²))."
+        "cube" -> "Steps: V = s³, S = 6s²."
+        "prism" -> "Steps: V = w·h·d, S = 2(wh+wd+hd)."
+        "pyramid" -> "Steps: V = b²h/3."
+        "ellipse" -> "Steps: A = πab, P ≈ Ramanujan."
+        "rightTriangle" -> "Steps: c = √(a²+b²), A = ab/2, P = a+b+c."
+        "square" -> "Steps: A = s², P = 4s, d = s√2."
+        "rhombus" -> "Steps: A = d1·d2/2, side = √((d1/2)²+(d2/2)²), P = 4·side."
+        "pentagon" -> "Steps: A ≈ 1.721·s², P = 5s."
+        "hexagon" -> "Steps: A = 3√3/2·s², P = 6s."
+        "arc" -> "Steps: L = πr·deg/180, sector = πr²·deg/360."
+        "trapezoid" -> "Steps: A = (a+b)/2·h. Perimeter needs all 4 sides."
+        "ellipsoid" -> "Steps: V = 4/3πabc."
+        else -> "Steps: see formula."
+    }
     val outputs: List<Pair<String, String>> = runCatching {
+        if (geoErr != null) throw IllegalArgumentException(geoErr)
         when (shape) {
-            "circle" -> listOf(
-                "Area" to fmt(Geometry.circleArea(x), 2),
-                "Circumference" to fmt(Geometry.circleCirc(x), 2)
-            )
-            "rectangle" -> listOf(
-                "Area" to fmt(Geometry.rectArea(x, y), 2),
-                "Perimeter" to fmt(2 * (x + y), 2)
-            )
-            "triangle" -> listOf("Area" to fmt(Geometry.triangleArea(x, y), 2))
+            "circle" -> {
+                val a = Geometry.circleArea(x); val c = Geometry.circleCirc(x)
+                listOf("Area ($areaUnit)" to fmt(a, 2), "Area (m²)" to fmt(a * areaToM2, 2), "Circumference ($geoUnit)" to fmt(c, 2))
+            }
+            "rectangle" -> {
+                val a = Geometry.rectArea(x, y)
+                listOf("Area ($areaUnit)" to fmt(a, 2), "Area (m²)" to fmt(a * areaToM2, 2), "Perimeter ($geoUnit)" to fmt(2 * (x + y), 2))
+            }
+            "triangle" -> {
+                val a = Geometry.triangleArea(x, y)
+                listOf("Area ($areaUnit)" to fmt(a, 2), "Area (m²)" to fmt(a * areaToM2, 2))
+            }
             "sphere" -> if (sphereSolve == "Radius from Volume") {
                 val r = runCatching { Geometry.sphereRFromVol(x) }.getOrDefault(Double.NaN)
                 val surf = runCatching { Geometry.sphereArea(r) }.getOrDefault(Double.NaN)
-                listOf("Radius" to fmt(r, 2), "Surface" to fmt(surf, 2))
-            } else listOf(
-                "Volume" to fmt(Geometry.sphereVolume(x), 2),
-                "Surface" to fmt(Geometry.sphereArea(x), 2)
-            )
+                listOf("Radius ($geoUnit)" to fmt(r, 2), "Surface ($areaUnit)" to fmt(surf, 2), "Surface (m²)" to fmt(surf * areaToM2, 2))
+            } else {
+                val v = Geometry.sphereVolume(x); val s = Geometry.sphereArea(x)
+                listOf("Volume ($volUnit)" to fmt(v, 2), "Volume (m³)" to fmt(v * volToM3, 2), "Surface ($areaUnit)" to fmt(s, 2), "Surface (m²)" to fmt(s * areaToM2, 2))
+            }
             "cylinder" -> if (cylSolve == "Height from Volume") {
                 val h = runCatching {
                     require(x > 0) { "r must be > 0" }
                     y / (PI * x * x)
                 }.getOrDefault(Double.NaN)
-                listOf("Height" to fmt(h, 2))
-            } else listOf(
-                "Volume" to fmt(Geometry.cylinderVolume(x, y), 2),
-                "Surface" to fmt(2 * PI * x * (x + y), 2)
-            )
+                listOf("Height ($geoUnit)" to fmt(h, 2))
+            } else {
+                val v = Geometry.cylinderVolume(x, y); val s = 2 * PI * x * (x + y)
+                listOf("Volume ($volUnit)" to fmt(v, 2), "Volume (m³)" to fmt(v * volToM3, 2), "Surface ($areaUnit)" to fmt(s, 2), "Surface (m²)" to fmt(s * areaToM2, 2))
+            }
             "cone" -> if (coneSolve == "Height from Volume") {
-                listOf("Height" to fmt(runCatching { Geometry.coneHFromVol(x, y) }.getOrDefault(Double.NaN), 2))
-            } else listOf(
-                "Volume" to fmt(Geometry.coneVolume(x, y), 2),
-                "Surface" to fmt(PI * x * (x + sqrt(x * x + y * y)), 2)
-            )
+                listOf("Height ($geoUnit)" to fmt(runCatching { Geometry.coneHFromVol(x, y) }.getOrDefault(Double.NaN), 2))
+            } else {
+                val v = Geometry.coneVolume(x, y); val s = PI * x * (x + sqrt(x * x + y * y))
+                listOf("Volume ($volUnit)" to fmt(v, 2), "Volume (m³)" to fmt(v * volToM3, 2), "Surface ($areaUnit)" to fmt(s, 2), "Surface (m²)" to fmt(s * areaToM2, 2))
+            }
             "cube" -> when (cubeSolve) {
                 "Side from Volume" -> listOf(
-                    "Side" to fmt(runCatching { Geometry.cubeSideFromVol(x) }.getOrDefault(Double.NaN), 2)
+                    "Side ($geoUnit)" to fmt(runCatching { Geometry.cubeSideFromVol(x) }.getOrDefault(Double.NaN), 2)
                 )
                 "Side from Surface" -> listOf(
-                    "Side" to fmt(runCatching {
+                    "Side ($geoUnit)" to fmt(runCatching {
                         require(x >= 0) { "area must be >= 0" }
                         sqrt(x / 6)
                     }.getOrDefault(Double.NaN), 2)
                 )
-                else -> listOf(
-                    "Volume" to fmt(Geometry.cubeVolume(x), 2),
-                    "Surface" to fmt(6 * x * x, 2)
-                )
+                else -> {
+                    val v = Geometry.cubeVolume(x); val s = 6 * x * x
+                    listOf("Volume ($volUnit)" to fmt(v, 2), "Volume (m³)" to fmt(v * volToM3, 2), "Surface ($areaUnit)" to fmt(s, 2), "Surface (m²)" to fmt(s * areaToM2, 2))
+                }
             }
-            "prism" -> listOf(
-                "Volume" to fmt(Geometry.prismVolume(x, y, z), 2),
-                "Surface" to fmt(2 * (x * y + x * z + y * z), 2)
-            )
-            "pyramid" -> listOf(
-                "Volume" to fmt(Geometry.pyramidVolume(x, y), 2),
-                "Surface" to fmt(x * x + 2 * x * sqrt((x / 2) * (x / 2) + y * y), 2)
-            )
-            "ellipse" -> listOf("Area" to fmt(Geometry.ellipseArea(x, y), 2))
+            "prism" -> {
+                val v = Geometry.prismVolume(x, y, z); val s = 2 * (x * y + x * z + y * z)
+                listOf("Volume ($volUnit)" to fmt(v, 2), "Volume (m³)" to fmt(v * volToM3, 2), "Surface ($areaUnit)" to fmt(s, 2), "Surface (m²)" to fmt(s * areaToM2, 2))
+            }
+            "pyramid" -> {
+                val v = Geometry.pyramidVolume(x, y); val s = x * x + 2 * x * sqrt((x / 2) * (x / 2) + y * y)
+                listOf("Volume ($volUnit)" to fmt(v, 2), "Volume (m³)" to fmt(v * volToM3, 2), "Surface ($areaUnit)" to fmt(s, 2), "Surface (m²)" to fmt(s * areaToM2, 2))
+            }
+            "ellipse" -> {
+                val a = fmt(Geometry.ellipseArea(x, y), 2)
+                val p = fmt(runCatching { Geometry.ellipsePerim(x, y) }.getOrDefault(Double.NaN), 2)
+                val aM2 = fmt(runCatching { Geometry.ellipseArea(x, y) }.getOrDefault(Double.NaN) * areaToM2, 2)
+                listOf("Area ($areaUnit)" to a, "Area (m²)" to aM2, "Perimeter ($geoUnit)" to p)
+            }
             "rightTriangle" -> runCatching {
                 val (hyp, area, per) = Geometry.rightTriangle(x, y)
-                listOf("Hypotenuse" to fmt(hyp, 2), "Area" to fmt(area, 2), "Perimeter" to fmt(per, 2))
+                listOf("Hypotenuse ($geoUnit)" to fmt(hyp, 2), "Area ($areaUnit)" to fmt(area, 2), "Area (m²)" to fmt(area * areaToM2, 2), "Perimeter ($geoUnit)" to fmt(per, 2))
             }.getOrDefault(listOf("Hypotenuse" to "—", "Area" to "—", "Perimeter" to "—"))
             "square" -> runCatching {
                 val (area, per, diag) = Geometry.square(x)
-                listOf("Area" to fmt(area, 2), "Perimeter" to fmt(per, 2), "Diagonal" to fmt(diag, 2))
+                listOf("Area ($areaUnit)" to fmt(area, 2), "Area (m²)" to fmt(area * areaToM2, 2), "Perimeter ($geoUnit)" to fmt(per, 2), "Diagonal ($geoUnit)" to fmt(diag, 2))
             }.getOrDefault(listOf("Area" to "—", "Perimeter" to "—", "Diagonal" to "—"))
-            "rhombus" -> listOf("Area" to fmt(runCatching { Geometry.rhombusAreaD(x, y) }.getOrDefault(Double.NaN), 2))
-            "pentagon" -> listOf("Area" to fmt(runCatching { Geometry.pentagonArea(x) }.getOrDefault(Double.NaN), 2))
-            "hexagon" -> listOf("Area" to fmt(runCatching { Geometry.hexagonArea(x) }.getOrDefault(Double.NaN), 2))
+            "rhombus" -> {
+                val area = runCatching { Geometry.rhombusAreaD(x, y) }.getOrDefault(Double.NaN)
+                val side = runCatching { sqrt((x / 2) * (x / 2) + (y / 2) * (y / 2)) }.getOrDefault(Double.NaN)
+                listOf("Area ($areaUnit)" to fmt(area, 2), "Area (m²)" to fmt(area * areaToM2, 2), "Side ($geoUnit)" to fmt(side, 2), "Perimeter ($geoUnit)" to fmt(side * 4, 2))
+            }
+            "pentagon" -> {
+                val area = runCatching { Geometry.pentagonArea(x) }.getOrDefault(Double.NaN)
+                listOf("Area ($areaUnit)" to fmt(area, 2), "Area (m²)" to fmt(area * areaToM2, 2), "Perimeter ($geoUnit)" to fmt(5 * x, 2))
+            }
+            "hexagon" -> {
+                val area = runCatching { Geometry.hexagonArea(x) }.getOrDefault(Double.NaN)
+                listOf("Area ($areaUnit)" to fmt(area, 2), "Area (m²)" to fmt(area * areaToM2, 2), "Perimeter ($geoUnit)" to fmt(6 * x, 2))
+            }
             "arc" -> listOf(
                 "Arc length" to fmt(runCatching { Geometry.arcLength(x, y) }.getOrDefault(Double.NaN), 2),
                 "Sector area" to fmt(runCatching { Geometry.sectorArea(x, y) }.getOrDefault(Double.NaN), 2)
@@ -2697,12 +3360,16 @@ fun GeometryScreen() {
                 val (baseR, vol, curved) = Geometry.sphereCap(x, y)
                 listOf("Base radius" to fmt(baseR, 2), "Volume" to fmt(vol, 2), "Curved area" to fmt(curved, 2))
             }.getOrDefault(listOf("Base radius" to "—", "Volume" to "—", "Curved area" to "—"))
-            "sphereZone" -> listOf("Curved area" to fmt(runCatching { Geometry.sphereZone(x, y) }.getOrDefault(Double.NaN), 2))
-            "ellipsoid" -> listOf(
-                "Volume" to fmt(runCatching { Geometry.ellipsoidVol(x, y, z) }.getOrDefault(Double.NaN), 2),
-                "Surface" to fmt(runCatching { Geometry.ellipsoidSurf(x, y, z) }.getOrDefault(Double.NaN), 2)
-            )
-            "trapezoid" -> listOf("Area" to fmt(Geometry.trapezoidArea(x, y, z), 2))
+            "sphereZone" -> listOf("Curved area ($areaUnit)" to fmt(runCatching { Geometry.sphereZone(x, y) }.getOrDefault(Double.NaN), 2), "Curved area (m²)" to fmt(runCatching { Geometry.sphereZone(x, y) }.getOrDefault(Double.NaN) * areaToM2, 2))
+            "ellipsoid" -> {
+                val v = runCatching { Geometry.ellipsoidVol(x, y, z) }.getOrDefault(Double.NaN)
+                listOf(
+                    "Volume ($volUnit)" to fmt(v, 2),
+                    "Volume (m³)" to fmt(v * volToM3, 2),
+                    "Surface ($areaUnit)" to fmt(runCatching { Geometry.ellipsoidSurf(x, y, z) }.getOrDefault(Double.NaN), 2)
+                )
+            }
+            "trapezoid" -> listOf("Area ($areaUnit)" to fmt(Geometry.trapezoidArea(x, y, z), 2), "Area (m²)" to fmt(Geometry.trapezoidArea(x, y, z) * areaToM2, 2))
             else -> emptyList()
         }
     }.getOrDefault(listOf("Result" to "—"))
@@ -2718,6 +3385,7 @@ fun GeometryScreen() {
         }
         item {
             SectionCard("Dimensions") {
+                UnitDropdown(geoUnit, listOf("m", "cm", "inch"), { geoUnit = it }, "Unit")
                 when (shape) {
                     "cube" -> UnitDropdown(cubeSolve, listOf("Volume & Surface", "Side from Volume", "Side from Surface"), { cubeSolve = it }, "Solve for")
                     "sphere" -> UnitDropdown(sphereSolve, listOf("Volume & Surface", "Radius from Volume"), { sphereSolve = it }, "Solve for")
@@ -2725,29 +3393,44 @@ fun GeometryScreen() {
                     "cone" -> UnitDropdown(coneSolve, listOf("Volume & Surface", "Height from Volume"), { coneSolve = it }, "Solve for")
                 }
                 labels.forEachIndexed { i, label ->
-                    NumField(dims.getOrNull(i) ?: "", setters.getOrNull(i) ?: {}, label)
+                    NumField(dims.getOrNull(i) ?: "", setters.getOrNull(i) ?: {}, "$label ($geoUnit)")
                 }
+                HelperCaption("Inputs in $geoUnit · areas in $areaUnit (m² also shown) · volumes in $volUnit (m³ also shown). All inputs must be > 0.")
+                TextButton(onClick = { showGeoSteps = !showGeoSteps }) { Text(if (showGeoSteps) "Hide steps" else "Show steps") }
+                if (showGeoSteps) HelperCaption(geoFormula)
                 HorizontalDivider()
                 outputs.forEach { (label, value) -> ToolResultRow(Icons.Filled.Info, label, value) }
+                ToolErrorLine(geoErr)
             }
         }
         item {
             var sa by remember { mutableStateOf("3") }
             var sb by remember { mutableStateOf("4") }
             var sc by remember { mutableStateOf("5") }
-            val tri = runCatching { Geometry.solveTriangleSSS(num(sa), num(sb), num(sc)) }.getOrNull()
+            val triRes = runCatching {
+                val a = sa.trim().toDoubleOrNull() ?: throw IllegalArgumentException("Side a must be a number > 0.")
+                val b = sb.trim().toDoubleOrNull() ?: throw IllegalArgumentException("Side b must be a number > 0.")
+                val c = sc.trim().toDoubleOrNull() ?: throw IllegalArgumentException("Side c must be a number > 0.")
+                Geometry.solveTriangleSSS(a, b, c)
+            }
+            val tri = triRes.getOrNull()
             SectionCard("Triangle SSS") {
                 Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    Box(Modifier.weight(1f)) { NumField(sa, { sa = it }, "a") }
-                    Box(Modifier.weight(1f)) { NumField(sb, { sb = it }, "b") }
-                    Box(Modifier.weight(1f)) { NumField(sc, { sc = it }, "c") }
+                    Box(Modifier.weight(1f)) { NumField(sa, { sa = it }, "a ($geoUnit)") }
+                    Box(Modifier.weight(1f)) { NumField(sb, { sb = it }, "b ($geoUnit)") }
+                    Box(Modifier.weight(1f)) { NumField(sc, { sc = it }, "c ($geoUnit)") }
                 }
+                HelperCaption("All sides must be > 0 and satisfy the triangle inequality: a+b>c, a+c>b, b+c>a.")
                 HorizontalDivider()
                 ToolResultRow(Icons.Filled.Info, "Angle A", tri?.get("angleA")?.let { fmt(it, 2) + "°" } ?: "—")
                 ToolResultRow(Icons.Filled.Info, "Angle B", tri?.get("angleB")?.let { fmt(it, 2) + "°" } ?: "—")
                 ToolResultRow(Icons.Filled.Info, "Angle C", tri?.get("angleC")?.let { fmt(it, 2) + "°" } ?: "—")
-                ToolResultRow(Icons.Filled.Info, "Perimeter", tri?.get("perimeter")?.let { fmt(it, 2) } ?: "—")
-                ToolResultRow(Icons.Filled.Info, "Area", tri?.get("area")?.let { fmt(it, 2) } ?: "—")
+                ToolResultRow(Icons.Filled.Info, "Perimeter", tri?.get("perimeter")?.let { fmt(it, 2) + " $geoUnit" } ?: "—")
+                ToolResultRow(Icons.Filled.Info, "Area", tri?.get("area")?.let { fmt(it, 2) + " $areaUnit" } ?: "—")
+                ToolErrorLine(triRes.exceptionOrNull()?.message?.let {
+                    if (it.contains("triangle inequality", ignoreCase = true)) "triangle inequality violated: each pair of sides must sum above the third."
+                    else it
+                })
             }
         }
     }
@@ -2755,8 +3438,11 @@ fun GeometryScreen() {
 
 @Composable
 fun HealthScreen(onNavigate: (String) -> Unit = {}) {
-    var weight by remember { mutableStateOf("70") }
-    var height by remember { mutableStateOf("175") }
+    var bmiWeight by remember { mutableStateOf("70") }
+    var bmiHeightCm by remember { mutableStateOf("175") }
+    var bfHeightCm by remember { mutableStateOf("175") }
+    var tdeeWeight by remember { mutableStateOf("70") }
+    var tdeeHeightCm by remember { mutableStateOf("175") }
     var male by remember { mutableStateOf(true) }
     var waist by remember { mutableStateOf("85") }
     var neck by remember { mutableStateOf("38") }
@@ -2771,11 +3457,15 @@ fun HealthScreen(onNavigate: (String) -> Unit = {}) {
     var wtLb by remember { mutableStateOf("154") }
     var htFt by remember { mutableStateOf("5") }
     var htIn by remember { mutableStateOf("9") }
-    val w = num(weight)
-    val h = num(height)
-    val fat = runCatching { HealthDate.bodyFatNavy(num(waist), num(neck), h, num(hips), male) }.getOrDefault(Double.NaN)
-    val ageInt = age.toIntOrNull() ?: 0
-    val tdee = runCatching { HealthDate.tdee(w, h, ageInt, tdeeMale, activity) }.getOrDefault(Double.NaN)
+    val fatRes = runCatching {
+        HealthDate.bodyFatNavy(num(waist), num(neck), num(bfHeightCm), num(hips), male)
+    }
+    val tdeeRes = runCatching {
+        val tw = tdeeWeight.trim().toDoubleOrNull() ?: throw IllegalArgumentException("Weight must be a number > 0.")
+        val th = tdeeHeightCm.trim().toDoubleOrNull() ?: throw IllegalArgumentException("Height must be a number > 0.")
+        val ta = age.trim().toIntOrNull() ?: throw IllegalArgumentException("Age must be a whole number.")
+        HealthDate.tdee(tw, th, ta, tdeeMale, activity)
+    }
     val ageRes = ageYMD(by.toIntOrNull() ?: 0, bm.toIntOrNull() ?: 0, bd.toIntOrNull() ?: 0)
     val activities = listOf(
         1.2 to "Sedentary",
@@ -2797,8 +3487,8 @@ fun HealthScreen(onNavigate: (String) -> Unit = {}) {
                 }
                 if (bmiMetric) {
                     Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                        Box(Modifier.weight(1f)) { NumField(weight, { weight = it }, "Weight kg") }
-                        Box(Modifier.weight(1f)) { NumField(height, { height = it }, "Height cm") }
+                        Box(Modifier.weight(1f)) { NumField(bmiWeight, { bmiWeight = it }, "Weight kg") }
+                        Box(Modifier.weight(1f)) { NumField(bmiHeightCm, { bmiHeightCm = it }, "Height cm") }
                     }
                 } else {
                     Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -2807,9 +3497,10 @@ fun HealthScreen(onNavigate: (String) -> Unit = {}) {
                     }
                     NumField(wtLb, { wtLb = it }, "Weight lb")
                 }
-                val bw = if (bmiMetric) num(weight) else num(wtLb) * 0.45359237
-                val bh = if (bmiMetric) num(height) else num(htFt) * 30.48 + num(htIn) * 2.54
-                val bmiV = runCatching { HealthDate.bmi(bw, bh) }.getOrDefault(Double.NaN)
+                val bw = if (bmiMetric) (bmiWeight.trim().toDoubleOrNull() ?: Double.NaN) else num(wtLb) * 0.45359237
+                val bh = if (bmiMetric) (bmiHeightCm.trim().toDoubleOrNull() ?: Double.NaN) else num(htFt) * 30.48 + num(htIn) * 2.54
+                val bmiRes = runCatching { HealthDate.bmi(bw, bh) }
+                val bmiV = bmiRes.getOrDefault(Double.NaN)
                 val bmiCatV = when {
                     !bmiV.isFinite() || (bw == 0.0 && bh == 0.0) -> "—"
                     bmiV < 18.5 -> "Underweight"
@@ -2818,24 +3509,25 @@ fun HealthScreen(onNavigate: (String) -> Unit = {}) {
                     else -> "Obese"
                 }
                 HorizontalDivider()
-                ToolResultRow(Icons.Filled.Person, "BMI", fmt(bmiV, 1))
+                ToolResultRow(Icons.Filled.Person, "BMI", if (bmiV.isFinite()) fmt(bmiV, 1) else "—")
                 ToolResultRow(Icons.Filled.Favorite, "Category", bmiCatV)
                 BmiBar(bmiV)
-                HelperCaption("BMI = weight kg / (height m)². Ranges: 18.5 / 25 / 30.")
+                HelperCaption("BMI = weight kg / (height m)². Underweight < 18.5 · Normal 18.5–24.9 · Overweight 25–29.9 · Obese ≥ 30.")
                 Text(
                     bmiPlainLabel(bmiCatV, bmiV),
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
+                ToolErrorLine(bmiRes.exceptionOrNull()?.message)
                 val bmiD = runCatching { HealthPlus.bmiDelta(bw, bh) }.getOrNull()
                 ToolResultRow(
                     Icons.Filled.Info,
-                    "Healthy delta",
+                    "To healthy range",
                     when {
                         bmiD == null || !bmiD.isFinite() -> "—"
                         bmiD == 0.0 -> "At healthy weight"
-                        bmiD > 0 -> "−${fmt(bmiD, 1)} kg to reach healthy"
-                        else -> "+${fmt(-bmiD, 1)} kg to reach healthy"
+                        bmiD > 0 -> "Lose ${fmt(bmiD, 1)} kg to reach 24.9"
+                        else -> "Gain ${fmt(-bmiD, 1)} kg to reach 18.5"
                     }
                 )
             }
@@ -2854,24 +3546,33 @@ fun HealthScreen(onNavigate: (String) -> Unit = {}) {
                     Box(Modifier.weight(1f)) { NumField(waist, { waist = it }, "Waist cm") }
                     Box(Modifier.weight(1f)) { NumField(neck, { neck = it }, "Neck cm") }
                 }
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(12.dp)
-                ) {
-                    Box(Modifier.weight(1f)) { NumField(height, { height = it }, "Height cm") }
-                    Box(Modifier.weight(1f)) {
-                        if (!male) NumField(hips, { hips = it }, "Hips cm")
+                if (male) {
+                    NumField(bfHeightCm, { bfHeightCm = it }, "Height cm")
+                } else {
+                    Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                        Box(Modifier.weight(1f)) { NumField(bfHeightCm, { bfHeightCm = it }, "Height cm") }
+                        Box(Modifier.weight(1f)) { NumField(hips, { hips = it }, "Hips cm") }
                     }
                 }
+                HelperCaption(if (male) "Male needs waist > neck." else "Female needs waist + hips > neck.")
                 HorizontalDivider()
-                ToolResultRow(Icons.Filled.Person, "Body fat", if (fat.isFinite()) fmt(fat, 1) + " %" else "—")
+                ToolResultRow(Icons.Filled.Person, "Body fat", fatRes.getOrNull()?.let { if (it.isFinite()) fmt(it, 1) + " %" else "—" } ?: "—")
+                ToolErrorLine(fatRes.exceptionOrNull()?.message?.let {
+                    if (it.contains("waistCm must exceed neckCm")) "Waist must exceed neck — measure waist at navel, neck below larynx."
+                    else if (it.contains("waistCm + hipCm must exceed neckCm")) "Waist + hips must exceed neck — check tape placement."
+                    else it
+                })
             }
         }
         item {
+            var tdeeGoal by remember { mutableStateOf("Maintain") }
+            val goalAdj = when (tdeeGoal) { "Cut" -> 0.8; "Bulk" -> 1.1; else -> 1.0 }
+            val tdeeBase = tdeeRes.getOrNull()
+            val tdeeAdj = tdeeBase?.let { it * goalAdj }
             SectionCard("TDEE") {
                 Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    Box(Modifier.weight(1f)) { NumField(weight, { weight = it }, "Weight kg") }
-                    Box(Modifier.weight(1f)) { NumField(height, { height = it }, "Height cm") }
+                    Box(Modifier.weight(1f)) { NumField(tdeeWeight, { tdeeWeight = it }, "Weight kg") }
+                    Box(Modifier.weight(1f)) { NumField(tdeeHeightCm, { tdeeHeightCm = it }, "Height cm") }
                     Box(Modifier.weight(1f)) { NumField(age, { age = it }, "Age", integer = true) }
                 }
                 LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -2891,11 +3592,48 @@ fun HealthScreen(onNavigate: (String) -> Unit = {}) {
                         )
                     }
                 }
+                LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    item {
+                        FilterChip(selected = tdeeGoal == "Cut", onClick = { tdeeGoal = "Cut" }, label = { Text("Cut −20%") })
+                    }
+                    item {
+                        FilterChip(selected = tdeeGoal == "Maintain", onClick = { tdeeGoal = "Maintain" }, label = { Text("Maintain") })
+                    }
+                    item {
+                        FilterChip(selected = tdeeGoal == "Bulk", onClick = { tdeeGoal = "Bulk" }, label = { Text("Bulk +10%") })
+                    }
+                }
+                HelperCaption("Mifflin-St Jeor: 10·kg + 6.25·cm − 5·age + 5 (male) / −161 (female), × activity.")
                 HorizontalDivider()
-                ToolResultRow(Icons.Filled.Favorite, "Daily calories", fmt(tdee, 0) + " kcal")
+                ToolResultRow(Icons.Filled.Favorite, "Daily calories", tdeeAdj?.let { if (it.isFinite()) fmt(it, 0) + " kcal" else "—" } ?: "—")
+                ToolResultRow(Icons.Filled.Info, "Goal ($tdeeGoal)", tdeeBase?.let { if (it.isFinite()) fmt(it * goalAdj, 0) + " kcal" else "—" } ?: "—")
+                ToolErrorLine(tdeeRes.exceptionOrNull()?.message)
             }
         }
         item {
+            val ageY = by.trim().toIntOrNull()
+            val ageM = bm.trim().toIntOrNull()
+            val ageD = bd.trim().toIntOrNull()
+            val ageErr: String? = when {
+                ageY == null -> "Year must be a whole number."
+                ageM == null -> "Month must be a whole number 1..12."
+                ageD == null -> "Day must be a whole number."
+                ageM !in 1..12 -> "Month must be in 1..12 (got $ageM)."
+                else -> runCatching {
+                    java.time.LocalDate.of(ageY, ageM, ageD)
+                    if (java.time.LocalDate.of(ageY, ageM, ageD).isAfter(java.time.LocalDate.now())) {
+                        throw IllegalArgumentException("Birth date is in the future.")
+                    }
+                }.exceptionOrNull()?.message?.let {
+                    if (it.contains("Invalid date", ignoreCase = true) || it.contains("MonthOfYear", ignoreCase = true) || it.contains("DayOfMonth", ignoreCase = true)) {
+                        when {
+                            ageM == 2 && ageD > 29 -> "Feb $ageY has at most 29 days (got $ageD)."
+                            ageD > 31 -> "Day must be in 1..31 (got $ageD)."
+                            else -> "Invalid date: $ageY-$ageM-$ageD does not exist."
+                        }
+                    } else it
+                }
+            }
             SectionCard("Age calculator") {
                 Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                     Box(Modifier.weight(1f)) { NumField(by, { by = it }, "Year", integer = true) }
@@ -2906,9 +3644,10 @@ fun HealthScreen(onNavigate: (String) -> Unit = {}) {
                 ToolResultRow(
                     Icons.Filled.DateRange,
                     "Age",
-                    if (ageRes == null) "invalid date"
+                    if (ageErr != null) "—" else if (ageRes == null) "—"
                     else "${ageRes.first}y ${ageRes.second}m ${ageRes.third}d"
                 )
+                ToolErrorLine(ageErr ?: if (ageRes == null) "Invalid date." else null)
             }
         }
         item {
@@ -2916,72 +3655,218 @@ fun HealthScreen(onNavigate: (String) -> Unit = {}) {
             var cm by remember { mutableStateOf("9") }
             var cd by remember { mutableStateOf("11") }
             var zone by remember { mutableStateOf("UTC") }
-            val weekday = runCatching { ClockKit.weekdayName(cy.toIntOrNull() ?: 0, cm.toIntOrNull() ?: 0, cd.toIntOrNull() ?: 0) }.getOrNull()
-            val until = runCatching { ClockKit.daysUntil(cy.toIntOrNull() ?: 0, cm.toIntOrNull() ?: 0, cd.toIntOrNull() ?: 0) }.getOrNull()
+            val zones = listOf("UTC", "Europe/London", "Europe/Istanbul", "Europe/Berlin", "America/New_York", "America/Chicago", "America/Los_Angeles", "Asia/Dubai", "Asia/Karachi", "Asia/Kolkata", "Asia/Singapore", "Asia/Tokyo", "Australia/Sydney")
+            val cyI = cy.trim().toIntOrNull()
+            val cmI = cm.trim().toIntOrNull()
+            val cdI = cd.trim().toIntOrNull()
+            val dateErr: String? = when {
+                cyI == null -> "Year must be a whole number."
+                cmI == null || cmI !in 1..12 -> "Month must be in 1..12 (got ${cm.trim()})."
+                cdI == null -> "Day must be a whole number."
+                else -> runCatching { ClockKit.weekdayName(cyI, cmI, cdI) }.exceptionOrNull()?.message?.let {
+                    if (cmI == 2 && cdI > 29) "Feb $cyI has at most 29 days (got $cdI)."
+                    else "Invalid date: $cyI-$cmI-$cdI does not exist."
+                }
+            }
+            val weekday = runCatching {
+                if (dateErr != null) throw IllegalArgumentException(dateErr)
+                ClockKit.weekdayName(cyI ?: 0, cmI ?: 0, cdI ?: 0)
+            }
+            val until = runCatching {
+                if (dateErr != null) throw IllegalArgumentException(dateErr)
+                ClockKit.daysUntil(cyI ?: 0, cmI ?: 0, cdI ?: 0)
+            }
+            val untilLabel = until.getOrNull()?.let {
+                when {
+                    it == 0L -> "today"
+                    it > 0 -> "in $it day(s)"
+                    else -> "${-it} day(s) ago"
+                }
+            }
             SectionCard("Date and world clock") {
                 Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                     Box(Modifier.weight(1f)) { NumField(cy, { cy = it }, "Year", integer = true) }
                     Box(Modifier.weight(1f)) { NumField(cm, { cm = it }, "Month", integer = true) }
                     Box(Modifier.weight(1f)) { NumField(cd, { cd = it }, "Day", integer = true) }
                 }
-                OutlinedTextField(value = zone, onValueChange = { zone = it }, label = { Text("Zone ID") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+                UnitDropdown(if (zone in zones) zone else zones.first(), zones, { zone = it }, "Timezone")
                 HorizontalDivider()
-                ToolResultRow(Icons.Filled.DateRange, "Weekday", weekday ?: "—")
-                ToolResultRow(Icons.Filled.DateRange, "Days until", until?.toString() ?: "—")
+                ToolResultRow(Icons.Filled.DateRange, "Weekday", weekday.getOrNull() ?: "—")
+                ToolResultRow(Icons.Filled.DateRange, "When", untilLabel ?: "—")
+                ToolErrorLine(dateErr ?: weekday.exceptionOrNull()?.message ?: until.exceptionOrNull()?.message)
                 val worldRes = runCatching { ClockKit.worldTime(zone) }
                 ToolResultRow(Icons.Filled.DateRange, zone.ifBlank { "Zone" }, worldRes.getOrNull() ?: (worldRes.exceptionOrNull()?.message ?: "—"))
+                ToolErrorLine(worldRes.exceptionOrNull()?.message?.let { "Unknown zone: $zone. Pick from the list." })
             }
         }
         item {
             var wWt by remember { mutableStateOf("70") }
             var wAct by remember { mutableStateOf("30") }
-            val ml = runCatching { HealthPlus.waterIntakeMl(num(wWt), num(wAct)) }.getOrNull()
+            var climate by remember { mutableStateOf("Temperate") }
+            var waterLevel by remember { mutableStateOf("Moderate") }
+            val climateExtra = when (climate) { "Hot" -> 500.0; "Humid" -> 250.0; else -> 0.0 }
+            val levelExtra = when (waterLevel) { "Light" -> 0.0; "High" -> 500.0; "Very high" -> 1000.0; else -> 250.0 }
+            val mlRes = runCatching {
+                HealthPlus.waterIntakeMl(
+                    wWt.trim().toDoubleOrNull() ?: throw IllegalArgumentException("Weight must be a number > 0."),
+                    wAct.trim().toDoubleOrNull() ?: throw IllegalArgumentException("Active minutes must be a number ≥ 0.")
+                ) + climateExtra + levelExtra
+            }
+            val ml = mlRes.getOrNull()
             SectionCard("Water intake") {
                 Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                     Box(Modifier.weight(1f)) { NumField(wWt, { wWt = it }, "Weight kg") }
                     Box(Modifier.weight(1f)) { NumField(wAct, { wAct = it }, "Active min") }
                 }
+                UnitDropdown(climate, listOf("Temperate", "Hot", "Humid"), { climate = it }, "Climate")
+                UnitDropdown(waterLevel, listOf("Light", "Moderate", "High", "Very high"), { waterLevel = it }, "Activity level")
+                HelperCaption("Formula: 35 mL × kg + 120 mL per 30 active min + climate/activity extra.")
                 HorizontalDivider()
-                ToolResultRow(Icons.Filled.Favorite, "Daily water", ml?.let { runCatching { "${fmt(it, 0)} mL (${fmt(it / 1000.0, 2)} L)" }.getOrDefault("—") } ?: "—")
+                ToolResultRow(Icons.Filled.Favorite, "Daily water", ml?.let { if (it.isFinite()) "${fmt(it, 0)} mL (${fmt(it / 1000.0, 2)} L)" else "—" } ?: "—")
+                ToolErrorLine(mlRes.exceptionOrNull()?.message)
             }
         }
         item {
             var pDist by remember { mutableStateOf("5") }
-            var pMin by remember { mutableStateOf("30") }
-            val pace = runCatching { HealthPlus.runPace(num(pDist), num(pMin)) }.getOrNull()
+            var pTime by remember { mutableStateOf("30:00") }
+            fun parseTimeToMin(s: String): Double {
+                val t = s.trim()
+                if (t.isEmpty()) throw IllegalArgumentException("Time is required (H:MM:SS or minutes).")
+                if (t.contains(":")) {
+                    val parts = t.split(":").map { it.trim() }
+                    if (parts.size > 3 || parts.any { it.isEmpty() || it.toDoubleOrNull() == null }) {
+                        throw IllegalArgumentException("Time must be H:MM:SS, MM:SS, or decimal minutes.")
+                    }
+                    val nums = parts.map { it.toDouble() }
+                    return when (nums.size) {
+                        3 -> nums[0] * 60 + nums[1] + nums[2] / 60.0
+                        2 -> nums[0] + nums[1] / 60.0
+                        else -> nums[0]
+                    }
+                }
+                return t.toDoubleOrNull() ?: throw IllegalArgumentException("Time must be H:MM:SS or decimal minutes.")
+            }
+            fun fmtPace(minPerKm: Double): String {
+                if (!minPerKm.isFinite() || minPerKm < 0) return "—"
+                val m = minPerKm.toInt()
+                val s = ((minPerKm - m) * 60).toInt().coerceIn(0, 59)
+                return "%d:%02d min/km".format(m, s)
+            }
+            val paceRes = runCatching {
+                val d = pDist.trim().toDoubleOrNull() ?: throw IllegalArgumentException("Distance must be a number > 0.")
+                if (d <= 0.0) throw IllegalArgumentException("Distance must be > 0.")
+                val mins = parseTimeToMin(pTime)
+                if (mins < 0) throw IllegalArgumentException("Time must be ≥ 0.")
+                HealthPlus.runPace(d, mins)
+            }
+            val distVal = pDist.trim().toDoubleOrNull()
+            val minsVal = runCatching { parseTimeToMin(pTime) }.getOrNull()
+            val speedKmh = if (paceRes.isSuccess && minsVal != null && minsVal > 0 && distVal != null && distVal > 0) distVal / (minsVal / 60.0) else null
             SectionCard("Run pace") {
                 Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                     Box(Modifier.weight(1f)) { NumField(pDist, { pDist = it }, "Distance km") }
-                    Box(Modifier.weight(1f)) { NumField(pMin, { pMin = it }, "Minutes") }
+                    Box(Modifier.weight(1f)) {
+                        OutlinedTextField(value = pTime, onValueChange = { pTime = it }, label = { Text("Time H:MM:SS/min") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+                    }
                 }
+                HelperCaption("Time accepts H:MM:SS, MM:SS, or decimal minutes.")
                 HorizontalDivider()
-                ToolResultRow(Icons.Filled.Favorite, "Pace", pace?.let { fmt(it, 2) + " min/km" } ?: "—")
+                ToolResultRow(Icons.Filled.Favorite, "Pace", paceRes.getOrNull()?.let { fmt(it, 2) + " min/km (" + fmtPace(it) + ")" } ?: "—")
+                ToolResultRow(Icons.Filled.Favorite, "Speed", speedKmh?.let { fmt(it, 2) + " km/h" } ?: "—")
+                ToolResultRow(Icons.Filled.Favorite, "Time", minsVal?.let { fmt(it, 2) + " min" } ?: "—")
+                ToolErrorLine(paceRes.exceptionOrNull()?.message)
             }
         }
         item {
             var ormW by remember { mutableStateOf("100") }
             var ormR by remember { mutableStateOf("5") }
-            val orm = runCatching { HealthPlus.oneRepMax(num(ormW), ormR.toIntOrNull() ?: 0) }.getOrNull()
+            var ormFormula by remember { mutableStateOf("Epley") }
+            val ormRes = runCatching {
+                val wgt = ormW.trim().toDoubleOrNull() ?: throw IllegalArgumentException("Weight must be a number > 0.")
+                val reps = ormR.trim().toIntOrNull() ?: throw IllegalArgumentException("Reps must be a whole number 1..36.")
+                if (reps !in 1..36) throw IllegalArgumentException("Reps must be in 1..36 (got $reps).")
+                when (ormFormula) {
+                    "Epley" -> HealthPlus.oneRepMax(wgt, reps, "epley")
+                    "Brzycki" -> HealthPlus.oneRepMax(wgt, reps, "brzycki")
+                    else -> {
+                        if (wgt <= 0.0) throw IllegalArgumentException("Weight must be > 0.")
+                        wgt * Math.pow(reps.toDouble(), 0.10)
+                    }
+                }
+            }
             SectionCard("One-rep max") {
+                MethodDropdown(
+                    selected = ormFormula,
+                    options = listOf(
+                        "Epley" to "w × (1 + r/30)",
+                        "Brzycki" to "w × 36/(37 − r)",
+                        "Lombardi" to "w × r^0.10"
+                    ),
+                    onSelect = { ormFormula = it },
+                    label = "Formula"
+                )
                 Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                     Box(Modifier.weight(1f)) { NumField(ormW, { ormW = it }, "Weight kg") }
-                    Box(Modifier.weight(1f)) { NumField(ormR, { ormR = it }, "Reps", integer = true) }
+                    Box(Modifier.weight(1f)) { NumField(ormR, { ormR = it }, "Reps 1..36", integer = true) }
                 }
                 HorizontalDivider()
-                ToolResultRow(Icons.Filled.Person, "1RM (Epley)", orm?.let { fmt(it, 1) + " kg" } ?: "—")
+                ToolResultRow(Icons.Filled.Person, "1RM ($ormFormula)", ormRes.getOrNull()?.let { fmt(it, 1) + " kg" } ?: "—")
+                ToolErrorLine(ormRes.exceptionOrNull()?.message)
             }
         }
         item {
             var hrAge by remember { mutableStateOf("30") }
             var hrInt by remember { mutableStateOf("70") }
-            val hr = runCatching { HealthPlus.targetHeartRate(hrAge.toIntOrNull() ?: 0, num(hrInt)) }.getOrNull()
+            var hrRest by remember { mutableStateOf("60") }
+            var hrMethod by remember { mutableStateOf("220 − age") }
+            val hrRes = runCatching {
+                val a = hrAge.trim().toIntOrNull() ?: throw IllegalArgumentException("Age must be a whole number.")
+                val inten = hrInt.trim().toDoubleOrNull() ?: throw IllegalArgumentException("Intensity must be 0..100.")
+                HealthPlus.targetHeartRate(a, inten)
+            }
+            val hrKarv = runCatching {
+                val a = hrAge.trim().toIntOrNull() ?: throw IllegalArgumentException("Age must be a whole number.")
+                val rest = hrRest.trim().toDoubleOrNull() ?: throw IllegalArgumentException("Resting HR must be a number.")
+                val inten = hrInt.trim().toDoubleOrNull() ?: throw IllegalArgumentException("Intensity must be 0..100.")
+                if (a <= 0 || a >= 220) throw IllegalArgumentException("Age must be in 1..219.")
+                if (rest <= 0) throw IllegalArgumentException("Resting HR must be > 0.")
+                ((220 - a) - rest) * inten / 100.0 + rest
+            }
+            val hrShow = if (hrMethod == "Karvonen") hrKarv else hrRes
+            fun zoneAt(pct: Double): String {
+                val a = hrAge.trim().toIntOrNull() ?: return "—"
+                val rest = hrRest.trim().toDoubleOrNull()
+                return runCatching {
+                    if (hrMethod == "Karvonen") {
+                        if (rest == null || rest <= 0) throw IllegalArgumentException("x")
+                        fmt(((220 - a) - rest) * pct / 100.0 + rest, 0) + " bpm"
+                    } else {
+                        fmt(HealthPlus.targetHeartRate(a, pct), 0) + " bpm"
+                    }
+                }.getOrDefault("—")
+            }
             SectionCard("Target heart rate") {
+                MethodDropdown(
+                    selected = hrMethod,
+                    options = listOf(
+                        "220 − age" to "target = (220 − age) × intensity",
+                        "Karvonen" to "target = ((220 − age) − rest) × intensity + rest"
+                    ),
+                    onSelect = { hrMethod = it },
+                    label = "Method"
+                )
                 Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                     Box(Modifier.weight(1f)) { NumField(hrAge, { hrAge = it }, "Age", integer = true) }
                     Box(Modifier.weight(1f)) { NumField(hrInt, { hrInt = it }, "Intensity %") }
                 }
+                if (hrMethod == "Karvonen") NumField(hrRest, { hrRest = it }, "Resting HR bpm", integer = true)
+                HelperCaption(if (hrMethod == "Karvonen") "Karvonen uses resting HR." else "Standard method: 220 − age.")
                 HorizontalDivider()
-                ToolResultRow(Icons.Filled.Favorite, "Target HR", hr?.let { fmt(it, 0) + " bpm" } ?: "—")
+                ToolResultRow(Icons.Filled.Favorite, "Target HR", hrShow.getOrNull()?.let { if (it.isFinite()) fmt(it, 0) + " bpm" else "—" } ?: "—")
+                ToolResultRow(Icons.Filled.Favorite, "Fat-burn (50–70%)", zoneAt(50.0) + " – " + zoneAt(70.0))
+                ToolResultRow(Icons.Filled.Favorite, "Cardio (70–85%)", zoneAt(70.0) + " – " + zoneAt(85.0))
+                ToolResultRow(Icons.Filled.Favorite, "Peak (85–95%)", zoneAt(85.0) + " – " + zoneAt(95.0))
+                ToolErrorLine(hrShow.exceptionOrNull()?.message)
             }
         }
     }
@@ -3001,7 +3886,8 @@ fun StepsScreen(onNavigate: (String) -> Unit = {}) {
     var cv by remember { mutableStateOf("1") }
     var cf by remember { mutableStateOf("km") }
     var ct by remember { mutableStateOf("m") }
-    val tabs = listOf("quad" to "Quadratic", "emi" to "EMI", "gcd" to "GCD", "units" to "Units")
+    var unitCat by remember { mutableStateOf("length") }
+    val tabs = listOf("quad" to "Quadratic", "emi" to "EMI", "gcd" to "GCD", "units" to "Length steps")
     Box(Modifier.fillMaxSize()) {
     Column(
         Modifier.fillMaxSize().padding(vertical = 16.dp).padding(bottom = 72.dp),
@@ -3104,16 +3990,21 @@ fun StepsScreen(onNavigate: (String) -> Unit = {}) {
                     }
                 }
                 "units" -> {
-                    val v = cv.toDoubleOrNull()
-                    val f = Units.length[cf.trim()]
-                    val t = Units.length[ct.trim()]
-                    val names = Units.length.keys.sorted().joinToString(", ")
+                    val catMap = remember(unitCat) { mapFor(unitCat) }
+                    val catIds = listOf("length", "mass", "volume", "area", "speed", "pressure", "energy", "power", "data")
+                    val safeCf = if (catMap.containsKey(cf.trim())) cf.trim() else catMap.keys.sorted().firstOrNull() ?: cf.trim()
+                    val safeCt = if (catMap.containsKey(ct.trim())) ct.trim() else catMap.keys.sorted().firstOrNull() ?: ct.trim()
+                    val v = cv.trim().toDoubleOrNull()
+                    val f = catMap[safeCf]
+                    val t = catMap[safeCt]
+                    val names = catMap.keys.sorted().joinToString(", ")
                     LazyColumn(Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(16.dp)) {
                         item {
                             SectionCard("Inputs") {
                                 NumField(cv, { cv = it }, "Value")
-                                NumField(cf, { cf = it }, "From unit")
-                                NumField(ct, { ct = it }, "To unit")
+                                UnitDropdown(unitCat, catIds, { unitCat = it; cf = ""; ct = "" }, "Category")
+                                UnitDropdown(safeCf, catMap.keys.sorted(), { cf = it }, "From unit")
+                                UnitDropdown(safeCt, catMap.keys.sorted(), { ct = it }, "To unit")
                                 Text(
                                     "Available: $names",
                                     style = MaterialTheme.typography.bodySmall,
@@ -3131,7 +4022,7 @@ fun StepsScreen(onNavigate: (String) -> Unit = {}) {
                                     )
                                 } else if (f == null || t == null) {
                                     Text(
-                                        "Unknown unit. Use one of: $names.",
+                                        "Unknown unit. Pick from the dropdowns.",
                                         style = MaterialTheme.typography.bodyMedium,
                                         color = MaterialTheme.colorScheme.error
                                     )
@@ -3139,8 +4030,8 @@ fun StepsScreen(onNavigate: (String) -> Unit = {}) {
                                     val base = v * f.toBase / 1.0
                                     val out = runCatching { Units.convert(v, f, t) }.getOrDefault(Double.NaN)
                                     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                                        Text("1. Factors to metres: 1 ${f.id} = ${fmt(f.toBase, 6)} m, 1 ${t.id} = ${fmt(t.toBase, 6)} m", style = MaterialTheme.typography.bodyMedium)
-                                        Text("2. To base: $v × ${fmt(f.toBase, 6)} = ${fmt(base, 6)} m", style = MaterialTheme.typography.bodyMedium)
+                                        Text("1. Factors to base: 1 ${f.id} = ${fmt(f.toBase, 6)}, 1 ${t.id} = ${fmt(t.toBase, 6)}", style = MaterialTheme.typography.bodyMedium)
+                                        Text("2. To base: $v × ${fmt(f.toBase, 6)} = ${fmt(base, 6)}", style = MaterialTheme.typography.bodyMedium)
                                         Text("3. To target: ${fmt(base, 6)} ÷ ${fmt(t.toBase, 6)} = ${fmt(out, 6)} ${t.id}", style = MaterialTheme.typography.bodyMedium)
                                     }
                                     HorizontalDivider()
@@ -3256,6 +4147,15 @@ fun ProgrammerScreen() {
             HorizontalDivider()
             if (av == null || bv == null) {
                 ResultLine("Result", "—")
+                Text(
+                    when {
+                        aStr.trim().isEmpty() || bStr.trim().isEmpty() -> "Enter values for a and b."
+                        av == null -> "Invalid a for base ${bases.firstOrNull { it.first == base }?.second ?: base}."
+                        else -> "Invalid b for base ${bases.firstOrNull { it.first == base }?.second ?: base}."
+                    },
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.error
+                )
             } else {
                 ResultLine("AND", runCatching { show(Engine.bitwiseAnd(av, bv)) }.getOrDefault("—"))
                 ResultLine("OR", runCatching { show(Engine.bitwiseOr(av, bv)) }.getOrDefault("—"))
@@ -3275,17 +4175,30 @@ fun ProgrammerScreen() {
                 Box(Modifier.weight(1f)) { NumField(minStr, { minStr = it }, "Min", integer = true) }
                 Box(Modifier.weight(1f)) { NumField(maxStr, { maxStr = it }, "Max", integer = true) }
             }
+            val loRaw = minStr.trim().toIntOrNull()
+            val hiRaw = maxStr.trim().toIntOrNull()
+            val rngErr: String? = when {
+                loRaw == null -> "Min must be a whole number."
+                hiRaw == null -> "Max must be a whole number."
+                loRaw > hiRaw -> "Min must not exceed Max (got $loRaw > $hiRaw)."
+                else -> null
+            }
             Button(onClick = {
-                val lo = minStr.toIntOrNull() ?: 0
-                val hi = maxStr.toIntOrNull() ?: 0
-                runCatching { Engine.randomInt(lo, hi) }.onSuccess { rolls = (listOf(it) + rolls).take(5) }
+                val lo = minStr.trim().toIntOrNull() ?: return@Button
+                val hi = maxStr.trim().toIntOrNull() ?: return@Button
+                if (lo > hi) return@Button
+                runCatching { Engine.randomInt(lo, hi) }.onSuccess { rolls = (listOf(it) + rolls).take(20) }
             }) { Text("Generate") }
             HorizontalDivider()
+            if (rngErr != null) {
+                Text(rngErr, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.error)
+            }
             if (rolls.isEmpty()) {
                 ResultLine("Last roll", "—")
             } else {
                 rolls.forEachIndexed { i, r -> ResultLine(if (i == 0) "Last roll" else "Roll ${i + 1}", "$r") }
             }
+            HelperCaption("History keeps last 20 rolls.")
         }
     }
 }

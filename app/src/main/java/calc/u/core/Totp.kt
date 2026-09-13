@@ -26,6 +26,10 @@ object Totp {
                 out.add(((buffer shr bitsLeft) and 0xFF).toByte())
             }
         }
+        if (bitsLeft > 0) {
+            val mask = (1 shl bitsLeft) - 1
+            if ((buffer and mask) != 0) throw IllegalArgumentException("Non-zero padding bits in secret")
+        }
         return out.toByteArray()
     }
 

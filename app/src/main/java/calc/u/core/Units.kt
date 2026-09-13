@@ -26,7 +26,13 @@ object Units {
         "kpc" to UnitDef("kpc", 3.08567758149137e19), "Mpc" to UnitDef("Mpc", 3.08567758149137e22),
         "league" to UnitDef("league", 4828.032), "cable" to UnitDef("cable", 185.2),
         "smoot" to UnitDef("smoot", 1.7018), "versta" to UnitDef("versta", 1066.8),
-        "marathon" to UnitDef("marathon", 42194.988)
+        "marathon" to UnitDef("marathon", 42194.988),
+        "pm" to UnitDef("pm", 1e-12), // picometer, exact SI definition,
+        "surveyFoot" to UnitDef("surveyFoot", 1200.0 / 3937.0), // US survey foot, exact definition (ConvertAll ideas-only),
+        // Informal units below: handy comparisons, not for engineering use.
+        "footballField" to UnitDef("footballField", 91.44), // informal: 100 yd (ConvertAll ideas-only),
+        "rackUnit" to UnitDef("rackUnit", 0.04445), // informal: 1.75 in computing (ConvertAll ideas-only),
+        "swedishMil" to UnitDef("swedishMil", 10000.0) // informal: 10 km (ConvertAll ideas-only),
     )
     val mass = mapOf(
         "mg" to UnitDef("mg", 1e-6), "g" to UnitDef("g", 0.001),
@@ -39,7 +45,13 @@ object Units {
         "ug" to UnitDef("ug", 1e-9), "kilotonne" to UnitDef("kilotonne", 1e6),
         "carat" to UnitDef("carat", 2e-4), "amu" to UnitDef("amu", 1.660539066605e-27),
         "dram" to UnitDef("dram", 0.0017718451953125), "dwt" to UnitDef("dwt", 0.00155517384),
-        "ton_us" to UnitDef("ton_us", 907.18474), "longton" to UnitDef("longton", 1016.0469088)
+        "ton_us" to UnitDef("ton_us", 907.18474), "longton" to UnitDef("longton", 1016.0469088),
+        // Troy mass: 1 grain = 64.79891 mg exactly; lb-t = 5760 gr, oz-t = 480 gr (ConvertAll ideas-only).
+        "ozt" to UnitDef("ozt", 0.0311034768), "lbt" to UnitDef("lbt", 0.3732417216),
+        "ettogram" to UnitDef("ettogram", 0.1), // 100 g Scandinavian unit, exact definition,
+        "quintal" to UnitDef("quintal", 100.0), // 100 kg, exact definition,
+        "cwtShort" to UnitDef("cwtShort", 45.359237), // hundredweight short = 100 lb (ConvertAll ideas-only),
+        "cwtLong" to UnitDef("cwtLong", 50.80234544) // hundredweight long = 112 lb Imperial (ConvertAll ideas-only),
     )
     val volume = mapOf(
         "mL" to UnitDef("mL", 0.001), "L" to UnitDef("L", 1.0),
@@ -66,9 +78,26 @@ object Units {
         "flozUK" to UnitDef("flozUK", 0.0284130625),
         "ptUK" to UnitDef("ptUK", 0.56826125),
         "qtUK" to UnitDef("qtUK", 1.1365225),
-        "galUK" to UnitDef("galUK", 4.54609)
+        "galUK" to UnitDef("galUK", 4.54609),
+        // Imperial/metric kitchen extras: cupUK is half an Imperial pint exactly (ConvertAll ideas-only).
+        "cupUK" to UnitDef("cupUK", 0.284130625), "cupMetric" to UnitDef("cupMetric", 0.25),
+        "tbspAU" to UnitDef("tbspAU", 0.02), // Australian tablespoon = 20 mL, exact definition,
+        "tspMetric" to UnitDef("tspMetric", 0.005), // metric teaspoon = 5 mL, exact definition,
+        "gillUS" to UnitDef("gillUS", 0.11829411825), // 4 US fl oz, exact definition,
+        "gillUK" to UnitDef("gillUK", 0.1420653125), // 5 Imperial fl oz, exact definition,
+        "barrelUK" to UnitDef("barrelUK", 163.65924), // 36 Imperial gal, exact definition,
+        "in3" to UnitDef("in3", 0.016387064), // cubic inch, exact definition,
+        "ft3" to UnitDef("ft3", 28.316846592), // cubic foot, exact definition,
+        "yd3" to UnitDef("yd3", 764.554857984) // cubic yard, exact definition,
     )
-    val temperature = listOf("C", "F", "K", "R")
+    /**
+     * Temperature ids for [convertTemp]. C/F/K/R are the original four; Reaumur,
+     * Romer, Delisle and Newton are affine scales handled the same way (exact
+     * formulas retyped from unitconverterultimate TemperatureConverter,
+     * Apache-2.0). Gas mark is NOT listed here: it is a non-linear oven table,
+     * see [gasMarkToC] and [cToGasMark].
+     */
+    val temperature = listOf("C", "F", "K", "R", "Reaumur", "Romer", "Delisle", "Newton")
     val area = mapOf(
         "m2" to UnitDef("m2", 1.0), "km2" to UnitDef("km2", 1e6),
         "ft2" to UnitDef("ft2", 0.09290304), "acre" to UnitDef("acre", 4046.8564224),
@@ -81,7 +110,9 @@ object Units {
         "circMil" to UnitDef("circMil", 5.067074790974978e-10),
         "mm2" to UnitDef("mm2", 1e-6), "cm2" to UnitDef("cm2", 1e-4),
         "in2" to UnitDef("in2", 6.4516e-4), "yd2" to UnitDef("yd2", 0.83612736),
-        "mi2" to UnitDef("mi2", 2589988.110336)
+        "mi2" to UnitDef("mi2", 2589988.110336),
+        "dm2" to UnitDef("dm2", 0.01), // square decimeter, exact definition,
+        "um2" to UnitDef("um2", 1e-12) // square micrometer, exact definition,
     )
     val time = mapOf(
         "s" to UnitDef("s", 1.0), "min" to UnitDef("min", 60.0),
@@ -91,7 +122,9 @@ object Units {
         "ms" to UnitDef("ms", 0.001), "us" to UnitDef("us", 1e-6),
         "ns" to UnitDef("ns", 1e-9), "month" to UnitDef("month", 2629743.8312232),
         "decade" to UnitDef("decade", 315569259.746784), "century" to UnitDef("century", 3.15569259746784e9),
-        "millennium" to UnitDef("millennium", 3.15569259746784e10)
+        "millennium" to UnitDef("millennium", 3.15569259746784e10),
+        "ds" to UnitDef("ds", 0.1), // decisecond, exact definition,
+        "cs" to UnitDef("cs", 0.01) // centisecond, exact definition,
     )
     val printing = mapOf(
         "point" to UnitDef("point", 0.3527777777777778),
@@ -102,7 +135,7 @@ object Units {
         "mph" to UnitDef("mph", 0.44704), "ft/s" to UnitDef("ft/s", 0.3048),
         "knot" to UnitDef("knot", 0.5144444444444445),
         "lightspeed" to UnitDef("lightspeed", 2.99792458e8), "mach" to UnitDef("mach", 340.29),
-        "km/s" to UnitDef("km/s", 1000.0), "kms" to UnitDef("kms", 1000.0)
+        "km/s" to UnitDef("km/s", KM_S_TO_BASE), "kms" to UnitDef("kms", KM_S_TO_BASE) // kms is an alias of km/s; single shared factor,
     )
     val pressure = mapOf(
         "Pa" to UnitDef("Pa", 1.0), "kPa" to UnitDef("kPa", 1000.0),
@@ -163,7 +196,10 @@ object Units {
         "PiB" to UnitDef("PiB", 1125899906842624.0),
         "Pbit" to UnitDef("Pbit", 1.25e14), "Ebit" to UnitDef("Ebit", 1.25e17),
         "EB" to UnitDef("EB", 1152921504606846976.0), "EiB" to UnitDef("EiB", 1152921504606846976.0),
-        "EBsi" to UnitDef("EBsi", 1e18)
+        "EBsi" to UnitDef("EBsi", 1e18),
+        "nibble" to UnitDef("nibble", 0.5), // half byte, exact definition,
+        "Kibit" to UnitDef("Kibit", 128.0), // binary kibibit = 1024 bits, exact definition,
+        "Mibit" to UnitDef("Mibit", 131072.0), "Gibit" to UnitDef("Gibit", 134217728.0)
     )
     val fuel = mapOf(
         "l_100km" to UnitDef("l_100km", 1.0),
@@ -402,7 +438,11 @@ object Units {
     )
     val torque = mapOf(
         "N·m" to UnitDef("N·m", 1.0), "lbf·ft" to UnitDef("lbf·ft", 1.3558179483314004),
-        "lbf·in" to UnitDef("lbf·in", 0.1129848290276167), "kgf·m" to UnitDef("kgf·m", 9.80665)
+        "lbf·in" to UnitDef("lbf·in", 0.1129848290276167), "kgf·m" to UnitDef("kgf·m", 9.80665),
+        // ozf·in is exactly 1/16 lbf·in; poundal·m reuses the force-table poundal (ConvertAll ideas-only).
+        "ozf·in" to UnitDef("ozf·in", 0.007061551814226042), "dyne·m" to UnitDef("dyne·m", 1e-5),
+        "N·cm" to UnitDef("N·cm", 0.01), "N·mm" to UnitDef("N·mm", 0.001),
+        "kgf·cm" to UnitDef("kgf·cm", 0.0980665), "poundal·m" to UnitDef("poundal·m", 0.138254954376)
     )
     val acceleration = mapOf(
         "m/s²" to UnitDef("m/s²", 1.0), "g" to UnitDef("g", 9.80665),
@@ -449,7 +489,9 @@ object Units {
         "kg/m³" to UnitDef("kg/m³", 1.0), "g/cm³" to UnitDef("g/cm³", 1000.0),
         "g/mL" to UnitDef("g/mL", 1000.0), "kg/L" to UnitDef("kg/L", 1000.0),
         "g/L" to UnitDef("g/L", 1.0), "lb/ft³" to UnitDef("lb/ft³", 16.01846337395),
-        "lb/in³" to UnitDef("lb/in³", 27679.90471)
+        "lb/in³" to UnitDef("lb/in³", 27679.90471),
+        "mg/L" to UnitDef("mg/L", 0.001), // clinical ladder, exact SI,
+        "mg/dL" to UnitDef("mg/dL", 0.01), "g/dL" to UnitDef("g/dL", 10.0)
     )
     val specificenergy = mapOf(
         "J/kg" to UnitDef("J/kg", 1.0), "kJ/kg" to UnitDef("kJ/kg", 1000.0),
@@ -475,26 +517,36 @@ object Units {
     val capacitance = mapOf(
         "F" to UnitDef("F", 1.0), "mF" to UnitDef("mF", 0.001),
         "uF" to UnitDef("uF", 1e-6), "nF" to UnitDef("nF", 1e-9),
-        "pF" to UnitDef("pF", 1e-12)
+        "pF" to UnitDef("pF", 1e-12),
+        // Extended SI ladder, exact definitions; statfarad via c (ConvertAll ideas-only).
+        "aF" to UnitDef("aF", 1e-18), "fF" to UnitDef("fF", 1e-15),
+        "kF" to UnitDef("kF", 1000.0), "MF" to UnitDef("MF", 1e6),
+        "GF" to UnitDef("GF", 1e9), "statF" to UnitDef("statF", 1.112650056e-12)
     )
     val inductance = mapOf(
         "H" to UnitDef("H", 1.0), "mH" to UnitDef("mH", 0.001),
         "uH" to UnitDef("uH", 1e-6)
     )
     val solidangle = mapOf(
-        "sr" to UnitDef("sr", 1.0), "sphere" to UnitDef("sphere", 12.566370614359172)
+        "sr" to UnitDef("sr", 1.0), "sphere" to UnitDef("sphere", 12.566370614359172),
+        "hemisphere" to UnitDef("hemisphere", 6.283185307179586) // half sphere = 2 pi sr (ConvertAll ideas-only),
     )
     val quantity = mapOf(
         "count" to UnitDef("count", 1.0), "dozen" to UnitDef("dozen", 12.0),
-        "gross" to UnitDef("gross", 144.0), "percent" to UnitDef("percent", 0.01)
+        "gross" to UnitDef("gross", 144.0), "percent" to UnitDef("percent", 0.01),
+        // Everyday counts (ConvertAll ideas-only); karat is gold purity 1/24.
+        "bakersDozen" to UnitDef("bakersDozen", 13.0), "score" to UnitDef("score", 20.0),
+        "ream" to UnitDef("ream", 500.0), "permill" to UnitDef("permill", 0.001),
+        "karat" to UnitDef("karat", 1.0 / 24.0)
     )
     val concentration = mapOf(
         "fraction" to UnitDef("fraction", 1.0), "ppm" to UnitDef("ppm", 1e-6),
-        "ppb" to UnitDef("ppb", 1e-9)
+        "ppb" to UnitDef("ppb", 1e-9), "ppt" to UnitDef("ppt", 1e-12) // parts per trillion (ConvertAll ideas-only),
     )
     val frequency = mapOf(
         "Hz" to UnitDef("Hz", 1.0), "kHz" to UnitDef("kHz", 1000.0),
-        "MHz" to UnitDef("MHz", 1e6), "GHz" to UnitDef("GHz", 1e9)
+        "MHz" to UnitDef("MHz", 1e6), "GHz" to UnitDef("GHz", 1e9),
+        "mHz" to UnitDef("mHz", 0.001) // millihertz, exact SI (ConvertAll ideas-only),
     )
     val radioactivity = mapOf(
         "Bq" to UnitDef("Bq", 1.0), "Ci" to UnitDef("Ci", 3.7e10)
@@ -511,11 +563,214 @@ object Units {
     val amount = mapOf(
         "pmol" to UnitDef("pmol", 1e-12), "nmol" to UnitDef("nmol", 1e-9),
         "umol" to UnitDef("umol", 1e-6), "mmol" to UnitDef("mmol", 1e-3),
-        "mol" to UnitDef("mol", 1.0), "kmol" to UnitDef("kmol", 1000.0)
+        "mol" to UnitDef("mol", 1.0), "kmol" to UnitDef("kmol", 1000.0),
+        "lbmol" to UnitDef("lbmol", 453.59237) // pound-mole (ConvertAll ideas-only),
     )
+
+    /**
+     * Blood glucose: 1 mmol/L = 18.0182 mg/dL both ways (clinical molar mass
+     * convention for glucose; standard lab factor, exact by stipulation here).
+     */
+    val glucose = mapOf(
+        "mmol/L" to UnitDef("mmol/L", 1.0),
+        "mg/dL" to UnitDef("mg/dL", 1.0 / 18.0182)
+    )
+
+    /**
+     * Running pace, base s/m. All entries are exact definitions:
+     * min/km = 60 s per 1000 m, min/mi = 60 s per 1609.344 m, h/km = 3.6 s/m.
+     */
+    val pace = mapOf(
+        "s/m" to UnitDef("s/m", 1.0),
+        "min/km" to UnitDef("min/km", 0.06),
+        "min/mi" to UnitDef("min/mi", 60.0 / 1609.344),
+        "h/km" to UnitDef("h/km", 3.6)
+    )
+
+    /**
+     * Optical power, base 1/m. Diopter = m^-1 (ConvertAll ideas-only;
+     * dpt is the common symbol alias).
+     */
+    val opticalPower = mapOf(
+        "diopter" to UnitDef("diopter", 1.0),
+        "dpt" to UnitDef("dpt", 1.0)
+    )
+
+    /**
+     * Luminance, base nit = cd/m2. Definitions: stilb = 1 cd/cm2 exactly;
+     * lambert = cd/(pi cm2) and footlambert = cd/(pi ft2) (ConvertAll
+     * ideas-only), hence 10000/pi and 1/(pi ft2 in m2).
+     */
+    val luminance = mapOf(
+        "nit" to UnitDef("nit", 1.0),
+        "cd/m2" to UnitDef("cd/m2", 1.0), // nit alias,
+        "stilb" to UnitDef("stilb", 10000.0),
+        "lambert" to UnitDef("lambert", 10000.0 / Math.PI),
+        "footlambert" to UnitDef("footlambert", 1.0 / (Math.PI * 0.09290304))
+    )
+
+    /**
+     * Magnetic flux, base weber. Maxwell = 1e-8 Wb (ConvertAll ideas-only);
+     * Mx is the standard maxwell symbol.
+     */
+    val magflux = mapOf(
+        "Wb" to UnitDef("Wb", 1.0),
+        "Mx" to UnitDef("Mx", 1e-8)
+    )
+
+    /**
+     * Luminous intensity/flux, base candela. Lumen = cd times sr and sr is
+     * dimensionless, so both share factor 1.0 here (ConvertAll ideas-only).
+     */
+    val luminous = mapOf(
+        "cd" to UnitDef("cd", 1.0),
+        "lm" to UnitDef("lm", 1.0)
+    )
+
+    /**
+     * SI prefix ladder quetta..quecto for students (ladder idea cross-checked
+     * against unitto Prefix collection, GPL ideas-only; values are exact SI).
+     * Use [prefixFactor] to look symbols up.
+     */
+    val siPrefixes = mapOf(
+        "Q" to 1e30, "R" to 1e27, "Y" to 1e24, "Z" to 1e21,
+        "E" to 1e18, "P" to 1e15, "T" to 1e12, "G" to 1e9,
+        "M" to 1e6, "k" to 1e3, "h" to 1e2, "da" to 1e1,
+        "d" to 1e-1, "c" to 1e-2, "m" to 1e-3, "u" to 1e-6,
+        "n" to 1e-9, "p" to 1e-12, "f" to 1e-15, "a" to 1e-18,
+        "z" to 1e-21, "y" to 1e-24, "r" to 1e-27, "q" to 1e-30
+    )
+
+    fun prefixFactor(symbol: String): Double {
+        val f = siPrefixes[symbol]
+        require(f != null) { "unknown SI prefix: $symbol" }
+        return f
+    }
+
+    /**
+     * Browsable number-base table wired to [fromBase] (additive only; never
+     * routed through [convert]). Labels are short programmer spellings.
+     */
+    val numberBases = mapOf("bin" to 2, "oct" to 8, "dec" to 10, "hex" to 16)
+
+    val numberBaseLabels = mapOf(
+        "bin" to "binary", "oct" to "octal", "dec" to "decimal", "hex" to "hexadecimal"
+    )
+
+    fun convertNumberBase(value: Double, baseId: String): String {
+        val base = numberBases[baseId]
+        require(base != null) { "unknown number base: $baseId" }
+        return fromBase(value, base)
+    }
+
+    /**
+     * EV efficiency, base mi/kWh. MPGe = 1/33.70 mi/kWh (one gallon of
+     * gasoline = 33.70 kWh; ConvertAll ideas-only). Wh/km is reciprocal, so
+     * it uses NaN + [convertEv] exactly like [fuel] uses [convertFuel].
+     */
+    val ev = mapOf(
+        "mi/kWh" to UnitDef("mi/kWh", 1.0),
+        "MPGe" to UnitDef("MPGe", 1.0 / 33.7),
+        "Wh/km" to UnitDef("Wh/km", Double.NaN)
+    )
+
+    private val evIds = ev.keys
+    private const val WHKM_CONST = 1000.0 / 1.609344 // (mi/kWh) per (Wh/km), reciprocal via exact mile,
+
+    fun evToMiPerKwh(v: Double, from: String): Double = when (from) {
+        "Wh/km" -> {
+            require(v != 0.0) { "efficiency must be non-zero" }
+            WHKM_CONST / v
+        }
+        else -> v
+    }
+
+    fun miPerKwhToEv(v: Double, to: String): Double = when (to) {
+        "Wh/km" -> {
+            require(v != 0.0) { "efficiency must be non-zero" }
+            WHKM_CONST / v
+        }
+        else -> v
+    }
+
+    fun convertEv(value: Double, from: String, to: String): Double {
+        require(from in evIds) { "unknown EV unit: $from" }
+        require(to in evIds) { "unknown EV unit: $to" }
+        return miPerKwhToEv(evToMiPerKwh(value, from), to)
+    }
+
+    /**
+     * Scheduling, base hour. Man-hour = 168/40 h = 4.2 h with man-week = 40
+     * man-hours and man-year = 52 man-weeks (ConvertAll ideas-only).
+     */
+    val scheduling = mapOf(
+        "man-hour" to UnitDef("man-hour", 4.2),
+        "man-day" to UnitDef("man-day", 33.6),
+        "man-week" to UnitDef("man-week", 168.0),
+        "man-year" to UnitDef("man-year", 8736.0)
+    )
+
+    /**
+     * Conductance, base siemens = A/V exactly (ConvertAll ideas-only);
+     * mho is the historical alias.
+     */
+    val conductance = mapOf(
+        "S" to UnitDef("S", 1.0),
+        "mS" to UnitDef("mS", 0.001),
+        "uS" to UnitDef("uS", 1e-6),
+        "mho" to UnitDef("mho", 1.0)
+    )
+
+    /**
+     * Gas flow, base m3/s as volumetric equivalent at standard conditions.
+     * sccm/slpm are pressure-times-flow (ConvertAll ideas-only); the linear
+     * factors below are the plain cm3/min and L/min volumes, flagged for
+     * students, not mass-flow metrology.
+     */
+    val gasflow = mapOf(
+        "m3/s" to UnitDef("m3/s", 1.0),
+        "sccm" to UnitDef("sccm", 1e-6 / 60.0),
+        "slpm" to UnitDef("slpm", 1e-3 / 60.0)
+    )
+
+    /**
+     * Thermal resistance, base RSI = K m2/W (ConvertAll ideas-only).
+     * R-value = 1 ft2 h F/Btu = 0.1761101838 RSI by exact definition chain
+     * (ft2, hour, Btu_IT 1055.05585262 J).
+     */
+    val rvalue = mapOf(
+        "RSI" to UnitDef("RSI", 1.0),
+        "Rvalue" to UnitDef("Rvalue", 0.1761101838)
+    )
+
+    /**
+     * UK gas-mark oven table, gas mark to Celsius (dedicated table lookup,
+     * NOT a linear convert: oven steps are uneven). Values retyped from the
+     * ConvertAll Gas-mark Kelvin row (GPL ideas-only): GM1 = 140 C through
+     * GM9 = 240 C. [cToGasMark] is the nearest-entry reverse lookup.
+     */
+    val gasMarkTable = mapOf(
+        1.0 to 140.0, 2.0 to 150.0, 3.0 to 170.0, 4.0 to 180.0,
+        5.0 to 190.0, 6.0 to 200.0, 7.0 to 220.0, 8.0 to 230.0,
+        9.0 to 240.0
+    )
+
+    fun gasMarkToC(gm: Double): Double {
+        require(gm.isFinite()) { "gas mark must be finite" }
+        val hit = gasMarkTable[gm]
+        require(hit != null) { "gas mark must be one of 1..9" }
+        return hit
+    }
+
+    fun cToGasMark(c: Double): Double {
+        require(c.isFinite()) { "temperature must be finite" }
+        return gasMarkTable.minByOrNull { kotlin.math.abs(it.value - c) }?.key ?: 1.0
+    }
 
     // Sound level (dB) intentionally absent: decibels are logarithmic and need a
     // reference quantity, so they cannot use the linear toBase model above.
+
+    private const val KM_S_TO_BASE = 1000.0
 
     private val fuelIds = fuel.keys
     private const val MPG_US_CONST = 235.214583
@@ -571,6 +826,12 @@ object Units {
             require(fromFuel && toFuel) { "cannot mix fuel and linear units" }
             return convertFuel(value, from.id, to.id)
         }
+        val fromEv = from.id in evIds
+        val toEv = to.id in evIds
+        if (fromEv || toEv) {
+            require(fromEv && toEv) { "cannot mix EV efficiency and linear units" }
+            return convertEv(value, from.id, to.id)
+        }
         // Shoe and ring sizes are affine (offset) scales, so they cannot go
         // through the linear toBase path below; same dispatch shape as fuel.
         val fromShoe = isShoeDef(from)
@@ -592,10 +853,33 @@ object Units {
     }
 
     fun convertTemp(v: Double, from: String, to: String): Double {
-        require(from == "C" || from == "F" || from == "K" || from == "R") { "unknown temperature unit: $from" }
-        require(to == "C" || to == "F" || to == "K" || to == "R") { "unknown temperature unit: $to" }
-        val k = when (from) { "C" -> v + 273.15; "F" -> (v - 32) * 5 / 9 + 273.15; "K" -> v; "R" -> v * 5 / 9; else -> v }
-        return when (to) { "C" -> k - 273.15; "F" -> (k - 273.15) * 9 / 5 + 32; "K" -> k; "R" -> k * 9 / 5; else -> k }
+        require(from in temperature) { "unknown temperature unit: $from" }
+        require(to in temperature) { "unknown temperature unit: $to" }
+        if (from == to) return v
+        // Affine scales route via Celsius (formulas retyped from
+        // unitconverterultimate TemperatureConverter, Apache-2.0).
+        val c = when (from) {
+            "C" -> v
+            "F" -> (v - 32) * 5 / 9
+            "K" -> v - 273.15
+            "R" -> (v - 491.67) * 5 / 9
+            "Reaumur" -> v * 5 / 4
+            "Romer" -> (v - 7.5) * 40 / 21
+            "Delisle" -> 100 - v * 2 / 3
+            "Newton" -> v * 100 / 33
+            else -> v
+        }
+        return when (to) {
+            "C" -> c
+            "F" -> c * 9 / 5 + 32
+            "K" -> c + 273.15
+            "R" -> (c + 273.15) * 9 / 5
+            "Reaumur" -> c * 4 / 5
+            "Romer" -> c * 21 / 40 + 7.5
+            "Delisle" -> (100 - c) * 3 / 2
+            "Newton" -> c * 33 / 100
+            else -> c
+        }
     }
 
     fun ftInToCm(ft: Double, inch: Double): Double = ft * 30.48 + inch * 2.54

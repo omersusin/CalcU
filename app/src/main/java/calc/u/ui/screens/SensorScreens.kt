@@ -29,6 +29,7 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
@@ -37,6 +38,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -75,10 +77,17 @@ fun SensorScreen() {
     }
 }
 
+private val Compass16 = listOf(
+    "N", "NNE", "NE", "ENE", "E", "ESE", "SE", "SSE",
+    "S", "SSW", "SW", "WSW", "W", "WNW", "NW", "NNW"
+)
+
 private fun cardinalLabel(deg: Float): String {
-    val names = listOf("N", "NE", "E", "SE", "S", "SW", "W", "NW")
     if (!deg.isFinite()) return "—"
-    return names.getOrNull((((((deg + 22.5f) / 45f).toInt() % 8 + 8) % 8))) ?: "—"
+    val idx = runCatching {
+        (((((deg + 11.25f) / 22.5f).toInt() % 16) + 16) % 16)
+    }.getOrDefault(0)
+    return runCatching { Compass16.getOrNull(idx) }.getOrNull() ?: "—"
 }
 
 @Composable
@@ -101,6 +110,8 @@ fun CompassScreen() {
     val magnetometer = remember(sensorManager) { runCatching { sensorManager.getDefaultSensor(Sensor.TYPE_MAGNETIC_FIELD) }.getOrNull() }
     var azimuth by remember { mutableFloatStateOf(0f) }
     var hasReading by remember { mutableStateOf(false) }
+    var accuracy by remember { mutableStateOf(SensorManager.SENSOR_STATUS_ACCURACY_HIGH) }
+    var lowAccuracy by remember { mutableStateOf(false) }
     if (accelerometer == null || magnetometer == null) {
         SectionCard("Compass") {
             Text(
@@ -143,7 +154,12 @@ fun CompassScreen() {
                     }
                 }
             }
-            override fun onAccuracyChanged(sensor: Sensor?, accuracy: Int) = Unit
+            override fun onAccuracyChanged(sensor: Sensor?, acc: Int) {
+                runCatching {
+                    accuracy = acc
+                    lowAccuracy = acc <= SensorManager.SENSOR_STATUS_ACCURACY_LOW
+                }
+            }
         }
         runCatching { sensorManager.registerListener(listener, accelerometer, SensorManager.SENSOR_DELAY_UI) }
         runCatching { sensorManager.registerListener(listener, magnetometer, SensorManager.SENSOR_DELAY_UI) }
@@ -155,6 +171,19 @@ fun CompassScreen() {
     val track = MaterialTheme.colorScheme.surfaceContainerHighest
     val northRed = MaterialTheme.colorScheme.error
     SectionCard("Compass") {
+        if (lowAccuracy && hasReading) {
+            Text(
+                "Low accuracy — move phone in a figure-8 to calibrate.",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.error
+            )
+        } else if (!hasReading) {
+            Text(
+                "Waiting for sensor… if the heading drifts, move phone in a figure-8.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
         Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
             Canvas(
                 Modifier.size(240.dp)
@@ -217,7 +246,16 @@ fun CompassScreen() {
             style = MaterialTheme.typography.displayMedium,
             color = MaterialTheme.colorScheme.onSurface
         )
-        ResultLine("Heading", if (hasReading) "${azimuth.toInt()}°" else "Waiting for sensor…")
+        ResultLine("Heading", if (hasReading) "${azimuth.toInt()}° ${cardinalLabel(azimuth)} (16-pt)" else "Waiting for sensor…")
+        ResultLine(
+            "Accuracy",
+            when (accuracy) {
+                SensorManager.SENSOR_STATUS_ACCURACY_HIGH -> "High"
+                SensorManager.SENSOR_STATUS_ACCURACY_MEDIUM -> "Medium"
+                SensorManager.SENSOR_STATUS_ACCURACY_LOW -> "Low — calibrate (figure-8)"
+                else -> "Unreliable — calibrate (figure-8)"
+            }
+        )
     }
 }
 
@@ -234,6 +272,8 @@ fun LevelScreen() {
     var pitch by remember { mutableFloatStateOf(0f) }
     var roll by remember { mutableFloatStateOf(0f) }
     var hasReading by remember { mutableStateOf(false) }
+    var pitchZero by rememberSaveable { mutableStateOf(0f) }
+    var rollZero by rememberSaveable { mutableStateOf(0f) }
     if (sensorManager == null || accelerometer == null) {
         SectionCard("Spirit level") {
             Text(
@@ -271,6 +311,8 @@ fun LevelScreen() {
     val primary = MaterialTheme.colorScheme.primary
     val onSurfaceVariant = MaterialTheme.colorScheme.onSurfaceVariant
     val track = MaterialTheme.colorScheme.surfaceContainerHighest
+    val shownPitch = runCatching { pitch - pitchZero }.getOrDefault(pitch)
+    val shownRoll = runCatching { roll - rollZero }.getOrDefault(roll)
     SectionCard("Spirit level") {
         Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
             Canvas(
@@ -294,14 +336,44 @@ fun LevelScreen() {
                 )
                 drawCircle(color = onSurfaceVariant, radius = 4.dp.toPx(), center = Offset(cx, cy))
                 val maxOffset = radius - 24.dp.toPx()
-                val bx = cx + (roll / 45f).coerceIn(-1f, 1f) * maxOffset
-                val by = cy + (pitch / 45f).coerceIn(-1f, 1f) * maxOffset
+                val bx = cx + (shownRoll / 45f).coerceIn(-1f, 1f) * maxOffset
+                val by = cy + (shownPitch / 45f).coerceIn(-1f, 1f) * maxOffset
                 drawCircle(color = primary, radius = 18.dp.toPx(), center = Offset(bx, by))
                 drawCircle(color = primary, radius = 30.dp.toPx(), center = Offset(bx, by), style = Stroke(width = 1.5.dp.toPx()))
             }
         }
-        ResultLine("Pitch", if (hasReading) "${pitch.toInt()}°" else "Waiting for sensor…")
-        ResultLine("Roll", if (hasReading) "${roll.toInt()}°" else "Waiting for sensor…")
+        fun oneDec(v: Float): String = runCatching { "%.1f°".format(v) }.getOrDefault("—")
+        ResultLine("Pitch", if (hasReading) oneDec(shownPitch) else "Waiting for sensor…")
+        ResultLine("Roll", if (hasReading) oneDec(shownRoll) else "Waiting for sensor…")
+        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            Box(Modifier.weight(1f)) {
+                Button(
+                    onClick = {
+                        runCatching {
+                            if (hasReading && pitch.isFinite() && roll.isFinite()) {
+                                pitchZero = pitch
+                                rollZero = roll
+                            }
+                        }
+                    },
+                    enabled = hasReading,
+                    modifier = Modifier.fillMaxWidth()
+                ) { Text("Zero / calibrate") }
+            }
+            Box(Modifier.weight(1f)) {
+                OutlinedButton(
+                    onClick = { runCatching { pitchZero = 0f; rollZero = 0f } },
+                    modifier = Modifier.fillMaxWidth()
+                ) { Text("Reset zero") }
+            }
+        }
+        if (pitchZero != 0f || rollZero != 0f) {
+            Text(
+                "Zeroed at ${oneDec(pitchZero)} / ${oneDec(rollZero)}",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
     }
 }
 
@@ -430,8 +502,9 @@ fun SoundScreen() {
             }
             return@SectionCard
         }
+        fun fmtFs(v: Double?): String = if (v == null) "—" else runCatching { "${v.toInt()} dBFS" }.getOrDefault("—")
         Text(
-            if (levelDb == null) "—" else "${levelDb?.toInt()} dB",
+            if (levelDb == null) "—" else fmtFs(levelDb),
             style = MaterialTheme.typography.displayMedium,
             color = MaterialTheme.colorScheme.onSurface
         )
@@ -440,9 +513,9 @@ fun SoundScreen() {
             progress = fraction,
             modifier = Modifier.fillMaxWidth().height(12.dp)
         )
-        ResultLine("Level", if (levelDb == null) "Tap Start…" else "${levelDb?.toInt()} dB")
-        ResultLine("Min", if (minDb == null) "—" else "${minDb?.toInt()} dB")
-        ResultLine("Max", if (maxDb == null) "—" else "${maxDb?.toInt()} dB")
+        ResultLine("Level", if (levelDb == null) "Tap Start…" else fmtFs(levelDb))
+        ResultLine("Min", if (minDb == null) "—" else fmtFs(minDb))
+        ResultLine("Max", if (maxDb == null) "—" else fmtFs(maxDb))
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -476,10 +549,15 @@ fun SoundScreen() {
         }
         Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
             Text(
-                "0 dB is full scale, −60 dB is silence. Smoothed live average.",
+                "0 dBFS is full scale, −60 dBFS is silence. Smoothed live average.",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.padding(top = 4.dp)
+            )
+            Text(
+                "dBFS is relative to digital full scale, not calibrated SPL — not a legal sound-level meter. Mic sensitivity varies by device; compare against a calibrated meter before trusting absolute values.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
             )
             error?.let {
                 Text(it, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.error)

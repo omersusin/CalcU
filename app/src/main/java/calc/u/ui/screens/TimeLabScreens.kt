@@ -4,6 +4,7 @@ import android.Manifest
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Build
+import android.os.SystemClock
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedContent
@@ -38,6 +39,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -57,6 +59,14 @@ import kotlin.math.cos
 import kotlin.math.sin
 
 private fun fmtMs(ms: Long): String = runCatching { TimeLab.formatHMS(ms.coerceAtLeast(0L)) }.getOrDefault("—")
+
+private fun fmtHMSLong(ms: Long): String = runCatching {
+    val t = ms.coerceAtLeast(0L)
+    val h = t / 3600000
+    val m = ((t / 60000) % 60).toString().padStart(2, '0')
+    val s = ((t / 1000) % 60).toString().padStart(2, '0')
+    "$h:$m:$s"
+}.getOrDefault("—")
 
 @Composable
 fun TimeLabScreen() {
@@ -79,22 +89,49 @@ fun TimeLabScreen() {
 
 @Composable
 fun StopwatchScreen() {
-    var running by remember { mutableStateOf(false) }
+    val ctx = LocalContext.current
+    var running by rememberSaveable { mutableStateOf(false) }
+    var baseMs by rememberSaveable { mutableStateOf(0L) }
+    var startStamp by rememberSaveable { mutableStateOf(0L) }
     var elapsed by remember { mutableStateOf(0L) }
     val totals = remember { mutableStateListOf<Long>() }
+    var exportError by remember { mutableStateOf("") }
+    // Monotonic clock: SystemClock.elapsedRealtime() is immune to wall-clock changes.
     LaunchedEffect(running) {
-        var last = 0L
+        if (!running) return@LaunchedEffect
         while (running) {
             try {
-                delay(10)
+                delay(31)
             } catch (e: kotlinx.coroutines.CancellationException) {
                 throw e
             } catch (_: Exception) {
                 break
             }
-            val now = runCatching { System.currentTimeMillis() }.getOrNull() ?: break
-            if (last != 0L) elapsed += (now - last).coerceAtLeast(0L)
-            last = now
+            val now = runCatching { SystemClock.elapsedRealtime() }.getOrNull() ?: break
+            elapsed = (baseMs + (now - startStamp).coerceAtLeast(0L)).coerceAtLeast(0L)
+        }
+    }
+    fun start() {
+        runCatching {
+            startStamp = SystemClock.elapsedRealtime()
+            running = true
+        }
+    }
+    fun pause() {
+        runCatching {
+            val now = SystemClock.elapsedRealtime()
+            baseMs = (baseMs + (now - startStamp).coerceAtLeast(0L)).coerceAtLeast(0L)
+            elapsed = baseMs
+            running = false
+        }
+    }
+    fun reset() {
+        runCatching {
+            running = false
+            baseMs = 0L
+            startStamp = 0L
+            elapsed = 0L
+            totals.clear()
         }
     }
     LazyColumn(Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(16.dp)) {
@@ -105,11 +142,17 @@ fun StopwatchScreen() {
                     style = MaterialTheme.typography.displayMedium,
                     color = MaterialTheme.colorScheme.onSurface
                 )
+                Text(
+                    "Monotonic clock (elapsedRealtime) · hundredths",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
                 Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                     Box(Modifier.weight(1f)) {
-                        Button(onClick = { running = !running }, modifier = Modifier.fillMaxWidth()) {
-                            Text(if (running) "Stop" else "Start")
-                        }
+                        Button(
+                            onClick = { if (running) pause() else start() },
+                            modifier = Modifier.fillMaxWidth()
+                        ) { Text(if (running) "Stop" else "Start") }
                     }
                     Box(Modifier.weight(1f)) {
                         OutlinedButton(
@@ -119,10 +162,35 @@ fun StopwatchScreen() {
                     }
                     Box(Modifier.weight(1f)) {
                         OutlinedButton(
-                            onClick = { running = false; elapsed = 0L; totals.clear() },
+                            onClick = { reset() },
                             modifier = Modifier.fillMaxWidth()
                         ) { Text("Reset") }
                     }
+                }
+                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Box(Modifier.weight(1f)) {
+                        OutlinedButton(
+                            onClick = {
+                                runCatching {
+                                    val laps = TimeLab.addLap(totals.dropLast(1), totals.lastOrNull() ?: 0L)
+                                    val sb = StringBuilder("Stopwatch export\n")
+                                    laps.forEach { lap ->
+                                        sb.append("Lap ${lap.index}: total ${fmtMs(lap.totalMs)} (split ${fmtMs(lap.splitMs)})\n")
+                                    }
+                                    val send = Intent(Intent.ACTION_SEND)
+                                        .setType("text/plain")
+                                        .putExtra(Intent.EXTRA_TEXT, sb.toString())
+                                    val chooser = runCatching { Intent.createChooser(send, "Share laps") }.getOrNull()
+                                    if (chooser != null) ctx.startActivity(chooser) else exportError = "Share unavailable"
+                                }.onFailure { exportError = it.message ?: "Share failed" }
+                            },
+                            enabled = totals.isNotEmpty(),
+                            modifier = Modifier.fillMaxWidth()
+                        ) { Text("Export") }
+                    }
+                }
+                if (exportError.isNotEmpty()) {
+                    Text(exportError, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.error)
                 }
             }
         }
@@ -131,6 +199,11 @@ fun StopwatchScreen() {
                 SectionCard("Laps") {
                     val last = totals.lastOrNull()
                     val laps = if (last == null) emptyList() else runCatching { TimeLab.addLap(totals.dropLast(1), last) }.getOrDefault(emptyList())
+                    val fastest = runCatching { laps.minByOrNull { it.splitMs } }.getOrNull()
+                    val slowest = runCatching { laps.maxByOrNull { it.splitMs } }.getOrNull()
+                    if (fastest != null) ResultLine("Fastest", "Lap ${fastest.index} (+${fmtMs(fastest.splitMs)})")
+                    if (slowest != null) ResultLine("Slowest", "Lap ${slowest.index} (+${fmtMs(slowest.splitMs)})")
+                    HorizontalDivider()
                     laps.forEach { lap ->
                         ResultLine("Lap ${lap.index}", "${fmtMs(lap.totalMs)} (+${fmtMs(lap.splitMs)})")
                     }
@@ -143,9 +216,10 @@ fun StopwatchScreen() {
 @Composable
 fun TimerScreen() {
     val ctx = LocalContext.current
-    var minIn by remember { mutableStateOf("1") }
-    var secIn by remember { mutableStateOf("30") }
-    var style by remember { mutableStateOf("dial") }
+    var hourIn by rememberSaveable { mutableStateOf("0") }
+    var minIn by rememberSaveable { mutableStateOf("1") }
+    var secIn by rememberSaveable { mutableStateOf("30") }
+    var style by rememberSaveable { mutableStateOf("dial") }
     var serviceRemaining by remember { mutableStateOf<Long?>(null) }
     var serviceRunning by remember { mutableStateOf(false) }
     var serviceTotal by remember { mutableStateOf(0L) }
@@ -168,7 +242,8 @@ fun TimerScreen() {
                 serviceRemaining = when {
                     running && target > 0L -> (target - System.currentTimeMillis()).coerceAtLeast(0L)
                     !running && TimerService.activeRemainingMs > 0L -> TimerService.activeRemainingMs
-                    else -> null
+                    !running && TimerService.activeRemainingMs == 0L && TimerService.activeTotalMs == 0L && serviceRemaining != null -> 0L
+                    else -> serviceRemaining
                 }
             }
         }
@@ -200,9 +275,18 @@ fun TimerScreen() {
         }
         proceed()
     }
-    val inputTotal =
-        (((minIn.toLongOrNull() ?: 0L).coerceIn(0L, 1440L)) * 60000) +
-            (((secIn.toLongOrNull() ?: 0L).coerceIn(0L, 59L)) * 1000)
+    val hRaw = hourIn.toLongOrNull()
+    val mRaw = minIn.toLongOrNull()
+    val sRaw = secIn.toLongOrNull()
+    val rangeError = when {
+        hRaw == null || hRaw !in 0..23 -> "Hours must be 0..23"
+        mRaw == null || mRaw !in 0..59 -> "Minutes must be 0..59"
+        sRaw == null || sRaw !in 0..59 -> "Seconds must be 0..59"
+        else -> ""
+    }
+    val inputTotal = if (rangeError.isEmpty()) {
+        (hRaw ?: 0L) * 3600000 + (mRaw ?: 0L) * 60000 + (sRaw ?: 0L) * 1000
+    } else 0L
     val effectiveTotal =
         if (serviceTotal > 0L && serviceRemaining != null) serviceTotal else inputTotal
     val shown = (serviceRemaining ?: inputTotal).coerceAtLeast(0L)
@@ -226,16 +310,39 @@ fun TimerScreen() {
                 }
                 Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                     Box(Modifier.weight(1f)) {
+                        CalcUNumberBox(value = hourIn, onValueChange = { hourIn = it }, label = "Hours", integer = true)
+                    }
+                    Box(Modifier.weight(1f)) {
                         CalcUNumberBox(value = minIn, onValueChange = { minIn = it }, label = "Min", integer = true)
                     }
                     Box(Modifier.weight(1f)) {
                         CalcUNumberBox(value = secIn, onValueChange = { secIn = it }, label = "Sec", integer = true)
                     }
                 }
+                if (rangeError.isNotEmpty()) {
+                    Text(rangeError, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.error)
+                }
+                Text(
+                    fmtHMSLong(shown),
+                    style = MaterialTheme.typography.headlineMedium,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+                Text(
+                    "H:MM:SS",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
                 if (style == "dial") {
                     TimerDialDisplay(shownMs = shown, frac = frac)
                 } else {
                     TimerFlipDisplay(shownMs = shown)
+                }
+                if (inputTotal <= 0L && serviceRemaining == null) {
+                    Text(
+                        "Set a duration above to start.",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
                 }
                 Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                     Box(Modifier.weight(1f)) {
@@ -245,6 +352,7 @@ fun TimerScreen() {
                                     serviceRunning -> send(TimerService.ACTION_PAUSE)
                                     (serviceRemaining ?: 0L) > 0L -> send(TimerService.ACTION_RESUME)
                                     else -> {
+                                        if (rangeError.isNotEmpty() || inputTotal <= 0L) return@Button
                                         val totalSec = (inputTotal / 1000L).coerceAtLeast(0L)
                                         if (totalSec > 0L) {
                                             ensureNotifThen {
@@ -292,9 +400,7 @@ private fun TimerDialDisplay(shownMs: Long, frac: Float) {
     val primary = MaterialTheme.colorScheme.primary
     val secondary = MaterialTheme.colorScheme.secondary
     val tickColor = MaterialTheme.colorScheme.onSurfaceVariant
-    val center = runCatching {
-        TimeLab.formatHMS(shownMs.coerceAtLeast(0L)).substringAfter(":").substringBefore(".")
-    }.getOrDefault("—")
+    val center = fmtHMSLong(shownMs)
     val minuteFrac =
         ((shownMs.coerceAtLeast(0L) % 60000L).toFloat() / 60000f).coerceIn(0f, 1f)
     Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
@@ -381,15 +487,23 @@ private fun TimerDialDisplay(shownMs: Long, frac: Float) {
 
 @Composable
 private fun TimerFlipDisplay(shownMs: Long) {
-    val parts = runCatching { TimeLab.countdownParts(shownMs.coerceAtLeast(0L)) }
+    val t = shownMs.coerceAtLeast(0L)
+    val hh = (t / 3600000).toString().padStart(2, '0')
+    val parts = runCatching { TimeLab.countdownParts(t) }
         .getOrDefault(Triple(0L, 0L, 0L))
-    val mm = parts.first.toString().padStart(2, '0')
+    val mm = (parts.first % 60).toString().padStart(2, '0')
     val ss = parts.second.toString().padStart(2, '0')
     Row(
         Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.Center,
         verticalAlignment = Alignment.CenterVertically
     ) {
+        TimerFlipCard(value = hh, caption = "HRS")
+        Text(
+            ":",
+            style = MaterialTheme.typography.displayMedium,
+            modifier = Modifier.padding(horizontal = 8.dp)
+        )
         TimerFlipCard(value = mm, caption = "MIN")
         Text(
             ":",
@@ -424,14 +538,59 @@ private fun TimerFlipCard(value: String, caption: String) {
 
 @Composable
 fun PomodoroScreen() {
-    var focusIn by remember { mutableStateOf("25") }
-    var shortIn by remember { mutableStateOf("5") }
-    var longIn by remember { mutableStateOf("15") }
-    var roundsIn by remember { mutableStateOf("4") }
-    var completed by remember { mutableStateOf(0) }
-    var inBreak by remember { mutableStateOf(false) }
-    var running by remember { mutableStateOf(false) }
-    var leftMs by remember { mutableStateOf<Long?>(null) }
+    val ctx = LocalContext.current
+    var focusIn by rememberSaveable { mutableStateOf("25") }
+    var shortIn by rememberSaveable { mutableStateOf("5") }
+    var longIn by rememberSaveable { mutableStateOf("15") }
+    var roundsIn by rememberSaveable { mutableStateOf("4") }
+    var completed by rememberSaveable { mutableStateOf(0) }
+    var inBreak by rememberSaveable { mutableStateOf(false) }
+    var sessionActive by rememberSaveable { mutableStateOf(false) }
+    var serviceRemaining by remember { mutableStateOf<Long?>(null) }
+    var serviceRunning by remember { mutableStateOf(false) }
+    var autoNote by remember { mutableStateOf("") }
+    val notifPermission =
+        rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { _ -> }
+    // Config-change reset: any edit to the phase config resets the session.
+    LaunchedEffect(focusIn, shortIn, longIn, roundsIn) {
+        runCatching {
+            if (sessionActive || completed != 0 || inBreak) {
+                autoNote = "Config changed — session reset."
+            }
+            sessionActive = false
+            completed = 0
+            inBreak = false
+            serviceRemaining = null
+            runCatching {
+                ctx.stopService(Intent(ctx, TimerService::class.java).setAction(TimerService.ACTION_STOP))
+            }
+        }
+    }
+    fun send(action: String, totalSec: Long = 0L, label: String = "") {
+        runCatching {
+            val intent = Intent(ctx, TimerService::class.java)
+                .setAction(action)
+                .putExtra(TimerService.EXTRA_TOTAL_SEC, totalSec)
+                .putExtra(TimerService.EXTRA_LABEL, label)
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                ctx.startForegroundService(intent)
+            } else {
+                ctx.startService(intent)
+            }
+        }
+    }
+    fun ensureNotifThen(proceed: () -> Unit) {
+        runCatching {
+            if (Build.VERSION.SDK_INT >= 33) {
+                val granted = runCatching {
+                    ContextCompat.checkSelfPermission(ctx, Manifest.permission.POST_NOTIFICATIONS) ==
+                        PackageManager.PERMISSION_GRANTED
+                }.getOrDefault(false)
+                if (!granted) runCatching { notifPermission.launch(Manifest.permission.POST_NOTIFICATIONS) }
+            }
+        }
+        proceed()
+    }
     val cfg = runCatching {
         TimeLab.PomoConfig(
             focusMin = (focusIn.toIntOrNull() ?: 25).coerceIn(1, 480),
@@ -443,45 +602,101 @@ fun PomodoroScreen() {
     val breakKind = runCatching { TimeLab.pomoPhase(completed.coerceAtLeast(0), cfg) }.getOrDefault("short")
     val phaseLabel = if (!inBreak) "focus" else breakKind
     val phaseMin = if (!inBreak) cfg.focusMin else if (breakKind == "long") cfg.longMin else cfg.shortMin
-    LaunchedEffect(running, phaseLabel, completed) {
-        if (running && (leftMs ?: 0L) > 0) {
-            while (running && (leftMs ?: 0L) > 0) {
-                try {
-                    delay(1000)
-                } catch (e: kotlinx.coroutines.CancellationException) {
-                    throw e
-                } catch (_: Exception) {
-                    break
-                }
-                leftMs = ((leftMs ?: 0L) - 1000).coerceAtLeast(0L)
-            }
-            if ((leftMs ?: 0L) <= 0) running = false
+    fun startPhase() {
+        val totalSec = (phaseMin.coerceAtLeast(1) * 60L).coerceIn(60L, 86400L)
+        ensureNotifThen {
+            send(TimerService.ACTION_START, totalSec, "Pomodoro $phaseLabel")
+            sessionActive = true
+            autoNote = ""
         }
     }
-    val shown = (leftMs ?: (phaseMin.coerceAtLeast(0) * 60000L)).coerceAtLeast(0L)
+    // Poll the shared TimerService (foreground-service pattern mirrored from TimerScreen).
+    LaunchedEffect(Unit) {
+        while (true) {
+            try {
+                delay(500)
+            } catch (e: kotlinx.coroutines.CancellationException) {
+                throw e
+            } catch (_: Exception) {
+                break
+            }
+            runCatching {
+                val target = TimerService.activeTargetEndMs
+                val running = TimerService.activeRunning
+                serviceRunning = running
+                serviceRemaining = when {
+                    running && target > 0L -> (target - System.currentTimeMillis()).coerceAtLeast(0L)
+                    !running && TimerService.activeRemainingMs > 0L -> TimerService.activeRemainingMs
+                    !running && TimerService.activeRemainingMs == 0L && sessionActive -> 0L
+                    else -> serviceRemaining
+                }
+            }
+        }
+    }
+    // Auto phase transition when the foreground service finishes a phase.
+    LaunchedEffect(serviceRemaining, sessionActive) {
+        if (!sessionActive) return@LaunchedEffect
+        if (serviceRemaining == 0L) {
+            runCatching {
+                if (!inBreak) {
+                    completed += 1
+                    inBreak = true
+                } else {
+                    inBreak = false
+                }
+                autoNote = "Phase done — next: ${if (!inBreak) "focus" else runCatching { TimeLab.pomoPhase(completed.coerceAtLeast(0), cfg) }.getOrDefault("short")}"
+                val nextMin = if (!inBreak) cfg.focusMin else {
+                    val bk = runCatching { TimeLab.pomoPhase(completed.coerceAtLeast(0), cfg) }.getOrDefault("short")
+                    if (bk == "long") cfg.longMin else cfg.shortMin
+                }
+                val totalSec = (nextMin.coerceAtLeast(1) * 60L).coerceIn(60L, 86400L)
+                ensureNotifThen {
+                    send(
+                        TimerService.ACTION_START,
+                        totalSec,
+                        "Pomodoro ${if (!inBreak) "focus" else runCatching { TimeLab.pomoPhase(completed.coerceAtLeast(0), cfg) }.getOrDefault("short")}"
+                    )
+                }
+            }
+        }
+    }
+    val shown = (serviceRemaining ?: (phaseMin.coerceAtLeast(0) * 60000L)).coerceAtLeast(0L)
     LazyColumn(Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(16.dp)) {
         item {
             SectionCard("Pomodoro") {
                 Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                     Box(Modifier.weight(1f)) {
-                        CalcUNumberBox(value = focusIn, onValueChange = { focusIn = it }, label = "Focus", integer = true)
+                        CalcUNumberBox(value = focusIn, onValueChange = { focusIn = it }, label = "Focus (min)", integer = true)
                     }
                     Box(Modifier.weight(1f)) {
-                        CalcUNumberBox(value = shortIn, onValueChange = { shortIn = it }, label = "Short", integer = true)
+                        CalcUNumberBox(value = shortIn, onValueChange = { shortIn = it }, label = "Short (min)", integer = true)
                     }
                 }
                 Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                     Box(Modifier.weight(1f)) {
-                        CalcUNumberBox(value = longIn, onValueChange = { longIn = it }, label = "Long", integer = true)
+                        CalcUNumberBox(value = longIn, onValueChange = { longIn = it }, label = "Long (min)", integer = true)
                     }
                     Box(Modifier.weight(1f)) {
                         CalcUNumberBox(value = roundsIn, onValueChange = { roundsIn = it }, label = "Rounds", integer = true)
                     }
                 }
+                Text(
+                    "Runs on the Timer foreground service (ongoing notification); phases auto-advance. Editing config resets the session.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
                 HorizontalDivider()
                 ResultLine("Phase", phaseLabel)
                 ResultLine("Sessions", "$completed")
-                Text(fmtMs(shown), style = MaterialTheme.typography.displaySmall)
+                Text(fmtHMSLong(shown), style = MaterialTheme.typography.displaySmall)
+                Text(
+                    if (serviceRunning) "Running in foreground service" else if (sessionActive) "Paused" else "Idle",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                if (autoNote.isNotEmpty()) {
+                    Text(autoNote, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
                 Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                     repeat(cfg.roundsUntilLong.coerceIn(1, 12)) { i ->
                         Text(
@@ -495,28 +710,53 @@ fun PomodoroScreen() {
                     Box(Modifier.weight(1f)) {
                         Button(
                             onClick = {
-                                if (leftMs == null || leftMs == 0L) leftMs = phaseMin * 60000L
-                                if ((leftMs ?: 0L) > 0) running = !running
+                                if (!sessionActive) startPhase()
+                                else if (serviceRunning) send(TimerService.ACTION_PAUSE)
+                                else if ((serviceRemaining ?: 0L) > 0L) send(TimerService.ACTION_RESUME)
+                                else startPhase()
                             },
                             modifier = Modifier.fillMaxWidth()
-                        ) { Text(if (running) "Pause" else "Start") }
+                        ) { Text(if (serviceRunning) "Pause" else "Start") }
                     }
                     Box(Modifier.weight(1f)) {
                         OutlinedButton(
                             onClick = {
-                                running = false
-                                leftMs = null
-                                if (!inBreak) {
-                                    completed += 1
-                                    inBreak = true
-                                } else {
-                                    inBreak = false
+                                runCatching {
+                                    if (!inBreak) {
+                                        completed += 1
+                                        inBreak = true
+                                    } else {
+                                        inBreak = false
+                                    }
+                                    sessionActive = true
+                                    val bk = runCatching { TimeLab.pomoPhase(completed.coerceAtLeast(0), cfg) }.getOrDefault("short")
+                                    val nm = if (!inBreak) cfg.focusMin else if (bk == "long") cfg.longMin else cfg.shortMin
+                                    ensureNotifThen {
+                                        send(
+                                            TimerService.ACTION_START,
+                                            (nm.coerceAtLeast(1) * 60L).coerceIn(60L, 86400L),
+                                            "Pomodoro ${if (!inBreak) "focus" else bk}"
+                                        )
+                                    }
                                 }
                             },
                             modifier = Modifier.fillMaxWidth()
                         ) { Text("Skip") }
                     }
                 }
+                OutlinedButton(
+                    onClick = {
+                        runCatching {
+                            send(TimerService.ACTION_STOP)
+                            sessionActive = false
+                            serviceRemaining = null
+                            completed = 0
+                            inBreak = false
+                            autoNote = ""
+                        }
+                    },
+                    modifier = Modifier.fillMaxWidth()
+                ) { Text("Reset session") }
             }
         }
     }
