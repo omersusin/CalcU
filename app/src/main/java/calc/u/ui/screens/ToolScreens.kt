@@ -2740,6 +2740,7 @@ private fun NumbersContent() {
         }
         item {
             var listMode by remember { mutableStateOf("Manual") }
+            var statVals by remember { mutableStateOf(listOf("10", "20", "30")) }
             var pasteInput by remember { mutableStateOf("10\n20\n30") }
             val parsed = remember(statVals) { statVals.mapNotNull { it.trim().toDoubleOrNull() } }
             val pasteTokens = remember(pasteInput) {
