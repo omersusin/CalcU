@@ -110,7 +110,7 @@ class ProgrammerP3Test {
         val v = 0x12345678L
         assertEquals(v, Programmer.ror(Programmer.rol(v, 13), 13))
         assertEquals(v, Programmer.rol(Programmer.ror(v, 13), 13))
-        assertEquals(0x ABCDL, Programmer.rol(0xABCDL, 16, BitWidth.W16))
+        assertEquals(0xABCDL, Programmer.rol(0xABCDL, 16, BitWidth.W16))
         assertEquals(0x80000000L, Programmer.rol(0x00000001L, 31, BitWidth.W32))
         assertEquals(Long.MIN_VALUE, Programmer.rol(1L, 63))
         assertEquals(1L, Programmer.ror(Long.MIN_VALUE, 63))
