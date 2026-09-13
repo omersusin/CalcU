@@ -4,7 +4,6 @@ import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.CubicBezierEasing
 import androidx.compose.animation.core.Easing
 import androidx.compose.animation.core.Spring
-import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
@@ -55,7 +54,6 @@ import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.foundation.shape.RoundedCornerShape
 import calc.u.ui.theme.FluentElevation
 import calc.u.ui.theme.FluentMotion
 
@@ -142,7 +140,7 @@ private fun ResultCore(
     ) {
         Box(
             modifier = Modifier.size(32.dp)
-                .background(tint.copy(alpha = 0.12f), RoundedCornerShape(8.dp)),
+                .background(tint.copy(alpha = 0.12f), MaterialTheme.shapes.small),
             contentAlignment = Alignment.Center
         ) {
             if (icon != null) {
@@ -237,13 +235,10 @@ fun FluentCalcKey(
         animationSpec = pressSpec,
         label = "fluent-equals-press"
     )
-    val equalsCorner by animateDpAsState(
-        if (pressed) 16.dp else 28.dp,
-        animationSpec = spring(stiffness = Spring.StiffnessMediumLow, dampingRatio = Spring.DampingRatioMediumBouncy),
-        label = "fluent-equals-morph"
-    )
     val pressModifier = modifier.graphicsLayer(scaleX = scale, scaleY = scale)
     val circle = CircleShape
+    val isEquals = kind == FluentKeyKind.Equals
+    val equalsShape = if (isEquals) MaterialTheme.shapes.medium else CircleShape
     // Simple-style AC: pale tint, always circular (dynamic-safe, never hardcoded).
     if (kind == FluentKeyKind.Sci && (label == "AC" || label == "C")) {
         Button(
@@ -268,7 +263,7 @@ fun FluentCalcKey(
             onClick = onClick,
             modifier = modifier.graphicsLayer(scaleX = equalsScale, scaleY = equalsScale).height(keyHeight * 1.3f),
             interactionSource = interactions,
-            shape = circle,
+            shape = equalsShape,
             elevation = ButtonDefaults.buttonElevation(
                 defaultElevation = FluentElevation.AccentKey,
                 pressedElevation = FluentElevation.KeyPressed

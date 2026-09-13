@@ -52,7 +52,6 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -244,11 +243,11 @@ fun SettingsScreen(vm: SettingsViewModel = hiltViewModel()) {
                         )
                     }
                     Text(
-                        "Resolution: AMOLED toggle > Mode (Light/Dark force that variant, System follows the seed) > Seed. Seed ids stay stable so backups keep working. All seeds free forever.",
+                        "Main: Dynamic M3 Fixed (wallpaper hue, enforced ladder). 2nd: Obsidian (static graphite-mint). AMOLED toggle > Mode > Seed.",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
-                    if (theme == "light" || theme == "dark" || theme == "amoled" || theme == "contrast") {
+                    if (theme == "amoled" || theme == "contrast") {
                         Text(
                             "Legacy theme \"" + theme + "\" active — pick a seed below to migrate (mode and background carry over).",
                             style = MaterialTheme.typography.bodySmall,
@@ -783,6 +782,14 @@ private fun seedSwatches(seed: CalcUThemeSeeds.Seed): List<Color> {
             Color(0xFFFAFAF0)
         )
     }
+    if (seed.id == "obsidian") {
+        return listOf(
+            Color(0xFF2F5D50),
+            Color(0xFFD3E5DD),
+            Color(0xFF5A6F68),
+            Color(0xFFF2F4F2)
+        )
+    }
     return runCatching {
         val palette = TonalPalette.fromInt(seed.argb)
         listOf(
@@ -859,7 +866,6 @@ private fun SeedTile(
             Text(
                 text = label,
                 style = MaterialTheme.typography.bodySmall,
-                fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal,
                 color = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
                 textAlign = TextAlign.Center,
                 modifier = Modifier.weight(1f, fill = false)
@@ -955,9 +961,8 @@ private fun DynamicSeedTile(
                     horizontalArrangement = Arrangement.spacedBy(4.dp)
                 ) {
                     Text(
-                        "Dynamic",
+                        "Dynamic M3 Fixed",
                         style = MaterialTheme.typography.bodySmall,
-                        fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal,
                         color = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface
                     )
                     if (selected) {
@@ -970,7 +975,7 @@ private fun DynamicSeedTile(
                     }
                 }
                 Text(
-                    "System wallpaper color",
+                    "Wallpaper hue, fixed hierarchy",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )

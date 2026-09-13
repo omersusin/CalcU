@@ -88,7 +88,6 @@ import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.AnnotatedString
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
@@ -306,7 +305,7 @@ private fun CalculatorDisplayCard(
     Column(modifier, verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Card(
             colors = CardDefaults.cardColors(
-                containerColor = MaterialTheme.colorScheme.surfaceContainerLow
+                containerColor = MaterialTheme.colorScheme.surfaceContainerHigh
             ),
             shape = MaterialTheme.shapes.extraLarge,
             elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
@@ -321,8 +320,8 @@ private fun CalculatorDisplayCard(
                 // Slot 1 (stable): expression line — paste on long-press.
                 ShrinkText(
                     text = topText,
-                    style = if (compact) MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
-                    else MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
+                    style = if (compact) MaterialTheme.typography.titleMedium
+                    else MaterialTheme.typography.titleLarge,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     maxLines = 2,
                     overflow = TextOverflow.Clip,
@@ -373,13 +372,16 @@ private fun CalculatorDisplayCard(
                     label = "result"
                 ) { target ->
                     val formatted = formatResult(target)
+                    val trimmedTarget = target.trim()
+                    val isExponential = trimmedTarget.matches(Regex("^[0-9.,eE+\\-]+$"))
+                    val hasLetters = target.any { it.isLetter() }
                     val isError = target.isNotBlank() &&
-                        (target == "Error" || target.any { it.isLetter() })
+                        (target.contains("Error") || target.contains("∞") || target.contains("NaN") ||
+                            (hasLetters && !isExponential))
                     if (isError) {
                         Text(
                             text = formatted,
                             style = MaterialTheme.typography.titleLarge.copy(
-                                fontWeight = FontWeight.SemiBold,
                                 fontFeatureSettings = "tnum"
                             ),
                             color = MaterialTheme.colorScheme.error,
@@ -478,7 +480,6 @@ private fun CalculatorModeChips(
                     }
                     Text(
                         mode,
-                        fontWeight = if (mode == "DEG") FontWeight.SemiBold else FontWeight.Medium
                     )
                 }
             )
@@ -490,7 +491,6 @@ private fun CalculatorModeChips(
                 label = {
                     Text(
                         "INV",
-                        fontWeight = if (inverse) FontWeight.SemiBold else FontWeight.Medium
                     )
                 }
             )
@@ -529,6 +529,7 @@ fun CalculatorScreen(vm: CalcViewModel = hiltViewModel()) {
     val keepScreenOn by vm.keepScreenOn.collectAsStateWithLifecycle()
     val keypadLayout by vm.keypadLayout.collectAsStateWithLifecycle()
     val keyShapeId by vm.keypadShape.collectAsStateWithLifecycle()
+    val activity by vm.activity.collectAsStateWithLifecycle()
     val haptics = LocalHapticFeedback.current
     fun tapFeedback() {
         if (vibration) haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
@@ -565,8 +566,9 @@ fun CalculatorScreen(vm: CalcViewModel = hiltViewModel()) {
     val completion = remember(st.input) { AutocompleteIndex.query(st.input, st.input.length) }
     fun displayResult(target: String): String {
         if (percentMode == "off" || target.isBlank()) return target
+        val sanitized = target.replace(",", "").replace(" ", "").replace("\u00A0", "")
         val v = runCatching {
-            java.text.NumberFormat.getInstance().parse(target.trim())?.toDouble()
+            java.text.NumberFormat.getInstance().parse(sanitized.trim())?.toDouble()
         }.getOrNull() ?: return target
         if (!v.isFinite()) return target
         return runCatching { Engine.formatPercentMode(v, percentMode) }.getOrDefault(target)
@@ -583,7 +585,8 @@ fun CalculatorScreen(vm: CalcViewModel = hiltViewModel()) {
                 onClear = { vm.onClearHistory() },
                 onTap = { h -> vm.onHistoryTap(h); historyOpen = false },
                 onNote = { i, n -> noteIndex = i; noteDraft = n },
-                onDelete = { vm.onDeleteHistoryAt(it) }
+                onDelete = { vm.onDeleteHistoryAt(it) },
+                activity = activity
             )
         }
     }
@@ -944,7 +947,7 @@ private fun HistorySheetContent(
             ) {
                 Text(
                     "${indexed.size} entries",
-                    style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold),
+                    style = MaterialTheme.typography.labelLarge,
                     color = MaterialTheme.colorScheme.primary,
                     textAlign = TextAlign.Center
                 )
@@ -1091,8 +1094,8 @@ private fun CalcKey(
         isClear -> scheme.tertiaryContainer
         kind == FluentKeyKind.Equals -> scheme.primaryContainer
         kind == FluentKeyKind.Operator -> scheme.secondaryContainer
-        kind == FluentKeyKind.Sci -> scheme.surfaceContainerHighest
-        else -> scheme.surfaceContainerHigh
+        kind == FluentKeyKind.Sci -> scheme.surfaceContainerHigh
+        else -> scheme.surfaceContainer
     }
     val baseContent = when {
         isClear -> scheme.onTertiaryContainer
@@ -1148,8 +1151,8 @@ private fun CalcKey(
         if (onLongClick != null) {
             Box(
                 Modifier.align(Alignment.TopEnd)
-                    .padding(top = 12.dp, end = 14.dp)
-                    .size(5.dp)
+                    .padding(top = 8.dp, end = 8.dp)
+                    .size(8.dp)
                     .background(scheme.primary, CircleShape)
             )
         }
@@ -1262,7 +1265,7 @@ private fun BackKey(
     )
     val scheme = MaterialTheme.colorScheme
     val container by animateColorAsState(
-        if (active) scheme.primary else scheme.surfaceContainerHigh,
+        if (active) scheme.primary else scheme.surfaceContainer,
         label = "back-flash"
     )
     val content by animateColorAsState(
@@ -1299,8 +1302,8 @@ private fun BackKey(
         )
         Box(
             Modifier.align(Alignment.TopEnd)
-                .padding(top = 12.dp, end = 14.dp)
-                .size(5.dp)
+                .padding(top = 8.dp, end = 8.dp)
+                .size(8.dp)
                 .background(scheme.primary, CircleShape)
         )
     }
@@ -1318,7 +1321,7 @@ private fun SciRowsGrid(
     val sciRows = sciRowsFor(inverse)
     Card(
         colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceContainerHighest
+            containerColor = MaterialTheme.colorScheme.surfaceContainerHigh
         ),
         shape = MaterialTheme.shapes.large
     ) {

@@ -18,7 +18,6 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Apps
 import androidx.compose.material.icons.filled.ArrowDownward
@@ -392,7 +391,7 @@ fun ToolsHub(onOpen: (String) -> Unit, vm: ToolsHubViewModel = hiltViewModel()) 
                         }
                     },
                     singleLine = true,
-                    shape = RoundedCornerShape(28.dp),
+                    shape = MaterialTheme.shapes.extraLarge,
                     modifier = Modifier.fillMaxWidth().focusRequester(searchFocus)
                 )
             }
@@ -490,7 +489,7 @@ fun ToolsHub(onOpen: (String) -> Unit, vm: ToolsHubViewModel = hiltViewModel()) 
                     val iconEntry = entry ?: ToolEntry(label, category, route)
                     Card(
                         modifier = Modifier.fillMaxWidth().clickable { open(iconEntry, key) },
-                        shape = RoundedCornerShape(20.dp),
+                        shape = MaterialTheme.shapes.large,
                         colors = CardDefaults.cardColors(
                             containerColor = MaterialTheme.colorScheme.surfaceContainerLow
                         )
@@ -504,7 +503,7 @@ fun ToolsHub(onOpen: (String) -> Unit, vm: ToolsHubViewModel = hiltViewModel()) 
                                 contentAlignment = Alignment.Center,
                                 modifier = Modifier
                                     .size(48.dp)
-                                    .clip(RoundedCornerShape(16.dp))
+                                    .clip(MaterialTheme.shapes.large)
                                     .background(categoryContainer(category))
                             ) {
                                 Icon(
@@ -532,7 +531,7 @@ fun ToolsHub(onOpen: (String) -> Unit, vm: ToolsHubViewModel = hiltViewModel()) 
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .clip(RoundedCornerShape(12.dp))
+                            .clip(MaterialTheme.shapes.medium)
                             .clickable {
                                 collapsedList =
                                     if (collapsed.contains(category)) collapsedList - category
@@ -565,7 +564,7 @@ fun ToolsHub(onOpen: (String) -> Unit, vm: ToolsHubViewModel = hiltViewModel()) 
                         val starred = favs.contains(toolKey(tool))
                         Card(
                             modifier = Modifier.fillMaxWidth().clickable { open(tool) },
-                            shape = RoundedCornerShape(20.dp),
+                            shape = MaterialTheme.shapes.large,
                             colors = CardDefaults.cardColors(
                                 containerColor = MaterialTheme.colorScheme.surfaceContainerLow
                             )
@@ -579,7 +578,7 @@ fun ToolsHub(onOpen: (String) -> Unit, vm: ToolsHubViewModel = hiltViewModel()) 
                                     contentAlignment = Alignment.Center,
                                     modifier = Modifier
                                         .size(48.dp)
-                                        .clip(RoundedCornerShape(16.dp))
+                                        .clip(MaterialTheme.shapes.large)
                                         .background(categoryContainer(tool.category))
                                 ) {
                                     Icon(

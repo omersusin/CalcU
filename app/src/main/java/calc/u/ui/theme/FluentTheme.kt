@@ -1,6 +1,7 @@
 package calc.u.ui.theme
 
 import android.annotation.SuppressLint
+import android.content.Context
 import android.os.Build
 import androidx.compose.animation.core.CubicBezierEasing
 import androidx.compose.animation.core.Easing
@@ -107,8 +108,8 @@ object FluentExpressive {
     // sizes + -0.25sp tracking below are kept as the expressive stand-ins.
     // Full expressive install waits on the M3 1.5 stable wave (needs user sign-off:
     // likely Kotlin >2.0.21 + compileSdk >34).
-    val HeroCardShape = RoundedCornerShape(28.dp)
-    val GroupCardShape = RoundedCornerShape(16.dp)
+    val HeroCardShape get() = FluentShapes.extraLarge
+    val GroupCardShape get() = FluentShapes.large
     // Group headers follow labelLarge spec (token-only, no behavior).
     val GroupHeaderFontSize = 12.sp
     val GroupHeaderLineHeight = 16.sp
@@ -316,6 +317,73 @@ private val BotanicalDark = darkColorScheme(
     scrim = Color(0x52000000)
 )
 
+private val ObsidianLight = lightColorScheme(
+    primary = Color(0xFF2F5D50),
+    onPrimary = Color.White,
+    primaryContainer = Color(0xFFC9E7D8),
+    onPrimaryContainer = Color(0xFF0B211B),
+    secondary = Color(0xFF4D6359),
+    onSecondary = Color.White,
+    secondaryContainer = Color(0xFFD0E7DC),
+    onSecondaryContainer = Color(0xFF0B211B),
+    tertiary = Color(0xFF635548),
+    onTertiary = Color.White,
+    tertiaryContainer = Color(0xFFEDE0D4),
+    onTertiaryContainer = Color(0xFF231A12),
+    error = Color(0xFFBA1A1A),
+    onError = Color.White,
+    background = Color(0xFFF7F5F0),
+    onBackground = Color(0xFF1A1E1D),
+    surface = Color(0xFFF7F5F0),
+    onSurface = Color(0xFF1A1E1D),
+    surfaceVariant = Color(0xFFDFE5E0),
+    onSurfaceVariant = Color(0xFF404944),
+    surfaceDim = Color(0xFFD8DAD3),
+    surfaceContainerLowest = Color(0xFFFFFFFF),
+    surfaceContainerLow = Color(0xFFF1EEE8),
+    surfaceContainer = Color(0xFFECE9E3),
+    surfaceContainerHigh = Color(0xFFE6E3DC),
+    surfaceContainerHighest = Color(0xFFDFDCD4),
+    inverseSurface = Color(0xFF2A322F),
+    inverseOnSurface = Color(0xFFECF0EC),
+    outline = Color(0xFF6F7874),
+    outlineVariant = Color(0xFFBEC9C2),
+    scrim = Color(0x52000000)
+)
+
+private val ObsidianDark = darkColorScheme(
+    primary = Color(0xFF7BD8BE),
+    onPrimary = Color(0xFF00382B),
+    primaryContainer = Color(0xFF00513F),
+    onPrimaryContainer = Color(0xFFA7F0D6),
+    secondary = Color(0xFFB2CCC0),
+    onSecondary = Color(0xFF1D352C),
+    secondaryContainer = Color(0xFF33493F),
+    onSecondaryContainer = Color(0xFFCEE8DC),
+    tertiary = Color(0xFFD8C4A8),
+    onTertiary = Color(0xFF392E22),
+    tertiaryContainer = Color(0xFF504434),
+    onTertiaryContainer = Color(0xFFF2DFC2),
+    error = Color(0xFFFFB4AB),
+    onError = Color(0xFF690005),
+    background = Color(0xFF0E1312),
+    onBackground = Color(0xFFE0E6E2),
+    surface = Color(0xFF0E1312),
+    onSurface = Color(0xFFE0E6E2),
+    surfaceVariant = Color(0xFF1A2B26),
+    onSurfaceVariant = Color(0xFFAEB9B3),
+    surfaceContainerLowest = Color(0xFF060A09),
+    surfaceContainerLow = Color(0xFF0E1312),
+    surfaceContainer = Color(0xFF1A2B26),
+    surfaceContainerHigh = Color(0xFF20352E),
+    surfaceContainerHighest = Color(0xFF273E36),
+    inverseSurface = Color(0xFFF7F5F0),
+    inverseOnSurface = Color(0xFF1A1E1D),
+    outline = Color(0xFF88938E),
+    outlineVariant = Color(0xFF32403A),
+    scrim = Color(0x52000000)
+)
+
 // Companion roles (onSecondary/onTertiary/inverseOnSurface) reuse palette
 // values above; no new hues introduced.
 
@@ -349,7 +417,8 @@ object CalcUThemeSeeds {
         Seed("grape", "Grape", 0xFF6B4DAB.toInt()),
         Seed("slate", "Slate", 0xFF78909C.toInt()),
         Seed("mono", "Mono", 0xFF9AA0A6.toInt()),
-        Seed("amber", "Amber", 0xFFFF8F00.toInt())
+        Seed("amber", "Amber", 0xFFFF8F00.toInt()),
+        Seed("obsidian", "Obsidian", 0xFF2F5D50.toInt())
     )
 
     val vivid = listOf(
@@ -467,7 +536,7 @@ object KeypadShapeIds {
  */
 fun keyShape(shapeId: String): Shape = when (shapeId) {
     KeypadShapeIds.Pill -> RoundedCornerShape(percent = 50)
-    KeypadShapeIds.Squircle -> RoundedCornerShape(18.dp)
+    KeypadShapeIds.Squircle -> RoundedCornerShape(16.dp)
     else -> CircleShape
 }
 
@@ -511,6 +580,64 @@ fun infoSeverityColor(kind: Int): Color {
         3 -> if (dark) FluentSeverity.ErrorDark else FluentSeverity.ErrorLight
         else -> if (dark) FluentSeverity.InfoDark else FluentSeverity.InfoLight
     }
+}
+
+private fun colorToArgb(color: Color): Int {
+    val a = (color.alpha * 255f).toInt().coerceIn(0, 255)
+    val r = (color.red * 255f).toInt().coerceIn(0, 255)
+    val g = (color.green * 255f).toInt().coerceIn(0, 255)
+    val b = (color.blue * 255f).toInt().coerceIn(0, 255)
+    return (a shl 24) or (r shl 16) or (g shl 8) or b
+}
+
+private fun relativeLuminance(color: Color): Float {
+    fun channel(v: Float): Float {
+        val c = v.coerceIn(0f, 1f).toDouble()
+        return if (c <= 0.04045) (c / 12.92).toFloat() else kotlin.math.pow((c + 0.055) / 1.055, 2.4).toFloat()
+    }
+    return 0.2126f * channel(color.red) + 0.7152f * channel(color.green) + 0.0722f * channel(color.blue)
+}
+
+private fun contrastRatio(fg: Color, bg: Color): Float {
+    val l1 = relativeLuminance(fg)
+    val l2 = relativeLuminance(bg)
+    val hi = maxOf(l1, l2)
+    val lo = minOf(l1, l2)
+    return (hi + 0.05f) / (lo + 0.05f)
+}
+
+@SuppressLint("RestrictedApi")
+@Composable
+fun dynamicFixedScheme(context: Context, dark: Boolean): ColorScheme {
+    val base = if (dark) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context)
+    val seedInt = runCatching { colorToArgb(base.primary) }.getOrNull() ?: return base
+    val palette = runCatching { TonalPalette.fromInt(seedInt) }.getOrNull() ?: return base
+    fun tone(tone: Int, fallback: Color): Color =
+        runCatching { Color(palette.tone(tone)) }.getOrNull() ?: fallback
+    val lowest = if (dark) tone(0, base.surfaceContainerLowest) else tone(100, base.surfaceContainerLowest)
+    val low = if (dark) tone(10, base.surfaceContainerLow) else tone(96, base.surfaceContainerLow)
+    val container = if (dark) tone(12, base.surfaceContainer) else tone(94, base.surfaceContainer)
+    val high = if (dark) tone(17, base.surfaceContainerHigh) else tone(92, base.surfaceContainerHigh)
+    val highest = if (dark) tone(22, base.surfaceContainerHighest) else tone(90, base.surfaceContainerHighest)
+    val candidates = if (dark) listOf(60, 70, 80, 50, 40, 90) else listOf(50, 40, 30, 60, 70)
+    var fixedVariant = base.outlineVariant
+    if (contrastRatio(fixedVariant, container) < 3f) {
+        for (t in candidates) {
+            val c = runCatching { Color(palette.tone(t)) }.getOrNull()
+            if (c != null && contrastRatio(c, container) >= 3f) {
+                fixedVariant = c
+                break
+            }
+        }
+    }
+    return base.copy(
+        surfaceContainerLowest = lowest,
+        surfaceContainerLow = low,
+        surfaceContainer = container,
+        surfaceContainerHigh = high,
+        surfaceContainerHighest = highest,
+        outlineVariant = fixedVariant
+    )
 }
 
 @SuppressLint("RestrictedApi")
@@ -643,17 +770,18 @@ fun CalcUTheme(
     val base = when (theme) {
         "light", "dark", "system" ->
             if (useDynamic) {
-                if (effectiveDark) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context)
+                dynamicFixedScheme(context, effectiveDark)
             } else {
                 if (effectiveDark) FluentDark else FluentLight
             }
         "botanical" -> if (effectiveDark) BotanicalDark else BotanicalLight
+        "obsidian" -> if (effectiveDark) ObsidianDark else ObsidianLight
         CustomThemeId -> {
             val custom = validatedCustomSeedArgb(customSeedArgb)
             if (custom != null) {
                 seedScheme(custom, effectiveDark)
             } else if (useDynamic) {
-                if (effectiveDark) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context)
+                dynamicFixedScheme(context, effectiveDark)
             } else {
                 if (effectiveDark) FluentDark else FluentLight
             }
@@ -663,7 +791,7 @@ fun CalcUTheme(
             if (argb != null) {
                 seedScheme(argb, effectiveDark)
             } else if (useDynamic) {
-                if (effectiveDark) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context)
+                dynamicFixedScheme(context, effectiveDark)
             } else {
                 if (effectiveDark) FluentDark else FluentLight
             }

@@ -19,7 +19,6 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
@@ -69,7 +68,6 @@ const val WARNING = 2
 const val ERROR = 3
 
 private val NumericInput = Regex("-?[0-9]*[.,]?[0-9]*([eE][+-]?[0-9]*)?")
-private val FieldGroupShape = RoundedCornerShape(16.dp)
 
 @Composable
 fun CalcUNumberBox(
@@ -117,7 +115,7 @@ fun CalcUNumberBox(
             placeholder = { if (placeholder != null) Text(placeholder) },
             singleLine = true,
             isError = isError,
-            shape = FieldGroupShape,
+            shape = MaterialTheme.shapes.large,
             keyboardOptions = KeyboardOptions(
                 keyboardType = if (integer) KeyboardType.Number else KeyboardType.Decimal
             ),
@@ -404,7 +402,7 @@ fun FluentSearchPill(
                 }
             },
             singleLine = true,
-            shape = FieldGroupShape,
+            shape = MaterialTheme.shapes.large,
             keyboardOptions = KeyboardOptions(
                 keyboardType = KeyboardType.Text,
                 imeAction = ImeAction.Search

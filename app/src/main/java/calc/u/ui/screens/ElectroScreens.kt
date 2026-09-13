@@ -18,9 +18,15 @@ import androidx.compose.material3.ExposedDropdownMenuBox
 import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ContentCopy
+import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -141,6 +147,7 @@ fun ElectroScreen() {
 @Composable
 fun ResistorScreen() {
     var bands by remember { mutableStateOf(4) }
+    val clipboard = LocalClipboardManager.current
     var b1 by remember { mutableStateOf("brown") }
     var b2 by remember { mutableStateOf("black") }
     var b3 by remember { mutableStateOf("red") }
@@ -261,6 +268,20 @@ fun ResistorScreen() {
                 if (decodeError.isNotEmpty()) {
                     Text(decodeError, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.error)
                 }
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+                    IconButton(
+                        onClick = {
+                            runCatching {
+                                val revPart = if (reverse && revResult != null) {
+                                    revResult.joinToString(" · ") + "\n"
+                                } else {
+                                    ""
+                                }
+                                clipboard.setText(AnnotatedString(revPart + decoded))
+                            }
+                        }
+                    ) { Icon(Icons.Filled.ContentCopy, contentDescription = "Copy resistor result") }
+                }
             }
         }
         item { DividerCard() }
@@ -274,6 +295,7 @@ private fun DividerCard() {
     var vin by rememberSaveable { mutableStateOf("5") }
     var r1 by rememberSaveable { mutableStateOf("1000") }
     var r2 by rememberSaveable { mutableStateOf("1000") }
+    val clipboard = LocalClipboardManager.current
     val vout = runCatching {
         Electro.voltageDivider(vin.toDoubleOrNull() ?: 0.0, r1.toDoubleOrNull() ?: 0.0, r2.toDoubleOrNull() ?: 0.0)
     }.getOrNull()
@@ -302,6 +324,19 @@ private fun DividerCard() {
         }
         HorizontalDivider()
         ResultLine("Vout", vout?.let { runCatching { "%.4f V".format(it) }.getOrDefault("—") } ?: "—")
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+            IconButton(
+                onClick = {
+                    runCatching {
+                        clipboard.setText(
+                            AnnotatedString(
+                                vout?.let { runCatching { "%.4f V".format(it) }.getOrDefault("—") } ?: "—"
+                            )
+                        )
+                    }
+                }
+            ) { Icon(Icons.Filled.ContentCopy, contentDescription = "Copy divider result") }
+        }
     }
 }
 
@@ -310,6 +345,7 @@ private fun LedCard() {
     var vs by rememberSaveable { mutableStateOf("5") }
     var vf by rememberSaveable { mutableStateOf("2") }
     var ma by rememberSaveable { mutableStateOf("20") }
+    val clipboard = LocalClipboardManager.current
     val rled = runCatching {
         Electro.ledResistor(vs.toDoubleOrNull() ?: 0.0, vf.toDoubleOrNull() ?: 0.0, ma.toDoubleOrNull() ?: 0.0)
     }.getOrNull()
@@ -339,6 +375,19 @@ private fun LedCard() {
         }
         HorizontalDivider()
         ResultLine("R (LED series)", rled?.let { runCatching { "%.2f Ω".format(it) }.getOrDefault("—") } ?: "—")
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+            IconButton(
+                onClick = {
+                    runCatching {
+                        clipboard.setText(
+                            AnnotatedString(
+                                rled?.let { runCatching { "%.2f Ω".format(it) }.getOrDefault("—") } ?: "—"
+                            )
+                        )
+                    }
+                }
+            ) { Icon(Icons.Filled.ContentCopy, contentDescription = "Copy LED result") }
+        }
     }
 }
 
@@ -351,6 +400,7 @@ private fun RcCard() {
     var cUnit by rememberSaveable { mutableStateOf("nF") }
     var rExpanded by remember { mutableStateOf(false) }
     var cExpanded by remember { mutableStateOf(false) }
+    val clipboard = LocalClipboardManager.current
     val rMult = when (rUnit) { "MΩ" -> 1e6; "kΩ" -> 1e3; else -> 1.0 }
     val cMult = when (cUnit) { "pF" -> 1e-12; "nF" -> 1e-9; "µF" -> 1e-6; "mF" -> 1e-3; else -> 1.0 }
     val rOhms = runCatching { (rIn.toDoubleOrNull() ?: 0.0) * rMult }.getOrDefault(0.0)
@@ -412,6 +462,21 @@ private fun RcCard() {
         ResultLine("τ = RC", tau?.let { runCatching { "%.6f s".format(it) }.getOrDefault("—") } ?: "—")
         ResultLine("Cutoff fc", fc?.let { runCatching { "%.3f Hz".format(it) }.getOrDefault("—") } ?: "—")
         ResultLine("Charge time (5τ)", charge5t?.let { runCatching { "%.6f s".format(it) }.getOrDefault("—") } ?: "—")
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+            IconButton(
+                onClick = {
+                    runCatching {
+                        clipboard.setText(
+                            AnnotatedString(
+                                (tau?.let { runCatching { "%.6f s".format(it) }.getOrDefault("—") } ?: "—") + "\n" +
+                                    (fc?.let { runCatching { "%.3f Hz".format(it) }.getOrDefault("—") } ?: "—") + "\n" +
+                                    (charge5t?.let { runCatching { "%.6f s".format(it) }.getOrDefault("—") } ?: "—")
+                            )
+                        )
+                    }
+                }
+            ) { Icon(Icons.Filled.ContentCopy, contentDescription = "Copy RC result") }
+        }
     }
 }
 
@@ -419,6 +484,7 @@ private fun RcCard() {
 fun SubnetScreen() {
     var ip by remember { mutableStateOf("192.168.1.10") }
     var prefix by remember { mutableStateOf("24") }
+    val clipboard = LocalClipboardManager.current
     val info = runCatching {
         Network.subnet(ip, prefix.toIntOrNull() ?: -1)
     }.getOrNull()
@@ -441,7 +507,7 @@ fun SubnetScreen() {
                 }
                 HorizontalDivider()
                 if (info == null) {
-                    ResultLine("Result", "—")
+                    Text("Invalid IP/prefix", color = MaterialTheme.colorScheme.error)
                 } else {
                     ResultLine("Network", info.network)
                     ResultLine("Broadcast", info.broadcast)
@@ -449,6 +515,20 @@ fun SubnetScreen() {
                     ResultLine("Hosts", "${info.hosts}")
                     ResultLine("First", info.firstHost)
                     ResultLine("Last", info.lastHost)
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+                        IconButton(
+                            onClick = {
+                                runCatching {
+                                    clipboard.setText(
+                                        AnnotatedString(
+                                            "${info.network}\n${info.broadcast}\n${info.mask}\n" +
+                                                "${info.hosts}\n${info.firstHost}\n${info.lastHost}"
+                                        )
+                                    )
+                                }
+                            }
+                        ) { Icon(Icons.Filled.ContentCopy, contentDescription = "Copy subnet result") }
+                    }
                 }
             }
         }

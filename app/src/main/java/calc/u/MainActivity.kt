@@ -74,6 +74,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
@@ -260,10 +261,12 @@ class MainActivity : ComponentActivity() {
                                 )
                             }
                         }
+                        @OptIn(ExperimentalMaterial3Api::class)
                         val content: @Composable () -> Unit = {
+                            val scrollBehavior = TopAppBarDefaults.pinnedScrollBehavior()
                             Scaffold(
+                                modifier = Modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
                                 topBar = {
-                                    @OptIn(ExperimentalMaterial3Api::class)
                                     TopAppBar(
                                         title = { Text(AllDests.firstOrNull { it.route == route }?.label ?: "CalcU") },
                                         navigationIcon = {
@@ -305,11 +308,8 @@ class MainActivity : ComponentActivity() {
                                                     }
                                                 )
                                                 DropdownMenuItem(
-                                                    text = { Text("Theme: $theme") },
-                                                    onClick = {
-                                                        scope.launch { settingsRepo.setTheme(nextTheme(theme)) }
-                                                        overflowOpen = false
-                                                    }
+                                                    text = { Text("Appearance") },
+                                                    onClick = { overflowOpen = false; go("settings") }
                                                 )
                                                 HorizontalDivider()
                                                 DropdownMenuItem(
@@ -322,9 +322,8 @@ class MainActivity : ComponentActivity() {
                                                 )
                                             }
                                         },
-                                        colors = TopAppBarDefaults.topAppBarColors(
-                                            containerColor = MaterialTheme.colorScheme.surfaceContainerHigh
-                                        )
+                                        colors = TopAppBarDefaults.topAppBarColors(),
+                                        scrollBehavior = scrollBehavior
                                     )
                                 },
                                 floatingActionButton = {

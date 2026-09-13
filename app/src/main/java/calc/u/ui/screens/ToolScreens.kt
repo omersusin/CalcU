@@ -29,10 +29,9 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AttachMoney
+import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material.icons.filled.DragHandle
 import androidx.compose.material.icons.filled.Favorite
@@ -146,7 +145,7 @@ private fun fmt(v: Double, digits: Int = 4): String {
     }
 }
 
-private fun num(s: String): Double = s.toDoubleOrNull() ?: 0.0
+private fun num(s: String): Double = s.replace(" ", "").replace(",", ".").toDoubleOrNull() ?: 0.0
 
 private fun mapFor(cat: String): Map<String, Units.UnitDef> = when (cat) {
     "length" -> Units.length
@@ -370,7 +369,7 @@ private fun ToolResultRow(
     ) {
         Box(
             modifier = Modifier.size(32.dp)
-                .background(tint.copy(alpha = 0.12f), RoundedCornerShape(8.dp)),
+                .background(tint.copy(alpha = 0.12f), MaterialTheme.shapes.small),
             contentAlignment = Alignment.Center
         ) {
             Icon(icon, contentDescription = null, tint = tint, modifier = Modifier.size(18.dp))
@@ -461,28 +460,31 @@ private fun MethodDropdown(
 
 @Composable
 private fun PrimePill(label: String, isPrime: Boolean) {
-    val bg = if (isPrime) Color(0xFF2E7D32) else Color(0xFFC62828)
+    val scheme = MaterialTheme.colorScheme
+    val bg = if (isPrime) scheme.tertiaryContainer else scheme.errorContainer
+    val fg = if (isPrime) scheme.onTertiaryContainer else scheme.onErrorContainer
     Box(
-        modifier = Modifier.background(bg, RoundedCornerShape(16.dp))
+        modifier = Modifier.background(bg, MaterialTheme.shapes.large)
             .padding(horizontal = 12.dp, vertical = 6.dp),
         contentAlignment = Alignment.Center
     ) {
         Text(
             "$label: " + if (isPrime) "Yes ✓" else "No ✕",
             style = MaterialTheme.typography.labelLarge,
-            color = Color.White
+            color = fg
         )
     }
 }
 
 @Composable
 private fun BmiBar(bmi: Double) {
+    val scheme = MaterialTheme.colorScheme
     val segments = listOf(
-        Color(0xFF4CAF50),
-        Color(0xFF9CCC65),
-        Color(0xFFFFC107),
-        Color(0xFFFF9800),
-        Color(0xFFF44336)
+        scheme.primary,
+        scheme.secondary,
+        scheme.tertiary,
+        scheme.primaryContainer,
+        scheme.tertiaryContainer
     )
     val frac = if (!bmi.isFinite()) -1f else ((bmi - 14.0) / (36.0 - 14.0)).toFloat().coerceIn(0f, 1f)
     val marker = MaterialTheme.colorScheme.onSurface
@@ -564,6 +566,12 @@ private fun CurrencyCard() {
     var from by remember { mutableStateOf("USD") }
     var to by remember { mutableStateOf("EUR") }
     val scope = rememberCoroutineScope()
+    var swapped by remember { mutableStateOf(false) }
+    val rotation by animateFloatAsState(
+        if (swapped) 180f else 0f,
+        animationSpec = tween(300, easing = FastOutSlowInEasing),
+        label = "currency-swap"
+    )
     LaunchedEffect(Unit) { runCatching { repo.refresh() }.onFailure { } }
     val options = remember(rates) { (Currency.codes + rates.keys).distinct().sorted() }
     val safeFrom = if (from in options) from else "USD"
@@ -574,8 +582,26 @@ private fun CurrencyCard() {
     val result = convRes.getOrDefault(Double.NaN)
     SectionCard("Currency") {
         NumField(amount, { amount = it }, "Amount")
-        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
             Box(Modifier.weight(1f)) { UnitDropdown(safeFrom, options, { from = it }, "From") }
+            FilledTonalIconButton(
+                onClick = {
+                    val f = from
+                    from = to
+                    to = f
+                    swapped = !swapped
+                },
+                modifier = Modifier.size(48.dp)
+            ) {
+                Icon(
+                    Icons.Filled.SwapVert,
+                    contentDescription = "Swap currencies",
+                    modifier = Modifier.graphicsLayer { rotationZ = rotation }
+                )
+            }
             Box(Modifier.weight(1f)) { UnitDropdown(safeTo, options, { to = it }, "To") }
         }
         Row(
@@ -669,6 +695,8 @@ fun ConvertersScreen() {
     var baseInput by remember { mutableStateOf("42") }
     var cookCups by remember { mutableStateOf("1") }
     var gramsPerCup by remember { mutableStateOf("128") }
+    var decimals by remember { mutableStateOf(4) }
+    val clipboard = LocalClipboardManager.current
     val cats = listOf(
         "length", "mass", "volume", "temp", "area", "speed",
         "pressure", "energy", "power", "data", "fuel",
@@ -704,17 +732,17 @@ fun ConvertersScreen() {
         }?.takeIf { it.isFinite() }
     }.getOrNull()?.takeIf { it?.isFinite() == true }
     fun factorFor(target: String): String = runCatching {
-        convertOrNull(1.0, safeFrom, target)?.let { fmt(it) } ?: "—"
+        convertOrNull(1.0, safeFrom, target)?.let { fmt(it, decimals) } ?: "—"
     }.getOrDefault("—")
     fun rowText(unit: String): String {
         rowOverrides[unit]?.let { return it }
-        return convertOrNull(v, safeFrom, unit)?.let { fmt(it) } ?: ""
+        return convertOrNull(v, safeFrom, unit)?.let { fmt(it, decimals) } ?: ""
     }
     fun reverseFromRow(newText: String, rowUnit: String) {
         rowOverrides = mapOf(rowUnit to newText)
-        val parsed = newText.toDoubleOrNull() ?: return
+        val parsed = newText.replace(" ", "").replace(",", ".").toDoubleOrNull() ?: return
         convertOrNull(parsed, rowUnit, safeFrom)?.let { back ->
-            if (back.isFinite()) input = fmt(back)
+            if (back.isFinite()) input = fmt(back, decimals)
         }
     }
     // Reorder helper modeled on ToolsHub move()/hubOrder: index-based splice,
@@ -787,18 +815,18 @@ fun ConvertersScreen() {
     }
     fun previewFor(candidate: String): String = runCatching {
         if (cat == "temp") {
-            if (sheetTarget == "from") fmt(Units.convertTemp(v, candidate, safeTo))
-            else fmt(Units.convertTemp(v, safeFrom, candidate))
+            if (sheetTarget == "from") fmt(Units.convertTemp(v, candidate, safeTo), decimals)
+            else fmt(Units.convertTemp(v, safeFrom, candidate), decimals)
         } else if (cat == "fuel") {
-            if (sheetTarget == "from") fmt(convertFuel(v, candidate, safeTo))
-            else fmt(convertFuel(v, safeFrom, candidate))
+            if (sheetTarget == "from") fmt(convertFuel(v, candidate, safeTo), decimals)
+            else fmt(convertFuel(v, safeFrom, candidate), decimals)
         } else {
             val map = mapFor(cat)
             val anchor = map[if (sheetTarget == "from") safeTo else safeFrom]
             val cand = map[candidate]
             if (anchor == null || cand == null) "—"
-            else if (sheetTarget == "from") fmt(Units.convert(v, cand, anchor))
-            else fmt(Units.convert(v, anchor, cand))
+            else if (sheetTarget == "from") fmt(Units.convert(v, cand, anchor), decimals)
+            else fmt(Units.convert(v, anchor, cand), decimals)
         }
     }.getOrDefault("—")
     fun openPicker(target: String) {
@@ -988,6 +1016,15 @@ fun ConvertersScreen() {
                         FilterChip(selected = c == cat, onClick = { cat = c }, label = { Text(c) })
                     }
                 }
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    listOf(2, 4, 6, 10).forEach { d ->
+                        FilterChip(
+                            selected = decimals == d,
+                            onClick = { decimals = d },
+                            label = { Text("$d") }
+                        )
+                    }
+                }
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -1014,7 +1051,7 @@ fun ConvertersScreen() {
                     FilledTonalIconButton(onClick = {
                         val f = from
                         val first = effectiveRows.firstOrNull() ?: safeTo
-                        val carried = convertOrNull(v, safeFrom, first)?.let { fmt(it) }
+                        val carried = convertOrNull(v, safeFrom, first)?.let { fmt(it, decimals) }
                         from = first
                         to = f
                         toRows = if (effectiveRows.isEmpty()) listOf(f)
@@ -1149,11 +1186,33 @@ fun ConvertersScreen() {
                                             },
                                             label = "row-factor"
                                         ) { target ->
-                                            Text(
-                                                "1 ${safeFrom.ifBlank { "source" }} = $target $u",
-                                                style = MaterialTheme.typography.labelSmall,
-                                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                                            )
+                                            Row(
+                                                verticalAlignment = Alignment.CenterVertically,
+                                                horizontalArrangement = Arrangement.spacedBy(4.dp),
+                                                modifier = Modifier.fillMaxWidth()
+                                            ) {
+                                                Text(
+                                                    "1 ${safeFrom.ifBlank { "source" }} = $target $u",
+                                                    style = MaterialTheme.typography.labelSmall,
+                                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                                    modifier = Modifier.weight(1f)
+                                                )
+                                                IconButton(
+                                                    onClick = {
+                                                        runCatching {
+                                                            clipboard.setText(
+                                                                AnnotatedString("1 $safeFrom = $target $u")
+                                                            )
+                                                        }
+                                                    },
+                                                    modifier = Modifier.size(32.dp)
+                                                ) {
+                                                    Icon(
+                                                        Icons.Filled.ContentCopy,
+                                                        contentDescription = "Copy 1 $safeFrom = $target $u"
+                                                    )
+                                                }
+                                            }
                                         }
                                     }
                                 }
@@ -1200,7 +1259,7 @@ fun ConvertersScreen() {
                                 ResultLine("Centimeters", cmState)
                                 if (cmDef != null) {
                                     Units.length.forEach { (name, def) ->
-                                        ResultLine(name, runCatching { fmt(Units.convert(totalCm, cmDef, def), 4) }.getOrDefault("—"))
+                                        ResultLine(name, runCatching { fmt(Units.convert(totalCm, cmDef, def), decimals) }.getOrDefault("—"))
                                     }
                                 }
                             }
@@ -1754,9 +1813,9 @@ fun FinanceScreen(onNavigate: (String) -> Unit = {}) {
                     }
                 }
                 Row(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Box(Modifier.size(12.dp).background(sipPrimary, RoundedCornerShape(4.dp)))
+                    Box(Modifier.size(12.dp).background(sipPrimary, MaterialTheme.shapes.extraSmall))
                     Text("Invested ${if (sipErr != null) "—" else fmt(sipInvested, 2)}", style = MaterialTheme.typography.labelSmall)
-                    Box(Modifier.size(12.dp).background(sipTertiary, RoundedCornerShape(4.dp)))
+                    Box(Modifier.size(12.dp).background(sipTertiary, MaterialTheme.shapes.extraSmall))
                     Text("Gain ${if (sipErr != null) "—" else fmt(sipGain, 2)}", style = MaterialTheme.typography.labelSmall)
                 }
                 if (sipErr == null && sipBreakdown.isNotEmpty()) {

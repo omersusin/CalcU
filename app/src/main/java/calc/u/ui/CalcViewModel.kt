@@ -114,7 +114,10 @@ class CalcViewModel @Inject constructor(
     }
     private var lastResult: String = ""
     fun onAns() {
-        val ans = lastResult.ifBlank { "0" }
+        val ansRaw = lastResult.ifBlank { "0" }
+        val ans = runCatching {
+            ansRaw.replace(",", "").replace(" ", "").replace("\u00A0", "")
+        }.getOrDefault(ansRaw)
         _uiState.update {
             val cur = it.input
             val needMul = cur.isNotEmpty() && cur.last() in ")!%0123456789πe"
@@ -215,7 +218,7 @@ class CalcViewModel @Inject constructor(
         }
     }
     fun onMemRecall() {
-        val formatted = runCatching { fmt(BigDecimal.valueOf(safeMemory())) }.getOrNull()
+        val formatted = runCatching { BigDecimal.valueOf(safeMemory()).toPlainString() }.getOrNull()
         if (formatted != null) {
             _uiState.update { it.copy(input = it.input + formatted) }
             evaluate()

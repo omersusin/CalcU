@@ -17,7 +17,6 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Apps
 import androidx.compose.material.icons.filled.Calculate
@@ -262,14 +261,14 @@ private fun KeypadMiniPreview(
     showMemoryRow: Boolean,
     modifier: Modifier = Modifier
 ) {
-    val gap = 3.dp
+    val gap = 4.dp
     val digitColor = MaterialTheme.colorScheme.secondaryContainer
     val sciColor = MaterialTheme.colorScheme.tertiaryContainer
     val opColor = MaterialTheme.colorScheme.primaryContainer
     val eqColor = MaterialTheme.colorScheme.primary
     val wideCols = layout == "modern"
     Surface(
-        shape = RoundedCornerShape(12.dp),
+        shape = MaterialTheme.shapes.medium,
         tonalElevation = 1.dp,
         color = MaterialTheme.colorScheme.surfaceContainerLow,
         modifier = modifier
@@ -284,14 +283,14 @@ private fun KeypadMiniPreview(
                     horizontalArrangement = Arrangement.spacedBy(gap)
                 ) {
                     repeat(4) {
-                        MiniKey(color = sciColor, height = 10.dp, modifier = Modifier.weight(1f))
+                        MiniKey(color = sciColor, height = 8.dp, modifier = Modifier.weight(1f))
                     }
                 }
             }
             if (layout == "classic") {
                 Box(
                     modifier = Modifier.fillMaxWidth().height(20.dp)
-                        .clip(RoundedCornerShape(4.dp))
+                        .clip(MaterialTheme.shapes.extraSmall)
                         .background(sciColor),
                     contentAlignment = Alignment.CenterStart
                 ) {
@@ -327,7 +326,7 @@ private fun KeypadMiniPreview(
                             lastCol || (wideCols && col == cols - 2) -> opColor
                             else -> digitColor
                         }
-                        MiniKey(color = color, height = 14.dp, modifier = Modifier.weight(1f))
+                        MiniKey(color = color, height = 16.dp, modifier = Modifier.weight(1f))
                     }
                 }
             }
@@ -350,6 +349,6 @@ private fun MiniKey(
     modifier: Modifier = Modifier
 ) {
     Box(
-        modifier = modifier.height(height).clip(RoundedCornerShape(4.dp)).background(color)
+        modifier = modifier.height(height).clip(MaterialTheme.shapes.extraSmall).background(color)
     )
 }

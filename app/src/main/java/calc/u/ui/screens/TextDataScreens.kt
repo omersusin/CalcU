@@ -18,9 +18,13 @@ import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material3.Button
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
@@ -472,6 +476,7 @@ fun Base64Screen() {
 @Composable
 fun TextStatsScreen() {
     var input by remember { mutableStateOf("") }
+    val clipboard = LocalClipboardManager.current
     val counts = remember(input) { runCatching { TextData.counts(input) }.getOrDefault(Triple(0, 0, 0)) }
     val extra = remember(input) {
         runCatching {
@@ -508,6 +513,21 @@ fun TextStatsScreen() {
                 ResultLine("Paragraphs", "$paragraphs")
                 ResultLine("Unique words", "$uniqueWords")
                 ResultLine("Reading time", "${readSecs / 60} min ${readSecs % 60} s @200wpm")
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+                    IconButton(
+                        onClick = {
+                            runCatching {
+                                clipboard.setText(
+                                    AnnotatedString(
+                                        "Words: ${counts.first}\nChars: ${counts.second}\nLines: ${counts.third}\n" +
+                                            "Chars (no spaces): $charsNoSpaces\nSentences: $sentences\n" +
+                                            "Paragraphs: $paragraphs\nUnique words: $uniqueWords"
+                                    )
+                                )
+                            }
+                        }
+                    ) { Icon(Icons.Filled.ContentCopy, contentDescription = "Copy stats") }
+                }
             }
         }
     }
@@ -726,6 +746,7 @@ fun UuidScreen() {
 @Composable
 fun CaseConverterCard() {
     var input by remember { mutableStateOf("") }
+    val clipboard = LocalClipboardManager.current
     val upper = remember(input) { runCatching { TextData.toUpper(input) }.getOrDefault(input) }
     val lower = remember(input) { runCatching { TextData.toLower(input) }.getOrDefault(input) }
     val title = remember(input) { runCatching { TextData.titleCase(input) }.getOrDefault(input) }
@@ -746,6 +767,17 @@ fun CaseConverterCard() {
         ResultLine("camelCase", camel)
         ResultLine("snake_case", snake)
         ResultLine("kebab-case", kebab)
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+            IconButton(
+                onClick = {
+                    runCatching {
+                        clipboard.setText(
+                            AnnotatedString("$upper\n$lower\n$title\n$camel\n$snake\n$kebab")
+                        )
+                    }
+                }
+            ) { Icon(Icons.Filled.ContentCopy, contentDescription = "Copy case results") }
+        }
         Text(
             "Turkish-i note: UPPER/lower use the default locale — dotted İ / dotless ı need a tr locale pass (out of scope here).",
             style = MaterialTheme.typography.labelSmall,
@@ -758,6 +790,7 @@ fun CaseConverterCard() {
 fun UrlCodecCard() {
     var input by remember { mutableStateOf("") }
     var decode by remember { mutableStateOf(false) }
+    val clipboard = LocalClipboardManager.current
     val output = remember(input, decode) {
         runCatching {
             if (decode) TextData.urlDecode(input) else TextData.urlEncode(input)
@@ -776,6 +809,11 @@ fun UrlCodecCard() {
         )
         HorizontalDivider()
         ResultLine("Result", output)
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+            IconButton(
+                onClick = { runCatching { clipboard.setText(AnnotatedString(output)) } }
+            ) { Icon(Icons.Filled.ContentCopy, contentDescription = "Copy URL result") }
+        }
     }
 }
 
@@ -784,6 +822,7 @@ fun MorseCard() {
     var plain by remember { mutableStateOf("") }
     var code by remember { mutableStateOf("") }
     var auto by remember { mutableStateOf("") }
+    val clipboard = LocalClipboardManager.current
     val encRes = remember(plain) { runCatching { TextData.morseEncode(plain) } }
     val decRes = remember(code) { runCatching { TextData.morseDecode(code) } }
     val autoRes = remember(auto) {
@@ -834,6 +873,21 @@ fun MorseCard() {
         } else {
             ResultLine("Auto", autoRes.getOrNull()?.ifEmpty { "—" } ?: "—")
         }
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+            IconButton(
+                onClick = {
+                    runCatching {
+                        clipboard.setText(
+                            AnnotatedString(
+                                (encRes.getOrNull()?.ifEmpty { "—" } ?: "—") + "\n" +
+                                    (decRes.getOrNull()?.ifEmpty { "—" } ?: "—") + "\n" +
+                                    (autoRes.getOrNull()?.ifEmpty { "—" } ?: "—")
+                            )
+                        )
+                    }
+                }
+            ) { Icon(Icons.Filled.ContentCopy, contentDescription = "Copy Morse results") }
+        }
     }
 }
 
@@ -843,6 +897,7 @@ fun BinaryHexCard() {
     var bin by remember { mutableStateOf("") }
     var hexIn by remember { mutableStateOf("") }
     var spaced by remember { mutableStateOf(true) }
+    val clipboard = LocalClipboardManager.current
     val binRes = remember(text, spaced) {
         runCatching {
             val raw = TextData.textToBinary(text)
@@ -909,6 +964,22 @@ fun BinaryHexCard() {
         val hexTextErr = hexTextRes.exceptionOrNull()?.message
         if (hexTextErr != null) Text(hexTextErr, color = MaterialTheme.colorScheme.error)
         else ResultLine("Hex→Text", hexTextRes.getOrNull()?.ifEmpty { "—" } ?: "—")
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+            IconButton(
+                onClick = {
+                    runCatching {
+                        clipboard.setText(
+                            AnnotatedString(
+                                (binRes.getOrNull()?.ifEmpty { "—" } ?: "—") + "\n" +
+                                    (hexOutRes.getOrNull()?.ifEmpty { "—" } ?: "—") + "\n" +
+                                    (textRes.getOrNull()?.ifEmpty { "—" } ?: "—") + "\n" +
+                                    (hexTextRes.getOrNull()?.ifEmpty { "—" } ?: "—")
+                            )
+                        )
+                    }
+                }
+            ) { Icon(Icons.Filled.ContentCopy, contentDescription = "Copy binary/hex results") }
+        }
     }
 }
 
@@ -1327,6 +1398,7 @@ fun DiffScreen() {
     var a by remember { mutableStateOf("") }
     var b by remember { mutableStateOf("") }
     var ignoreWs by remember { mutableStateOf(false) }
+    val clipboard = LocalClipboardManager.current
     val norm = remember(a, b, ignoreWs) {
         if (!ignoreWs) a to b
         else {
@@ -1384,6 +1456,11 @@ fun DiffScreen() {
                             modifier = Modifier.verticalScroll(scrollV)
                         )
                     }
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+                        IconButton(
+                            onClick = { runCatching { clipboard.setText(AnnotatedString(diff)) } }
+                        ) { Icon(Icons.Filled.ContentCopy, contentDescription = "Copy diff") }
+                    }
                 }
             }
         }
@@ -1399,6 +1476,7 @@ fun CsvJsonScreen() {
     var cmpA by remember { mutableStateOf("") }
     var cmpB by remember { mutableStateOf("") }
     var delimName by remember { mutableStateOf(",") }
+    val clipboard = LocalClipboardManager.current
     val delim = remember(delimName) {
         when (delimName) {
             ";" -> ';'
@@ -1432,6 +1510,17 @@ fun CsvJsonScreen() {
                 val e = csvJsonRes.exceptionOrNull()?.message
                 if (e != null) Text(e, color = MaterialTheme.colorScheme.error)
                 else ResultLine("JSON", csvJsonRes.getOrNull()?.ifEmpty { "—" } ?: "—")
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+                    IconButton(
+                        onClick = {
+                            runCatching {
+                                clipboard.setText(
+                                    AnnotatedString(csvJsonRes.getOrNull()?.ifEmpty { "—" } ?: "—")
+                                )
+                            }
+                        }
+                    ) { Icon(Icons.Filled.ContentCopy, contentDescription = "Copy CSV to JSON result") }
+                }
             }
         }
         item {
@@ -1447,6 +1536,17 @@ fun CsvJsonScreen() {
                 val e = jsonCsvRes.exceptionOrNull()?.message
                 if (e != null) Text(e, color = MaterialTheme.colorScheme.error)
                 else ResultLine("CSV", jsonCsvRes.getOrNull()?.ifEmpty { "—" } ?: "—")
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+                    IconButton(
+                        onClick = {
+                            runCatching {
+                                clipboard.setText(
+                                    AnnotatedString(jsonCsvRes.getOrNull()?.ifEmpty { "—" } ?: "—")
+                                )
+                            }
+                        }
+                    ) { Icon(Icons.Filled.ContentCopy, contentDescription = "Copy JSON to CSV result") }
+                }
             }
         }
         item {
@@ -1462,6 +1562,17 @@ fun CsvJsonScreen() {
                 val e = transposedRes.exceptionOrNull()?.message
                 if (e != null) Text(e, color = MaterialTheme.colorScheme.error)
                 else ResultLine("Transposed", transposedRes.getOrNull()?.ifEmpty { "—" } ?: "—")
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+                    IconButton(
+                        onClick = {
+                            runCatching {
+                                clipboard.setText(
+                                    AnnotatedString(transposedRes.getOrNull()?.ifEmpty { "—" } ?: "—")
+                                )
+                            }
+                        }
+                    ) { Icon(Icons.Filled.ContentCopy, contentDescription = "Copy transposed CSV") }
+                }
             }
         }
         item {
@@ -1497,6 +1608,20 @@ fun CsvJsonScreen() {
                     val compared = comparedRes.getOrDefault(listOf("—"))
                     ResultLine("Differing paths", if (compared.isEmpty()) "identical" else compared.joinToString(", "))
                 }
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+                    IconButton(
+                        onClick = {
+                            runCatching {
+                                clipboard.setText(
+                                    AnnotatedString(
+                                        (sortedRes.getOrNull()?.ifEmpty { "—" } ?: "—") + "\n" +
+                                            comparedRes.getOrDefault(listOf("—")).joinToString(", ")
+                                    )
+                                )
+                            }
+                        }
+                    ) { Icon(Icons.Filled.ContentCopy, contentDescription = "Copy sort/compare result") }
+                }
             }
         }
     }
@@ -1508,6 +1633,7 @@ fun CronMiscScreen() {
     var year by remember { mutableStateOf("") }
     var ts by remember { mutableStateOf("") }
     var style by remember { mutableStateOf("R") }
+    val clipboard = LocalClipboardManager.current
     val explainedRes = remember(expr) { runCatching { TextData.crontabExplain(expr) } }
     val nowSec = remember { runCatching { System.currentTimeMillis() / 1000L }.getOrDefault(0L) }
     val nextRes = remember(expr, nowSec) { runCatching { cronNextRuns(expr, nowSec, 3) } }
@@ -1542,6 +1668,20 @@ fun CronMiscScreen() {
                         ResultLine("Next ${i + 1}", run)
                     }
                 }
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+                    IconButton(
+                        onClick = {
+                            runCatching {
+                                clipboard.setText(
+                                    AnnotatedString(
+                                        (explainedRes.getOrNull() ?: "—") + "\n" +
+                                            (nextRes.getOrNull()?.joinToString("\n") ?: "—")
+                                    )
+                                )
+                            }
+                        }
+                    ) { Icon(Icons.Filled.ContentCopy, contentDescription = "Copy cron result") }
+                }
             }
         }
         item {
@@ -1554,6 +1694,11 @@ fun CronMiscScreen() {
                 )
                 HorizontalDivider()
                 ResultLine("Result", leap)
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+                    IconButton(
+                        onClick = { runCatching { clipboard.setText(AnnotatedString(leap)) } }
+                    ) { Icon(Icons.Filled.ContentCopy, contentDescription = "Copy leap year result") }
+                }
             }
         }
         item {
@@ -1573,6 +1718,15 @@ fun CronMiscScreen() {
                 val de = discordRes.exceptionOrNull()?.message
                 if (de != null) Text(de, color = MaterialTheme.colorScheme.error)
                 else ResultLine("Tag", discordRes.getOrNull() ?: "—")
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+                    IconButton(
+                        onClick = {
+                            runCatching {
+                                clipboard.setText(AnnotatedString(discordRes.getOrNull() ?: "—"))
+                            }
+                        }
+                    ) { Icon(Icons.Filled.ContentCopy, contentDescription = "Copy Discord timestamp") }
+                }
             }
         }
     }
