@@ -1213,7 +1213,7 @@ fun ConvertersScreen() {
                                     (fadeOut(tween(250)) + slideOutVertically(tween(250) { -it / 4 }))
                             },
                             label = "cups-output"
-                        ) {
+                        ) { _ ->
                             Column {
                                 ResultLine("Volume", "${fmt(volMl, 2)} mL" + (if (volFrac != null) " ($volFrac)" else ""))
                                 ResultLine("Weight", "${fmt(weight, 2)} g" + (if (wtFrac != null) " ($wtFrac)" else ""))
@@ -1235,7 +1235,7 @@ fun ConvertersScreen() {
                                 (fadeOut(tween(250)) + slideOutVertically(tween(250) { -it / 4 }))
                         },
                         label = "base-output"
-                    ) {
+                    ) { _ ->
                         Column {
                             ResultLine("Binary", if (baseLong == null) "—" else runCatching { Units.fromBase(baseLong.toDouble(), 2) }.getOrDefault("—"))
                             ResultLine("Octal", if (baseLong == null) "—" else runCatching { Units.fromBase(baseLong.toDouble(), 8) }.getOrDefault("—"))
@@ -1295,7 +1295,7 @@ fun ConvertersScreen() {
                                 (fadeOut(tween(250)) + slideOutVertically(tween(250) { -it / 4 }))
                         },
                         label = "color-output"
-                    ) {
+                    ) { _ ->
                         Column {
                             ResultLine("Hex→RGB", rgbFromHex?.let { "${it.first}, ${it.second}, ${it.third}" } ?: "—")
                             ResultLine("RGB→Hex", hexFromRgb ?: "—")
