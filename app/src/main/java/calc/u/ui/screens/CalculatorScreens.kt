@@ -33,6 +33,8 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.weight
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.verticalScroll
@@ -312,8 +314,9 @@ private fun CalculatorDisplayCard(
             border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.35f))
         ) {
             Column(
-                Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 16.dp).animateContentSize()
-                    .then(if (compact) Modifier.verticalScroll(displayScroll) else Modifier),
+                Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 16.dp)
+                    .then(if (compact) Modifier.verticalScroll(displayScroll) else Modifier.fillMaxHeight())
+                    .animateContentSize(),
                 verticalArrangement = Arrangement.spacedBy(8.dp),
                 horizontalAlignment = Alignment.End
             ) {
@@ -361,6 +364,7 @@ private fun CalculatorDisplayCard(
                         modifier = Modifier.fillMaxWidth()
                     )
                 }
+                if (!compact) Spacer(Modifier.weight(1f))
                 // Slot 2 (stable): result line — single AnimatedContent, fade+slide
                 // only; the size stays fixed so columns never wobble.
                 AnimatedContent(
