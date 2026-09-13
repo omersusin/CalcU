@@ -194,7 +194,15 @@ class MainActivity : ComponentActivity() {
                 val tourSeen by settingsRepo.tourSeen.collectAsStateWithLifecycle(initialValue = true)
                 if (!tourSeen) {
                     val tourScope = rememberCoroutineScope()
-                    TourScreen(onDone = { tourScope.launch { settingsRepo.setTourSeen() } })
+                    val tourKeypad by settingsRepo.keypadLayout.collectAsStateWithLifecycle(initialValue = "simple")
+                    val tourMemory by settingsRepo.memoryRow.collectAsStateWithLifecycle(initialValue = true)
+                    TourScreen(
+                        onDone = { tourScope.launch { settingsRepo.setTourSeen() } },
+                        keypadLayout = tourKeypad,
+                        onKeypadLayout = { tourScope.launch { settingsRepo.setKeypadLayout(it) } },
+                        showMemoryRow = tourMemory,
+                        onMemoryRow = { tourScope.launch { settingsRepo.setMemoryRow(it) } }
+                    )
                 } else {
                 val nav = rememberNavController()
                     val drawer = rememberDrawerState(DrawerValue.Closed)
