@@ -61,7 +61,7 @@ import kotlin.math.sqrt
 @Composable
 fun SensorScreen() {
     var tab by remember { mutableStateOf("compass") }
-    Column(Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+    Column(Modifier.fillMaxSize().padding(16.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
         LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             items(listOf("compass" to "Compass", "level" to "Level", "sound" to "Sound")) { (id, label) ->
                 FilterChip(selected = tab == id, onClick = { tab = id }, label = { Text(label) })

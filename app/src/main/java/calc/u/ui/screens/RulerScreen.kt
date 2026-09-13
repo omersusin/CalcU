@@ -45,7 +45,7 @@ fun RulerScreen() {
         textAlign = TextAlign.Center
     )
     fun labelLayout(text: String) = measurer.measure(text, labelStyle)
-    Column(Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+    Column(Modifier.fillMaxSize().padding(16.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
         SectionCard("Ruler") {
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 FilterChip(
