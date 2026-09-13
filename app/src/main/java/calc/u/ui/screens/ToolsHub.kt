@@ -23,6 +23,7 @@ import androidx.compose.material.icons.filled.Apps
 import androidx.compose.material.icons.filled.ArrowDownward
 import androidx.compose.material.icons.filled.ArrowUpward
 import androidx.compose.material.icons.filled.AttachMoney
+import androidx.compose.material.icons.filled.Insights
 import androidx.compose.material.icons.filled.BarChart
 import androidx.compose.material.icons.filled.Build
 import androidx.compose.material.icons.filled.Calculate
@@ -96,6 +97,7 @@ private val HubTools = listOf(
     ToolEntry("Graph", "Math", "graph"),
     ToolEntry("Convert", "Everyday", "convert"),
     ToolEntry("Finance", "Finance", "finance"),
+    ToolEntry("Finance Lab", "Finance", "financelab"),
     ToolEntry("Math", "Math", "math"),
     ToolEntry("Steps", "Math", "steps"),
     ToolEntry("Geometry", "Math", "geometry"),
@@ -192,6 +194,7 @@ private fun toolIcon(entry: ToolEntry): ImageVector = when (entry.route) {
     "graph" -> Icons.Filled.ShowChart
     "convert" -> Icons.Filled.SwapHoriz
     "finance" -> Icons.Filled.AttachMoney
+    "financelab" -> Icons.Filled.Insights
     "math" -> Icons.Filled.GridOn
     "steps" -> Icons.Filled.Timeline
     "geometry" -> Icons.Filled.Category

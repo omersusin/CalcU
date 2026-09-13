@@ -254,4 +254,44 @@ class FinanceTest {
     @Test fun tzUtcToIstanbulPlus3() {
         assertEquals("15:00", Finance.timezoneConvert("12:00", "UTC", "Europe/Istanbul"))
     }
+
+    @Test fun compoundScheduleNoContributionMatchesCompound() {
+        val schedule = Finance.compoundSchedule(1000.0, 5.0, 10, 0.0)
+        assertEquals(10, schedule.size)
+        assertEquals(Finance.compound(1000.0, 5.0, 10.0, 12), schedule.last().second, 0.05)
+        assertTrue(schedule.last().second > 1000.0)
+    }
+
+    @Test fun compoundScheduleWithContributionGrowsMore() {
+        val plain = Finance.compoundSchedule(1000.0, 5.0, 10, 0.0).last().second
+        val withContrib = Finance.compoundSchedule(1000.0, 5.0, 10, 100.0).last().second
+        assertTrue(withContrib > plain)
+    }
+
+    @Test fun savingsGoalMonthlyPositiveFinite() {
+        val deposit = Finance.savingsGoalMonthly(50000.0, 6.0, 10)
+        assertTrue(deposit > 0.0)
+        assertTrue(deposit.isFinite())
+    }
+
+    @Test fun savingsGoalMonthlyZeroRate() {
+        assertEquals(500.0, Finance.savingsGoalMonthly(60000.0, 0.0, 10), 1e-9)
+    }
+
+    @Test fun monthlyPaymentStandard() {
+        assertEquals(1199.10, Finance.monthlyPayment(200000.0, 6.0, 30), 0.01)
+    }
+
+    @Test fun loanAmortizationEndBalanceZero() {
+        val schedule = Finance.loanAmortization(200000.0, 6.0, 30)
+        assertEquals(30, schedule.size)
+        assertEquals(0.0, schedule.last().second, 1e-6)
+        assertTrue(schedule.first().second < 200000.0)
+    }
+
+    @Test fun loanZeroRateSimpleSplit() {
+        assertEquals(1000.0, Finance.monthlyPayment(120000.0, 0.0, 10), 1e-9)
+        val schedule = Finance.loanAmortization(120000.0, 0.0, 10)
+        assertEquals(0.0, schedule.last().second, 1e-6)
+    }
 }

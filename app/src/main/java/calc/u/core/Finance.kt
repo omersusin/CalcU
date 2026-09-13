@@ -415,6 +415,77 @@ object Finance {
         return java.time.LocalDate.parse(dateIso).plusDays(offsetDays).toString()
     }
 
+    /**
+     * Year-end balances for a bar chart: compounding monthly at [annualRatePct]
+     * on [principal], adding [monthlyContribution] each month.
+     * Returns a list of (yearIndex, balance) pairs.
+     */
+    fun compoundSchedule(principal: Double, annualRatePct: Double, years: Int, monthlyContribution: Double): List<Pair<Int, Double>> {
+        require(years >= 0) { "years must be >= 0" }
+        val r = annualRatePct / 1200
+        var balance = principal
+        val result = ArrayList<Pair<Int, Double>>(years)
+        for (y in 1..years) {
+            for (m in 1..12) {
+                balance = balance * (1 + r) + monthlyContribution
+            }
+            result.add(Pair(y, balance))
+        }
+        return result
+    }
+
+    /**
+     * Required fixed monthly deposit to reach [goal] in [years] months at
+     * [annualRatePct] compounded monthly. Returns 0 when years <= 0.
+     */
+    fun savingsGoalMonthly(goal: Double, annualRatePct: Double, years: Int): Double {
+        require(years >= 0) { "years must be >= 0" }
+        require(goal >= 0.0) { "goal must be >= 0" }
+        val n = years * 12
+        if (n == 0) return 0.0
+        val r = annualRatePct / 1200
+        if (r == 0.0) return goal / n
+        return goal * r / ((1 + r).pow(n) - 1)
+    }
+
+    /**
+     * Fixed monthly payment for a standard amortizing loan using the formula
+     * M = P * r * (1+r)^n / ((1+r)^n - 1).
+     */
+    fun monthlyPayment(principal: Double, annualRatePct: Double, years: Int): Double {
+        require(years > 0) { "years must be > 0" }
+        require(principal >= 0.0) { "principal must be >= 0" }
+        val r = annualRatePct / 1200
+        val n = years * 12
+        if (r == 0.0) return principal / n
+        val f = (1 + r).pow(n)
+        return principal * r * f / (f - 1)
+    }
+
+    /**
+     * Yearly remaining balance list for a standard amortization schedule.
+     * Each entry is (year, remainingBalanceAfterYear).
+     * The final year's balance is forced to 0 to absorb rounding.
+     */
+    fun loanAmortization(principal: Double, annualRatePct: Double, years: Int): List<Pair<Int, Double>> {
+        require(years > 0) { "years must be > 0" }
+        require(principal >= 0.0) { "principal must be >= 0" }
+        val payment = monthlyPayment(principal, annualRatePct, years)
+        val r = annualRatePct / 1200
+        var balance = principal
+        val result = ArrayList<Pair<Int, Double>>(years)
+        for (y in 1..years) {
+            for (m in 1..12) {
+                val interest = if (r == 0.0) 0.0 else balance * r
+                var principalPaid = payment - interest
+                if (y == years && m == 12) principalPaid = balance
+                balance -= principalPaid
+            }
+            result.add(Pair(y, balance.coerceAtLeast(0.0)))
+        }
+        return result
+    }
+
     fun timezoneConvert(timeStr: String, fromZone: String, toZone: String): String {
         val from: java.time.ZoneId = try {
             java.time.ZoneId.of(fromZone)

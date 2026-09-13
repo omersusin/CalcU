@@ -26,6 +26,7 @@ import androidx.compose.material.icons.filled.Category
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Code
 import androidx.compose.material.icons.filled.Description
+import androidx.compose.material.icons.filled.Insights
 import androidx.compose.material.icons.filled.Explore
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.GridOn
@@ -106,6 +107,7 @@ import calc.u.ui.screens.ProgrammerScreen
 import calc.u.ui.screens.RulerScreen
 import calc.u.ui.screens.SensorScreen
 import calc.u.ui.screens.ToolsHub
+import calc.u.core.FinanceLabContent
 import calc.u.ui.screens.TourScreen
 import calc.u.ui.theme.CalcUTheme
 import dagger.hilt.android.AndroidEntryPoint
@@ -122,6 +124,7 @@ private val MainDests = listOf(
 private val ToolDests = listOf(
     Dest("convert", "Convert", Icons.Filled.SwapHoriz),
     Dest("finance", "Finance", Icons.Filled.AttachMoney),
+    Dest("financelab", "Finance Lab", Icons.Filled.Insights),
     Dest("math", "Math", Icons.Filled.GridOn),
     Dest("steps", "Steps", Icons.Filled.Timeline),
     Dest("geometry", "Geometry", Icons.Filled.Category),
@@ -144,7 +147,7 @@ private data class DrawerGroup(val title: String, val routes: List<String>)
 private val DrawerGroups = listOf(
     DrawerGroup("Calculate", listOf("programmer")),
     DrawerGroup("Convert", listOf("convert")),
-    DrawerGroup("Finance", listOf("finance")),
+    DrawerGroup("Finance", listOf("finance", "financelab")),
     DrawerGroup("Math", listOf("math", "steps", "geometry")),
     DrawerGroup("Time", listOf("time")),
     DrawerGroup("Electro+Network", listOf("electro")),
@@ -366,6 +369,7 @@ class MainActivity : ComponentActivity() {
                                         composable("graph") { Centered { GraphScreen() } }
                                         composable("convert") { Centered { ConvertersScreen() } }
                                         composable("finance") { Centered { FinanceScreen(onNavigate = { if (it == "back") nav.popBackStack() else go(it) }) } }
+                                        composable("financelab") { Centered { FinanceLabContent() } }
                                         composable("math") { Centered { MathScreen(onNavigate = { if (it == "back") nav.popBackStack() else go(it) }) } }
                                         composable("steps") { Centered { StepsScreen(onNavigate = { if (it == "back") nav.popBackStack() else go(it) }) } }
                                         composable("geometry") { Centered { GeometryScreen() } }

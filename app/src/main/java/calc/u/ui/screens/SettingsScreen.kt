@@ -24,6 +24,8 @@ import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
@@ -204,6 +206,7 @@ fun SettingsScreen(vm: SettingsViewModel = hiltViewModel()) {
         item {
             SectionCard("Theme") {
                 Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    var showMoreSeeds by remember { mutableStateOf(false) }
                     Text(
                         "Mode",
                         style = MaterialTheme.typography.labelLarge,
@@ -243,7 +246,7 @@ fun SettingsScreen(vm: SettingsViewModel = hiltViewModel()) {
                         )
                     }
                     Text(
-                        "Main: Dynamic M3 Fixed (wallpaper hue, enforced ladder). 2nd: Obsidian (static graphite-mint). AMOLED toggle > Mode > Seed.",
+                        "Dynamic M3 Fixed (wallpaper) is the main theme; Obsidian (graphite-mint) is the second.",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -255,45 +258,159 @@ fun SettingsScreen(vm: SettingsViewModel = hiltViewModel()) {
                         )
                     }
                     if (Build.VERSION.SDK_INT >= 31) {
-                        SeedGroupHeader("Dynamic")
-                        DynamicSeedTile(
-                            selected = theme == "system",
-                            dynamicOn = dynamicColor,
-                            onSelect = {
-                                vm.setTheme("system")
-                                vm.setDynamicColor(true)
-                            },
-                            onDynamicChange = {
-                                vm.setDynamicColor(it)
-                                if (it) vm.setTheme("system")
+                        Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                            DynamicSeedTile(
+                                selected = theme == "system",
+                                dynamicOn = dynamicColor,
+                                onSelect = {
+                                    vm.setTheme("system")
+                                    vm.setDynamicColor(true)
+                                },
+                                onDynamicChange = {
+                                    vm.setDynamicColor(it)
+                                    if (it) vm.setTheme("system")
+                                }
+                            )
+                            val obsidianSeed = CalcUThemeSeeds.classics.first { it.id == "obsidian" }
+                            val obsidianSelected = theme == "obsidian"
+                            val obsidianBorderColor =
+                                if (obsidianSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant
+                            Column(
+                                modifier = Modifier.fillMaxWidth()
+                                    .clip(MaterialTheme.shapes.medium)
+                                    .border(
+                                        if (obsidianSelected) 2.dp else 1.dp,
+                                        obsidianBorderColor,
+                                        MaterialTheme.shapes.medium
+                                    )
+                                    .background(MaterialTheme.colorScheme.surface)
+                                    .selectable(
+                                        selected = obsidianSelected,
+                                        onClick = { vm.setTheme("obsidian") },
+                                        role = Role.RadioButton
+                                    )
+                                    .padding(12.dp),
+                                verticalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                SwatchPreview(
+                                    swatches = seedSwatches(obsidianSeed),
+                                    selected = obsidianSelected
+                                )
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Column(modifier = Modifier.weight(1f)) {
+                                        Row(
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            horizontalArrangement = Arrangement.spacedBy(4.dp)
+                                        ) {
+                                            Text(
+                                                "Obsidian",
+                                                style = MaterialTheme.typography.bodySmall,
+                                                color = if (obsidianSelected) {
+                                                    MaterialTheme.colorScheme.primary
+                                                } else {
+                                                    MaterialTheme.colorScheme.onSurface
+                                                }
+                                            )
+                                            if (obsidianSelected) {
+                                                Icon(
+                                                    imageVector = Icons.Filled.Check,
+                                                    contentDescription = null,
+                                                    tint = MaterialTheme.colorScheme.primary,
+                                                    modifier = Modifier.size(16.dp)
+                                                )
+                                            }
+                                        }
+                                        Text(
+                                            "Static graphite-mint",
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
+                                    }
+                                }
                             }
+                        }
+                    } else {
+                        val obsidianSeed = CalcUThemeSeeds.classics.first { it.id == "obsidian" }
+                        SwatchPreview(
+                            swatches = seedSwatches(obsidianSeed),
+                            selected = theme == "obsidian"
+                        )
+                        Text(
+                            "Obsidian",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
-                    SeedGroupHeader("Botanical")
-                    SeedGrid(
-                        seeds = listOf(CalcUThemeSeeds.botanical),
-                        selectedId = theme,
-                        onSelect = { vm.setTheme(it) }
-                    )
-                    SeedGroupHeader("Classics")
-                    SeedGrid(
-                        seeds = CalcUThemeSeeds.classics,
-                        selectedId = theme,
-                        onSelect = { vm.setTheme(it) }
-                    )
-                    SeedGroupHeader("Vivid")
-                    SeedGrid(
-                        seeds = CalcUThemeSeeds.vivid,
-                        selectedId = theme,
-                        onSelect = { vm.setTheme(it) }
-                    )
-                    SeedGroupHeader("Custom")
-                    CustomSeedTile(
-                        selected = theme == CustomThemeId,
-                        customArgb = customSeedArgb,
-                        onSelect = { vm.setTheme(CustomThemeId) },
-                        onCustomize = { showCustomSheet = true }
-                    )
+                    Row(
+                        modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)
+                            .selectable(
+                                selected = showMoreSeeds,
+                                onClick = { showMoreSeeds = !showMoreSeeds },
+                                role = Role.Button
+                            ),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            "More seed themes",
+                            style = MaterialTheme.typography.labelLarge,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.weight(1f)
+                        )
+                        Icon(
+                            imageVector = if (showMoreSeeds) {
+                                Icons.Filled.KeyboardArrowUp
+                            } else {
+                                Icons.Filled.KeyboardArrowDown
+                            },
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                    if (showMoreSeeds) {
+                        if (Build.VERSION.SDK_INT >= 31) {
+                            SeedGroupHeader("Dynamic")
+                            DynamicSeedTile(
+                                selected = theme == "system",
+                                dynamicOn = dynamicColor,
+                                onSelect = {
+                                    vm.setTheme("system")
+                                    vm.setDynamicColor(true)
+                                },
+                                onDynamicChange = {
+                                    vm.setDynamicColor(it)
+                                    if (it) vm.setTheme("system")
+                                }
+                            )
+                        }
+                        SeedGroupHeader("Botanical")
+                        SeedGrid(
+                            seeds = listOf(CalcUThemeSeeds.botanical),
+                            selectedId = theme,
+                            onSelect = { vm.setTheme(it) }
+                        )
+                        SeedGroupHeader("Classics")
+                        SeedGrid(
+                            seeds = CalcUThemeSeeds.classics,
+                            selectedId = theme,
+                            onSelect = { vm.setTheme(it) }
+                        )
+                        SeedGroupHeader("Vivid")
+                        SeedGrid(
+                            seeds = CalcUThemeSeeds.vivid,
+                            selectedId = theme,
+                            onSelect = { vm.setTheme(it) }
+                        )
+                        SeedGroupHeader("Custom")
+                        CustomSeedTile(
+                            selected = theme == CustomThemeId,
+                            customArgb = customSeedArgb,
+                            onSelect = { vm.setTheme(CustomThemeId) },
+                            onCustomize = { showCustomSheet = true }
+                        )
+                    }
                     SeedGroupHeader("Keypad shape")
                     SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
                         val shapes = listOf(
@@ -312,7 +429,7 @@ fun SettingsScreen(vm: SettingsViewModel = hiltViewModel()) {
                         }
                     }
                     Text(
-                        "Shape rendering lives in keyShape() (FluentTheme); wiring it into CalculatorScreens keys + NumPadSheet is a follow-up — ids are stable.",
+                        "Keypad shape is applied live through keyShape() via LocalKeyShape in CalculatorScreens — no follow-up needed.",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
