@@ -2873,10 +2873,8 @@ private fun NumbersContent() {
             val screenErr: String? = when {
                 wInt == null || hInt == null -> "Width and height must be whole numbers."
                 wInt <= 0 || hInt <= 0 -> "Width and height must be > 0."
-                screenMode == "PPI from diagonal" && dVal == null -> "Diagonal must be a number."
-                screenMode == "PPI from diagonal" && dVal <= 0.0 -> "Diagonal must be > 0."
-                screenMode == "Diagonal from PPI" && ppiVal == null -> "PPI must be a number."
-                screenMode == "Diagonal from PPI" && ppiVal <= 0.0 -> "PPI must be > 0."
+                screenMode == "PPI from diagonal" && (dVal ?: 0.0) <= 0.0 -> "Diagonal must be a positive number."
+                screenMode == "Diagonal from PPI" && (ppiVal ?: 0.0) <= 0.0 -> "PPI must be a positive number."
                 else -> null
             }
             val aspect = runCatching {
