@@ -13,7 +13,7 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.animation.togetherWith
-import androidx.compose.foundation.BorderStroke
+
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.LocalIndication
@@ -257,14 +257,15 @@ private fun ShrinkText(
     color: Color = MaterialTheme.colorScheme.onSurface,
     maxLines: Int = 2,
     align: TextAlign = TextAlign.End,
-    overflow: TextOverflow = TextOverflow.Clip
+    overflow: TextOverflow = TextOverflow.Clip,
+    floorSp: Float = 10f
 ) {
     val startSp = runCatching { style.fontSize.value }.getOrDefault(20f)
     var sizeSp by remember(text, startSp) { mutableStateOf(startSp) }
     Text(
         text = text,
         style = style.copy(
-            fontSize = sizeSp.coerceAtLeast(10f).sp,
+            fontSize = sizeSp.coerceAtLeast(floorSp).sp,
             fontFeatureSettings = "tnum"
         ),
         color = color,
@@ -274,7 +275,7 @@ private fun ShrinkText(
         textAlign = align,
         modifier = modifier,
         onTextLayout = { result ->
-            if (result.didOverflowWidth && sizeSp > 10f) sizeSp -= 2f
+            if (result.didOverflowWidth && sizeSp > floorSp) sizeSp -= 2f
         }
     )
 }
@@ -309,8 +310,7 @@ private fun CalculatorDisplayCard(
                 containerColor = MaterialTheme.colorScheme.surfaceContainerHigh
             ),
             shape = MaterialTheme.shapes.extraLarge,
-            elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
-            border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.35f))
+            elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
         ) {
             Column(
                 Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 16.dp)
@@ -403,15 +403,15 @@ private fun CalculatorDisplayCard(
                                 }
                         )
                     } else {
-                        Text(
-                            text = formatted,
-                            style = if (compact) MaterialTheme.typography.displayMedium.copy(fontFeatureSettings = "tnum")
-                            else MaterialTheme.typography.displayLarge.copy(fontFeatureSettings = "tnum"),
+                        ShrinkText(
+                            text = AnnotatedString(formatted),
+                            style = if (compact) MaterialTheme.typography.displayMedium
+                            else MaterialTheme.typography.displayLarge,
                             color = MaterialTheme.colorScheme.onSurface,
                             maxLines = 2,
+                            align = TextAlign.End,
                             overflow = TextOverflow.Ellipsis,
-                            softWrap = false,
-                            textAlign = TextAlign.End,
+                            floorSp = 20f,
                             modifier = Modifier.fillMaxWidth()
                                 .pointerInput(Unit) {
                                     detectTapGestures(
