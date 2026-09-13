@@ -212,7 +212,7 @@ fun ResistorScreen() {
         6 -> listOf(b1, b2, b3, b4, b5, b6)
         else -> listOf(b1, b2, b3, b4, b5)
     }
-    LazyColumn(Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+    LazyColumn(Modifier.fillMaxSize().padding(16.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
         item {
             SectionCard("Resistor color code") {
                 LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -489,7 +489,7 @@ fun SubnetScreen() {
     val info = runCatching {
         Network.subnet(ip, prefix.toIntOrNull() ?: -1)
     }.getOrNull()
-    LazyColumn(Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+    LazyColumn(Modifier.fillMaxSize().padding(16.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
         item {
             SectionCard("Subnet calculator") {
                 Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
