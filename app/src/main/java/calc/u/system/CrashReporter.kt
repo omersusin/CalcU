@@ -12,6 +12,7 @@ import java.util.Locale
 object CrashReporter {
     private const val DIR_NAME = "crashes"
     private const val FILE_NAME = "last.txt"
+    private const val MAX_HISTORY = 6
 
     @Volatile
     private var installed = false
@@ -23,7 +24,7 @@ object CrashReporter {
             val appContext = context.applicationContext
             val previous = Thread.getDefaultUncaughtExceptionHandler()
             Thread.setDefaultUncaughtExceptionHandler { thread, throwable ->
-                runCatching { writeCrash(appContext, throwable) }
+                runCatching { writeCrash(appContext, thread, throwable) }
                 if (previous != null) {
                     runCatching { previous.uncaughtException(thread, throwable) }
                 }
@@ -51,33 +52,59 @@ object CrashReporter {
         return File(File(context.filesDir, DIR_NAME), FILE_NAME)
     }
 
-    private fun writeCrash(context: Context, throwable: Throwable) {
+    private fun writeCrash(context: Context, thread: Thread, throwable: Throwable) {
         runCatching {
             val dir = File(context.filesDir, DIR_NAME)
             runCatching { if (!dir.exists()) dir.mkdirs() }.getOrDefault(false)
-            val timestamp = runCatching {
+            val now = runCatching {
                 SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.US).format(Date())
             }.getOrDefault("unknown")
             val version = runCatching { appVersion(context) }.getOrDefault("unknown")
             val sdk = runCatching { "${Build.VERSION.SDK_INT} (${Build.VERSION.RELEASE})" }.getOrDefault("unknown")
             val stacktrace = runCatching { stacktraceOf(throwable) }.getOrDefault(throwable.toString())
+            val cause = runCatching { causeChain(throwable) }.getOrDefault("")
             val content = buildString {
-                appendLine("Timestamp: $timestamp")
+                appendLine("Timestamp: $now")
                 appendLine("App version: $version")
                 appendLine("Android SDK: $sdk")
+                appendLine("Thread: ${thread.name}")
+                appendLine("Type: ${throwable.javaClass.name}")
+                throwable.message?.let { appendLine("Message: $it") }
                 appendLine("Stacktrace:")
                 appendLine(stacktrace)
+                if (cause.isNotBlank()) {
+                    appendLine("Cause chain:")
+                    appendLine(cause)
+                }
             }
             runCatching {
                 val target = File(dir, FILE_NAME)
                 target.writeText(content)
             }
             runCatching {
-                dir.listFiles()?.forEach { file ->
-                    if (file.name != FILE_NAME) runCatching { file.delete() }
-                }
+                val stamp = SimpleDateFormat("yyyyMMdd_HHmmss_SSS", Locale.US).format(Date())
+                val archive = File(dir, "crash_$stamp.txt")
+                runCatching { archive.writeText(content) }
+            }
+            runCatching {
+                val archived = dir.listFiles()?.filter { it.name.startsWith("crash_") }?.sortedByDescending { it.lastModified() }.orEmpty()
+                archived.drop(MAX_HISTORY).forEach { file -> file.delete() }
             }
         }
+    }
+
+    private fun causeChain(throwable: Throwable): String {
+        return runCatching {
+            val out = StringBuilder()
+            var cur = throwable.cause
+            var depth = 0
+            while (cur != null && depth < 8) {
+                out.append("Caused by ${cur.javaClass.name}: ${cur.message}\n")
+                cur = cur.cause
+                depth++
+            }
+            out.toString().trimEnd()
+        }.getOrDefault("")
     }
 
     private fun appVersion(context: Context): String {
