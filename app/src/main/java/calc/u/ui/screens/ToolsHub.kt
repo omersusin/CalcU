@@ -1,5 +1,12 @@
 package calc.u.ui.screens
 
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -326,6 +333,7 @@ fun ToolsHub(onOpen: (String) -> Unit, vm: ToolsHubViewModel = hiltViewModel()) 
 
     Scaffold(
         modifier = Modifier.fillMaxSize(),
+        containerColor = MaterialTheme.colorScheme.surfaceContainerLowest,
         floatingActionButton = {
             FloatingActionButton(
                 onClick = { open(calcEntry) },
@@ -338,14 +346,14 @@ fun ToolsHub(onOpen: (String) -> Unit, vm: ToolsHubViewModel = hiltViewModel()) 
     ) { inner ->
         LazyColumn(
             modifier = Modifier.fillMaxSize().padding(inner),
-            contentPadding = PaddingValues(horizontal = 20.dp, vertical = 16.dp),
-            verticalArrangement = Arrangement.spacedBy(20.dp)
+            contentPadding = PaddingValues(horizontal = 16.dp, vertical = 16.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
             item {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    horizontalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
                     Box(
                         contentAlignment = Alignment.Center,
@@ -364,7 +372,7 @@ fun ToolsHub(onOpen: (String) -> Unit, vm: ToolsHubViewModel = hiltViewModel()) 
                     Column(modifier = Modifier.weight(1f)) {
                         Text(
                             "Welcome",
-                            style = MaterialTheme.typography.headlineSmall,
+                            style = MaterialTheme.typography.headlineMedium,
                             modifier = Modifier.semantics { heading() }
                         )
                         Text(
@@ -421,7 +429,7 @@ fun ToolsHub(onOpen: (String) -> Unit, vm: ToolsHubViewModel = hiltViewModel()) 
                 item {
                     LazyRow(
                         modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(20.dp)
+                        horizontalArrangement = Arrangement.spacedBy(16.dp)
                     ) {
                         items(favEntries, key = { toolKey(it) }) { tool ->
                             Column(
@@ -498,12 +506,12 @@ fun ToolsHub(onOpen: (String) -> Unit, vm: ToolsHubViewModel = hiltViewModel()) 
                         modifier = Modifier.fillMaxWidth().clickable { open(iconEntry, key) },
                         shape = MaterialTheme.shapes.large,
                         colors = CardDefaults.cardColors(
-                            containerColor = MaterialTheme.colorScheme.surfaceContainerLow
+                            containerColor = MaterialTheme.colorScheme.surfaceContainer
                         )
                     ) {
                         Row(
-                            modifier = Modifier.fillMaxWidth().padding(12.dp),
-                            horizontalArrangement = Arrangement.spacedBy(12.dp),
+                            modifier = Modifier.fillMaxWidth().padding(16.dp),
+                            horizontalArrangement = Arrangement.spacedBy(16.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Box(
@@ -555,15 +563,33 @@ fun ToolsHub(onOpen: (String) -> Unit, vm: ToolsHubViewModel = hiltViewModel()) 
                                 .weight(1f)
                                 .semantics { heading() }
                         )
-                        Text(
-                            "${tools.size}",
-                            style = MaterialTheme.typography.labelMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                        Icon(
-                            if (expanded) Icons.Filled.ExpandLess else Icons.Filled.ExpandMore,
-                            contentDescription = if (expanded) "Collapse $category" else "Expand $category"
-                        )
+                        Box(
+                            modifier = Modifier
+                                .clip(MaterialTheme.shapes.extraSmall)
+                                .background(categoryContainer(category))
+                                .padding(horizontal = 8.dp, vertical = 3.dp)
+                        ) {
+                            Text(
+                                "${tools.size}",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = categoryOnContainer(category)
+                            )
+                        }
+                        AnimatedContent(
+                            targetState = expanded,
+                            transitionSpec = {
+                                (fadeIn(tween(150)) + scaleIn(initialScale = 0.8f, animationSpec = tween(150)))
+                                    .togetherWith(fadeOut(tween(150)) + scaleOut(targetScale = 0.8f, animationSpec = tween(150)))
+                            },
+                            label = "categoryExpand"
+                        ) { shown ->
+                            Icon(
+                                if (shown) Icons.Filled.ExpandLess else Icons.Filled.ExpandMore,
+                                contentDescription =
+                                    if (shown) "Collapse $category" else "Expand $category",
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
                     }
                 }
                 if (expanded) {
@@ -573,12 +599,12 @@ fun ToolsHub(onOpen: (String) -> Unit, vm: ToolsHubViewModel = hiltViewModel()) 
                             modifier = Modifier.fillMaxWidth().clickable { open(tool) },
                             shape = MaterialTheme.shapes.large,
                             colors = CardDefaults.cardColors(
-                                containerColor = MaterialTheme.colorScheme.surfaceContainerLow
+                                containerColor = MaterialTheme.colorScheme.surfaceContainer
                             )
                         ) {
                             Row(
-                                modifier = Modifier.fillMaxWidth().padding(12.dp),
-                                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                                modifier = Modifier.fillMaxWidth().padding(16.dp),
+                                horizontalArrangement = Arrangement.spacedBy(16.dp),
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
                                 Box(
@@ -631,7 +657,15 @@ fun ToolsHub(onOpen: (String) -> Unit, vm: ToolsHubViewModel = hiltViewModel()) 
                 }
             }
             if (filtered.isEmpty()) {
-                item { Text(stringResource(R.string.hub_empty), style = MaterialTheme.typography.bodyMedium) }
+                item {
+                    Text(
+                        stringResource(R.string.hub_empty),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        textAlign = TextAlign.Center,
+                        modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp)
+                    )
+                }
             }
             item { Spacer(Modifier.height(72.dp)) }
         }

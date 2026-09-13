@@ -218,39 +218,49 @@ private fun KeypadLayoutTourPage(
             textAlign = TextAlign.Center
         )
         Spacer(Modifier.height(16.dp))
-        SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
-            KeypadLayoutOptions.forEachIndexed { i, value ->
-                SegmentedButton(
-                    selected = selectedIndex == i,
-                    onClick = { onKeypadLayout(value) },
-                    shape = SegmentedButtonDefaults.itemShape(i, KeypadLayoutOptions.size),
-                    label = {
-                        Text(value.replaceFirstChar { it.uppercase() })
-                    }
-                )
-            }
-        }
-        Spacer(Modifier.height(12.dp))
-        KeypadMiniPreview(
-            layout = KeypadLayoutOptions[selectedIndex],
-            showMemoryRow = showMemoryRow,
-            modifier = Modifier.widthIn(max = 240.dp)
-        )
-        Spacer(Modifier.height(12.dp))
-        Row(
-            modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp),
-            verticalAlignment = Alignment.CenterVertically
+        Surface(
+            modifier = Modifier.fillMaxWidth(),
+            shape = MaterialTheme.shapes.large,
+            color = MaterialTheme.colorScheme.surfaceContainerLow
         ) {
-            Text(
-                "Memory",
-                style = MaterialTheme.typography.bodyLarge,
-                color = MaterialTheme.colorScheme.onSurface,
-                modifier = Modifier.weight(1f)
-            )
-            Switch(
-                checked = showMemoryRow,
-                onCheckedChange = onMemoryRow
-            )
+            Column(
+                modifier = Modifier.padding(16.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
+                    KeypadLayoutOptions.forEachIndexed { i, value ->
+                        SegmentedButton(
+                            selected = selectedIndex == i,
+                            onClick = { onKeypadLayout(value) },
+                            shape = SegmentedButtonDefaults.itemShape(i, KeypadLayoutOptions.size),
+                            label = {
+                                Text(value.replaceFirstChar { it.uppercase() })
+                            }
+                        )
+                    }
+                }
+                KeypadMiniPreview(
+                    layout = KeypadLayoutOptions[selectedIndex],
+                    showMemoryRow = showMemoryRow,
+                    modifier = Modifier.widthIn(max = 240.dp)
+                )
+                Row(
+                    modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        "Memory",
+                        style = MaterialTheme.typography.bodyLarge,
+                        color = MaterialTheme.colorScheme.onSurface,
+                        modifier = Modifier.weight(1f)
+                    )
+                    Switch(
+                        checked = showMemoryRow,
+                        onCheckedChange = onMemoryRow
+                    )
+                }
+            }
         }
     }
 }
@@ -270,7 +280,7 @@ private fun KeypadMiniPreview(
     Surface(
         shape = MaterialTheme.shapes.medium,
         tonalElevation = 1.dp,
-        color = MaterialTheme.colorScheme.surfaceContainerLow,
+        color = MaterialTheme.colorScheme.surfaceContainer,
         modifier = modifier
     ) {
         Column(

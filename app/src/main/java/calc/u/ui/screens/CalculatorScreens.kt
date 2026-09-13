@@ -313,7 +313,7 @@ private fun CalculatorDisplayCard(
             elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
         ) {
             Column(
-                Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 16.dp)
+                Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp)
                     .then(if (compact) Modifier.verticalScroll(displayScroll) else Modifier.fillMaxHeight())
                     .animateContentSize(),
                 verticalArrangement = Arrangement.spacedBy(8.dp),
@@ -369,8 +369,18 @@ private fun CalculatorDisplayCard(
                 AnimatedContent(
                     targetState = result,
                     transitionSpec = {
-                        (slideInVertically(tween(FluentMotion.Medium, easing = FluentMotion.Standard)) { it / 5 } + fadeIn()) togetherWith
-                            (slideOutVertically(tween(FluentMotion.Medium, easing = FluentMotion.Standard)) { -it / 5 } + fadeOut())
+                        (slideInVertically(
+                            spring(
+                                dampingRatio = 0.62f,
+                                stiffness = Spring.StiffnessMediumLow
+                            )
+                        ) { it / 6 } + fadeIn(tween(FluentMotion.Short, easing = FluentMotion.Standard))) togetherWith
+                            (slideOutVertically(
+                                spring(
+                                    dampingRatio = 0.62f,
+                                    stiffness = Spring.StiffnessMediumLow
+                                )
+                            ) { -it / 6 } + fadeOut(tween(FluentMotion.Short, easing = FluentMotion.Standard)))
                     },
                     label = "result"
                 ) { target ->
@@ -1083,8 +1093,8 @@ private fun CalcKey(
     }
     val active = pressed || pulsed
     val pressSpec = spring<Float>(
-        stiffness = Spring.StiffnessMediumLow,
-        dampingRatio = Spring.DampingRatioMediumBouncy
+        stiffness = Spring.StiffnessMedium,
+        dampingRatio = 0.62f
     )
     val scale by animateFloatAsState(
         if (active) 0.88f else 1f,
@@ -1261,8 +1271,8 @@ private fun BackKey(
     val scale by animateFloatAsState(
         if (active) 0.88f else 1f,
         animationSpec = spring(
-            stiffness = Spring.StiffnessMediumLow,
-            dampingRatio = Spring.DampingRatioMediumBouncy
+            stiffness = Spring.StiffnessMedium,
+            dampingRatio = 0.62f
         ),
         label = "back-press"
     )
@@ -1492,7 +1502,7 @@ private fun SimpleKeypad(
     inverse: Boolean,
     compact: Boolean = false
 ) {
-    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
         FnThinRow(onKey = onKey, staggerDelay = 0, compact = compact)
         ParenPercentDivideRow(onKey = onKey, onClear = onClear, staggerDelay = 32, compact = compact)
         DigitRowsGrid(onKey = onKey, staggerBase = 2, compact = compact)
@@ -1517,7 +1527,7 @@ private fun ClassicKeypad(
     compact: Boolean = false
 ) {
     var sciOpen by rememberSaveable { mutableStateOf(true) }
-    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.Start,
@@ -1557,7 +1567,7 @@ private fun ModernKeypad(
     // Scientific variant: function block on top, √ π ^ ! row with ANS
     // (reusing the existing onKey("ANS") path), () % ÷ row, then
     // all-circular digits with circular = beside circular ⌫. Instant switch.
-    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
         SciRowsGrid(onKey = onKey, inverse = inverse, staggerBase = 0, compact = compact)
         FnThinRow(onKey = onKey, staggerDelay = 96, compact = compact, trailingAns = true)
         ParenPercentDivideRow(onKey = onKey, onClear = onClear, staggerDelay = 128, compact = compact)

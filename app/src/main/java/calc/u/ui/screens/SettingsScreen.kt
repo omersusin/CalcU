@@ -207,6 +207,7 @@ fun SettingsScreen(vm: SettingsViewModel = hiltViewModel()) {
             SectionCard("Theme") {
                 Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                     var showMoreSeeds by remember { mutableStateOf(false) }
+                    SettingsSubGroup(title = "Mode & background") {
                     Text(
                         "Mode",
                         style = MaterialTheme.typography.labelLarge,
@@ -257,6 +258,8 @@ fun SettingsScreen(vm: SettingsViewModel = hiltViewModel()) {
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
+                    }
+                    SettingsSubGroup(title = "Seed themes") {
                     if (Build.VERSION.SDK_INT >= 31) {
                         Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                             DynamicSeedTile(
@@ -411,7 +414,8 @@ fun SettingsScreen(vm: SettingsViewModel = hiltViewModel()) {
                             onCustomize = { showCustomSheet = true }
                         )
                     }
-                    SeedGroupHeader("Keypad shape")
+                    }
+                    SettingsSubGroup(title = "Keypad shape") {
                     SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
                         val shapes = listOf(
                             KeypadShapeIds.Circles to "Circles",
@@ -433,12 +437,14 @@ fun SettingsScreen(vm: SettingsViewModel = hiltViewModel()) {
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
+                    }
                 }
             }
         }
         item {
             SectionCard("General") {
                 Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    SettingsSubGroup(title = "Number format") {
                     Column(Modifier.selectableGroup()) {
                         listOf(
                             "locale" to "System locale",
@@ -474,6 +480,8 @@ fun SettingsScreen(vm: SettingsViewModel = hiltViewModel()) {
                             }
                         }
                     }
+                    }
+                    SettingsSubGroup(title = "Precision") {
                     Text(
                         "Decimals: $decimals",
                         style = MaterialTheme.typography.bodyMedium,
@@ -499,6 +507,8 @@ fun SettingsScreen(vm: SettingsViewModel = hiltViewModel()) {
                         valueRange = 0f..16f,
                         steps = 15
                     )
+                    }
+                    SettingsSubGroup(title = "History") {
                     Text(
                         "Keep last $historyCap entries",
                         style = MaterialTheme.typography.bodyMedium,
@@ -513,12 +523,15 @@ fun SettingsScreen(vm: SettingsViewModel = hiltViewModel()) {
                             )
                         }
                     }
+                    }
                 }
             }
         }
         item {
             SectionCard("Calculator") {
-                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    SettingsSubGroup(title = "Feedback") {
+                    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                     Row(
                         modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp),
                         verticalAlignment = Alignment.CenterVertically
@@ -533,6 +546,10 @@ fun SettingsScreen(vm: SettingsViewModel = hiltViewModel()) {
                             onCheckedChange = { vm.setVibration(it) }
                         )
                     }
+                    }
+                    }
+                    SettingsSubGroup(title = "Display") {
+                    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                     Row(
                         modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp),
                         verticalAlignment = Alignment.CenterVertically
@@ -575,6 +592,10 @@ fun SettingsScreen(vm: SettingsViewModel = hiltViewModel()) {
                             onCheckedChange = { vm.setKeepScreenOn(it) }
                         )
                     }
+                    }
+                    }
+                    SettingsSubGroup(title = "Layout") {
+                    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                     Row(
                         modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp),
                         verticalAlignment = Alignment.CenterVertically
@@ -588,6 +609,8 @@ fun SettingsScreen(vm: SettingsViewModel = hiltViewModel()) {
                             checked = memoryRow,
                             onCheckedChange = { vm.setMemoryRow(it) }
                         )
+                    }
+                    }
                     }
                 }
             }
@@ -876,6 +899,28 @@ fun SettingsScreen(vm: SettingsViewModel = hiltViewModel()) {
             },
             onDismiss = { showCustomSheet = false }
         )
+    }
+}
+
+@Composable
+private fun SettingsSubGroup(
+    title: String,
+    content: @Composable () -> Unit
+) {
+    Column(
+        modifier = Modifier.fillMaxWidth()
+            .clip(MaterialTheme.shapes.medium)
+            .background(MaterialTheme.colorScheme.surfaceContainer)
+            .padding(16.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
+        Text(
+            title,
+            style = MaterialTheme.typography.labelLarge,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.semantics { heading() }
+        )
+        content()
     }
 }
 
