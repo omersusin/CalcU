@@ -5,6 +5,8 @@ import android.content.Context
 import android.os.Build
 import androidx.compose.animation.core.CubicBezierEasing
 import androidx.compose.animation.core.Easing
+import androidx.compose.animation.core.SpringSpec
+import androidx.compose.animation.core.spring
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -90,6 +92,23 @@ object FluentMotion {
     // Verified: M3 emphasized standard (0.05, 0.7, 0.1, 1.0) — keep.
     val Standard: Easing = CubicBezierEasing(0.05f, 0.7f, 0.1f, 1.0f)
     val Emphasized: Easing = Standard
+}
+
+/**
+ * Material 3 Expressive spring tokens (motion-history token lookups).
+ * Spatial springs overshoot (dampingRatio < 1); effects springs do not
+ * (dampingRatio = 1). Kept as one app-wide vocabulary so every hero and
+ * micro-interaction shares the same physics. API-independent: these are
+ * plain [SpringSpec]s, usable until material3 1.5 exposes MotionScheme as
+ * non-internal (then this object can be swapped for the themed scheme).
+ */
+object ExpressiveSprings {
+    val SpatialFast: SpringSpec<Float> = spring(dampingRatio = 0.75f, stiffness = 500f)
+    val SpatialDefault: SpringSpec<Float> = spring(dampingRatio = 0.63f, stiffness = 380f)
+    val SpatialHero: SpringSpec<Float> = spring(dampingRatio = 0.55f, stiffness = 900f)
+    val EffectsDefault: SpringSpec<Float> = spring(dampingRatio = 1f, stiffness = 700f)
+    val SpatialFastOffset: SpringSpec<androidx.compose.ui.unit.IntOffset> =
+        spring(dampingRatio = 0.63f, stiffness = 380f)
 }
 
 object FluentElevation {

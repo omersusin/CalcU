@@ -3,10 +3,8 @@ package calc.u.ui.screens
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateContentSize
-import androidx.compose.animation.core.Spring
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -110,6 +108,7 @@ import calc.u.ui.FluentStagger
 import calc.u.ui.FluentTeachingTip
 import calc.u.ui.SectionCard
 import calc.u.ui.WARNING
+import calc.u.ui.theme.ExpressiveSprings
 import calc.u.ui.theme.FluentMotion
 import calc.u.ui.theme.keyShape
 import calc.u.ui.tintExpression
@@ -369,18 +368,10 @@ private fun CalculatorDisplayCard(
                 AnimatedContent(
                     targetState = result,
                     transitionSpec = {
-                        (slideInVertically(
-                            spring(
-                                dampingRatio = 0.62f,
-                                stiffness = Spring.StiffnessMediumLow
-                            )
-                        ) { it / 6 } + fadeIn(tween(FluentMotion.Short, easing = FluentMotion.Standard))) togetherWith
-                            (slideOutVertically(
-                                spring(
-                                    dampingRatio = 0.62f,
-                                    stiffness = Spring.StiffnessMediumLow
-                                )
-                            ) { -it / 6 } + fadeOut(tween(FluentMotion.Short, easing = FluentMotion.Standard)))
+                        (slideInVertically(ExpressiveSprings.SpatialFastOffset) { it / 6 } +
+                            fadeIn(tween(FluentMotion.Short, easing = FluentMotion.Standard))) togetherWith
+                            (slideOutVertically(ExpressiveSprings.SpatialFastOffset) { -it / 6 } +
+                                fadeOut(tween(FluentMotion.Short, easing = FluentMotion.Standard)))
                     },
                     label = "result"
                 ) { target ->
@@ -1092,13 +1083,9 @@ private fun CalcKey(
         }
     }
     val active = pressed || pulsed
-    val pressSpec = spring<Float>(
-        stiffness = Spring.StiffnessMedium,
-        dampingRatio = 0.62f
-    )
     val scale by animateFloatAsState(
         if (active) 0.88f else 1f,
-        animationSpec = pressSpec,
+        animationSpec = ExpressiveSprings.SpatialHero,
         label = "calc-key-press"
     )
     val scheme = MaterialTheme.colorScheme
@@ -1270,10 +1257,7 @@ private fun BackKey(
     val active = pressed || pulsed
     val scale by animateFloatAsState(
         if (active) 0.88f else 1f,
-        animationSpec = spring(
-            stiffness = Spring.StiffnessMedium,
-            dampingRatio = 0.62f
-        ),
+        animationSpec = ExpressiveSprings.SpatialHero,
         label = "back-press"
     )
     val scheme = MaterialTheme.colorScheme
