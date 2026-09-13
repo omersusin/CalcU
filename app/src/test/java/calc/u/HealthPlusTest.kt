@@ -17,6 +17,24 @@ class HealthPlusTest {
     @Test fun targetHeartRateZone() {
         assertEquals(133.0, HealthPlus.targetHeartRate(30, 70.0), 1e-9)
     }
+    @Test fun bodyFatDeurenberg() {
+        assertEquals(18.1286, HealthPlus.bodyFatDeurenberg(70.0, 175.0, 30, true), 0.01)
+        assertEquals(28.9286, HealthPlus.bodyFatDeurenberg(70.0, 175.0, 30, false), 0.01)
+    }
+    @Test fun bodyFatDeurenbergInvalid() {
+        try {
+            HealthPlus.bodyFatDeurenberg(0.0, 175.0, 30, true)
+            fail("expected IAE")
+        } catch (e: IllegalArgumentException) { }
+        try {
+            HealthPlus.bodyFatDeurenberg(70.0, 0.0, 30, true)
+            fail("expected IAE")
+        } catch (e: IllegalArgumentException) { }
+        try {
+            HealthPlus.bodyFatDeurenberg(70.0, 175.0, 150, true)
+            fail("expected IAE")
+        } catch (e: IllegalArgumentException) { }
+    }
 
     @Test fun invalidInputsThrowIAE() {
         try {

@@ -20,6 +20,18 @@ class NumberTheoryTest {
     @Test fun collatzSix() {
         assertEquals(8, NumberTheory.collatzSteps(6L))
     }
+    @Test fun factorString84() {
+        assertEquals("2²·3·7", NumberTheory.factorString(84L))
+    }
+    @Test fun factorString600() {
+        assertEquals("2³·3·5²", NumberTheory.factorString(600L))
+    }
+    @Test fun factorStringPowerOfTwo() {
+        assertEquals("2¹⁰", NumberTheory.factorString(1024L))
+    }
+    @Test fun factorStringPrime() {
+        assertEquals("13", NumberTheory.factorString(13L))
+    }
 
     @Test fun invalidInputsThrowIAE() {
         try {

@@ -108,6 +108,8 @@ import calc.u.ui.screens.RulerScreen
 import calc.u.ui.screens.SensorScreen
 import calc.u.ui.screens.ToolsHub
 import calc.u.core.FinanceLabContent
+import calc.u.core.HealthLabContent
+import calc.u.core.NumberLabContent
 import calc.u.ui.screens.TourScreen
 import calc.u.ui.theme.CalcUTheme
 import dagger.hilt.android.AndroidEntryPoint
@@ -125,6 +127,7 @@ private val ToolDests = listOf(
     Dest("convert", "Convert", Icons.Filled.SwapHoriz),
     Dest("finance", "Finance", Icons.Filled.AttachMoney),
     Dest("financelab", "Finance Lab", Icons.Filled.Insights),
+    Dest("numberlab", "Number Lab", Icons.Filled.GridOn),
     Dest("math", "Math", Icons.Filled.GridOn),
     Dest("steps", "Steps", Icons.Filled.Timeline),
     Dest("geometry", "Geometry", Icons.Filled.Category),
@@ -137,6 +140,7 @@ private val ToolDests = listOf(
     Dest("everyday", "Everyday", Icons.Filled.Widgets),
     Dest("ruler", "Ruler", Icons.Filled.Straighten),
     Dest("health", "Health", Icons.Filled.Favorite),
+    Dest("healthlab", "Health Lab", Icons.Filled.Favorite),
     Dest("sensors", "Sensors", Icons.Filled.Explore),
     Dest("analyze", "Analyze", Icons.Filled.BarChart),
     Dest("tools", "Tools", Icons.Filled.Apps)
@@ -148,11 +152,11 @@ private val DrawerGroups = listOf(
     DrawerGroup("Calculate", listOf("programmer")),
     DrawerGroup("Convert", listOf("convert")),
     DrawerGroup("Finance", listOf("finance", "financelab")),
-    DrawerGroup("Math", listOf("math", "steps", "geometry")),
+    DrawerGroup("Math", listOf("math", "numberlab", "steps", "geometry")),
     DrawerGroup("Time", listOf("time")),
     DrawerGroup("Electro+Network", listOf("electro")),
     DrawerGroup("Text+Data", listOf("textdata", "textcalc", "qrscan")),
-    DrawerGroup("Everyday", listOf("everyday", "ruler", "health")),
+    DrawerGroup("Everyday", listOf("everyday", "ruler", "health", "healthlab")),
     DrawerGroup("System", listOf("sensors", "analyze", "tools"))
 )
 
@@ -370,10 +374,12 @@ class MainActivity : ComponentActivity() {
                                         composable("convert") { Centered { ConvertersScreen() } }
                                         composable("finance") { Centered { FinanceScreen(onNavigate = { if (it == "back") nav.popBackStack() else go(it) }) } }
                                         composable("financelab") { Centered { FinanceLabContent() } }
+                                        composable("numberlab") { Centered { NumberLabContent() } }
                                         composable("math") { Centered { MathScreen(onNavigate = { if (it == "back") nav.popBackStack() else go(it) }) } }
                                         composable("steps") { Centered { StepsScreen(onNavigate = { if (it == "back") nav.popBackStack() else go(it) }) } }
                                         composable("geometry") { Centered { GeometryScreen() } }
                                         composable("health") { Centered { HealthScreen(onNavigate = { if (it == "back") nav.popBackStack() else go(it) }) } }
+                                        composable("healthlab") { Centered { HealthLabContent() } }
                                         composable("programmer") { Centered { ProgrammerScreen() } }
                                         composable("time") { Centered { TimeLabScreen() } }
                                         composable("electro") { Centered { ElectroScreen() } }

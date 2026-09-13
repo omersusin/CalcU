@@ -100,6 +100,7 @@ private val HubTools = listOf(
     ToolEntry("Finance Lab", "Finance", "financelab"),
     ToolEntry("Math", "Math", "math"),
     ToolEntry("Steps", "Math", "steps"),
+    ToolEntry("Number Lab", "Math", "numberlab"),
     ToolEntry("Geometry", "Math", "geometry"),
     ToolEntry("Programmer", "Math", "programmer"),
     ToolEntry("Stopwatch", "Time", "time"),
@@ -125,6 +126,7 @@ private val HubTools = listOf(
     ToolEntry("Paint & tiles", "Everyday", "everyday"),
     ToolEntry("Ideal weight", "Everyday", "everyday"),
     ToolEntry("Health", "Health", "health"),
+    ToolEntry("Health Lab", "Health", "healthlab"),
     ToolEntry("Metronome", "Everyday", "everyday"),
     ToolEntry("Ruler", "Everyday", "ruler"),
     ToolEntry("Compass", "Sensors", "sensors"),
@@ -195,6 +197,8 @@ private fun toolIcon(entry: ToolEntry): ImageVector = when (entry.route) {
     "convert" -> Icons.Filled.SwapHoriz
     "finance" -> Icons.Filled.AttachMoney
     "financelab" -> Icons.Filled.Insights
+    "numberlab" -> Icons.Filled.GridOn
+    "healthlab" -> Icons.Filled.Favorite
     "math" -> Icons.Filled.GridOn
     "steps" -> Icons.Filled.Timeline
     "geometry" -> Icons.Filled.Category

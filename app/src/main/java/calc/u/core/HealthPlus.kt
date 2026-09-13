@@ -36,6 +36,20 @@ object HealthPlus {
         return (220 - age) * intensityPct / 100.0
     }
 
+    /**
+     * Body-fat percentage for the general population, Deurenberg et al. 1991:
+     * BF% = 1.20*BMI + 0.23*ageY - 10.8*(male ? 1 : 0) - 5.4. BMI from
+     * weight/height, so no waist/neck callipers are needed.
+     */
+    fun bodyFatDeurenberg(weightKg: Double, heightCm: Double, ageYears: Int, male: Boolean): Double {
+        require(weightKg > 0.0) { "weightKg must be > 0" }
+        require(heightCm > 0.0) { "heightCm must be > 0" }
+        require(ageYears in 0..149) { "ageYears must be in 0..149" }
+        val m = heightCm / 100.0
+        val bmi = weightKg / (m * m)
+        return 1.20 * bmi + 0.23 * ageYears - (if (male) 10.8 else 0.0) - 5.4
+    }
+
     // Kg to reach healthy BMI band: current minus 24.9 ceiling if above,
     // current minus 18.5 floor if below, else 0.0. Positive = excess to lose,
     // negative = deficit to gain.

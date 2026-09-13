@@ -81,6 +81,32 @@ object NumberTheory {
         return out
     }
 
+    /**
+     * Human-readable prime factorization like "2³·3·5²" built from [primeFactors].
+     * Requires n >= 2; a prime n renders as just its digits (no exponent).
+     */
+    fun factorString(n: Long): String {
+        val ps = primeFactors(n)
+        if (ps.size == 1) return ps.first().toString()
+        val sb = StringBuilder()
+        var i = 0
+        while (i < ps.size) {
+            val p = ps[i]
+            var count = 1
+            while (i + count < ps.size && ps[i + count] == p) count++
+            if (sb.isNotEmpty()) sb.append("·")
+            sb.append(p)
+            if (count > 1) sb.append(superscript(count))
+            i += count
+        }
+        return sb.toString()
+    }
+
+    private fun superscript(e: Int): String {
+        val sup = "⁰¹²³⁴⁵⁶⁷⁸⁹"
+        return e.toString().map { sup[it - '0'] }.joinToString("")
+    }
+
     fun fibonacci(n: Int): Long {
         require(n in 0..92) { "n must be in 0..92" }
         return fibPair(n.toLong()).first
