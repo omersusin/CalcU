@@ -72,9 +72,7 @@ fun staggerDelayItem(index: Int): Int = minOf(80 + 45 * index, 360)
 
 private fun cascadeEnter(delayMillis: Int) =
     fadeIn(tween(CascadeDuration, delayMillis = delayMillis, easing = CascadeEasing)) +
-        slideInVertically(tween(CascadeDuration, delayMillis = delayMillis, easing = CascadeEasing)) { density ->
-            with(density) { 18.dp.toPx().roundToInt() }
-        }
+        slideInVertically(tween(CascadeDuration, delayMillis = delayMillis, easing = CascadeEasing)) { it / 8 }
 
 @Composable
 fun FluentStaggerHeader(content: @Composable () -> Unit) {
