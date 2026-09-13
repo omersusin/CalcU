@@ -44,6 +44,13 @@ class EngineTest {
         assertEquals("3.142", Engine.format(BigDecimal("3.14159"), 3))
         assertEquals("Error", Engine.format(BigDecimal("1E+100000"), 10))
     }
+    @Test fun formatFallsBackToScientificWhenTooWide() {
+        val big = BigDecimal("1125899906842624") // 16 significant digits
+        val sci = Engine.format(big) // default maxScale 10 -> mantissa capped
+        assertTrue("expected sci, got $sci", sci.startsWith("1.") && sci.endsWith("E+15"))
+        assertFalse("mantissa should be trimmed", sci.contains("1125899906842624"))
+        assertFalse("14 digits stay plain", Engine.format(BigDecimal("12345678901234")).contains("E"))
+    }
     @Test fun radRewriteKeepsAsin() {
         val r = Engine.eval("ASIN(1)", false).getOrThrow().toDouble()
         assertEquals(90.0, r, 1e-9)

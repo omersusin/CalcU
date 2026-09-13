@@ -195,6 +195,9 @@ object Engine {
                 isDecimalSeparatorAlwaysShown = false
             }
             val plain = df.format(stripped)
+            if (stripped.precision() > 14 && d.isFinite()) {
+                return scientific(stripped, symbols, maxScale.coerceIn(0, 12))
+            }
             when (grouping) {
                 "comma" -> plain
                     .replace(symbols.groupingSeparator.toString(), "‚")
@@ -210,6 +213,23 @@ object Engine {
         } catch (e: Exception) {
             "Error"
         }
+    }
+
+    private fun scientific(v: BigDecimal, symbols: java.text.DecimalFormatSymbols, maxScale: Int): String {
+        val pattern = buildString {
+            append("0")
+            if (maxScale > 0) {
+                append('.')
+                repeat(maxScale) { append('#') }
+            }
+            append("E0")
+        }
+        val df = java.text.DecimalFormat(pattern).apply {
+            decimalFormatSymbols = symbols
+            isGroupingUsed = false
+            roundingMode = RoundingMode.HALF_UP
+        }
+        return df.format(v).replace("E", "E+").replace("E+-", "E-")
     }
 
     private fun indianFormat(v: BigDecimal, decimalSep: Char): String {
