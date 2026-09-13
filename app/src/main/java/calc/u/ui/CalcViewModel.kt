@@ -52,6 +52,8 @@ class CalcViewModel @Inject constructor(
 ) : ViewModel() {
     private val _uiState = MutableStateFlow(CalcUiState())
     val uiState: StateFlow<CalcUiState> = _uiState.asStateFlow()
+    private val _variables = MutableStateFlow<Map<String, BigDecimal>>(emptyMap())
+    val variables: StateFlow<Map<String, BigDecimal>> = _variables.asStateFlow()
     private val _effects = Channel<CalcEffect>(Channel.BUFFERED)
     val effects = _effects.receiveAsFlow()
     val vibration: StateFlow<Boolean> =
@@ -173,11 +175,19 @@ class CalcViewModel @Inject constructor(
 
     fun onEquals() {
         val st = _uiState.value
+        val mode = effectiveMode(st)
+        Engine.parseAssignment(st.input, mode)?.let { a ->
+            _variables.update { it + (a.name to a.value) }
+            val r = Engine.format(a.value, decimals.value, numberFormat.value, fractions.value)
+            _uiState.update { s -> s.copy(result = "✓ ${a.name} = $r", input = st.input) }
+            viewModelScope.launch { runCatching { historyRepo.push(st.input, a.value.toPlainString()) } }
+            return
+        }
         Engine.validateExpr(st.input)?.let { msg ->
             _uiState.update { s -> s.copy(result = msg) }
             return
         }
-        runCatching { Engine.evalMode(st.input, effectiveMode(st)) }.getOrNull()?.onSuccess {
+        runCatching { Engine.evalMode(st.input, effectiveMode(st), _variables.value) }.getOrNull()?.onSuccess {
             val r = runCatching { fmt(it) }.getOrDefault("Error")
             if (r != "Error") {
                 lastResult = r
@@ -212,7 +222,7 @@ class CalcViewModel @Inject constructor(
         val st = _uiState.value
         if (st.input.isBlank()) { _uiState.update { it.copy(result = "") }; return }
         if (Engine.validateExpr(st.input) != null) { _uiState.update { it.copy(result = "") }; return }
-        runCatching { Engine.evalMode(st.input, effectiveMode(st)) }.getOrNull()?.onSuccess {
+        runCatching { Engine.evalMode(st.input, effectiveMode(st), _variables.value) }.getOrNull()?.onSuccess {
             val formatted = runCatching { fmt(it) }.getOrNull()
             if (formatted != null) _uiState.update { s -> s.copy(result = formatted) }
             else _uiState.update { s -> s.copy(result = "") }
@@ -242,6 +252,9 @@ class CalcViewModel @Inject constructor(
         return if (m.isFinite()) m else 0.0
     }
     fun onMemClear() { _uiState.update { it.copy(memory = 0.0) } }
+
+    fun onDeleteVariable(name: String) { _variables.update { it - name } }
+    fun onClearVariables() { _variables.update { emptyMap() } }
     fun onClearHistory() { viewModelScope.launch { runCatching { historyRepo.clear() } } }
     fun onHistoryTap(entry: String) {
         val body = runCatching {

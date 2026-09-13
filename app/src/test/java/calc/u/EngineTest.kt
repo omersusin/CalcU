@@ -381,4 +381,40 @@ class EngineTest {
         assertEquals(kotlin.math.ln(2.0), Engine.eval("ln(2)").getOrThrow().toDouble(), 1e-9)
         assertEquals(kotlin.math.ln(10.0), Engine.eval("ln(10)").getOrThrow().toDouble(), 1e-9)
     }
+
+    @Test fun assignmentParsesNameAndEvaluatesRhs() {
+        val a = Engine.parseAssignment("radius = 3 + 2")!!
+        assertEquals("radius", a.name)
+        assertEquals(5.0, a.value.toDouble(), 1e-9)
+    }
+
+    @Test fun assignmentRejectsReservedAndMalformed() {
+        assertNull(Engine.parseAssignment("PI = 3.1"))
+        assertNull(Engine.parseAssignment("sqrt = 2"))
+        assertNull(Engine.parseAssignment("x = "))
+        assertNull(Engine.parseAssignment("hello world"))
+        assertNull(Engine.parseAssignment("1x = 3"))
+    }
+
+    @Test fun variablesSubstituteIntoExpression() {
+        val vars = mapOf("radius" to java.math.BigDecimal("2"))
+        assertEquals(12.566370614359172, Engine.eval("PI*radius^2", vars = vars).getOrThrow().toDouble(), 1e-9)
+        assertEquals(3.0, Engine.eval("radius+1", vars = vars).getOrThrow().toDouble(), 1e-9)
+    }
+
+    @Test fun variablesDoNotClobberReservedOrIdentifiers() {
+        val vars = mapOf("ln" to java.math.BigDecimal("5"))
+        assertEquals(kotlin.math.ln(2.0), Engine.eval("ln(2)", vars = vars).getOrThrow().toDouble(), 1e-9)
+        assertNull(Engine.parseAssignment("ln = 5"))
+    }
+
+    @Test fun unresolvedVariableIsNotSubstituted() {
+        val vars = mapOf("x" to java.math.BigDecimal("7"))
+        assertTrue(Engine.eval("y+1", vars = vars).isFailure)
+    }
+
+    @Test fun assignmentValueSurvivesRationalization() {
+        val a = Engine.parseAssignment("kick = 0.362363")!!
+        assertEquals("kick", a.name)
+    }
 }

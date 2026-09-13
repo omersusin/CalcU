@@ -16,9 +16,60 @@ import kotlin.math.ln
 import kotlin.math.sqrt
 
 object Engine {
-    fun eval(input: String, angleDeg: Boolean = true): Result<BigDecimal> = runCatching {
+    /** A user-defined variable assignment, e.g. `radius = 12.5`. */
+    data class Assignment(val name: String, val value: BigDecimal)
+
+    /**
+     * Names never treated as user variables — math/functions constants that
+     * substitution must not clobber (EvalEx builtins + our rewrite targets).
+     */
+    private val RESERVED_VARS: Set<String> = setOf(
+        "PI", "E", "LN", "LOG", "LOG10", "LN2", "LN10", "SQRT", "CBRT",
+        "ABS", "SIGN", "ROUND", "FLOOR", "CEIL", "MIN", "MAX", "POW", "MOD", "EXP",
+        "SIN", "COS", "TAN", "SINR", "COSR", "TANR", "ASIN", "ACOS", "ATAN",
+        "FACT", "GCD", "LCM", "NCR", "NPR", "TOTIENT", "FIB", "ISPRIME"
+    )
+
+    /** Parse `name = rhs` into an assignment, or `null` when not assignable. */
+    fun parseAssignment(input: String, angleMode: String = "DEG"): Assignment? = runCatching {
+        val t = input.trim()
+        val m = Regex("^([A-Za-z_][A-Za-z0-9_]*)\\s*=\\s*(.+)$").find(t) ?: return null
+        val name = m.groupValues[1]
+        if (name.uppercase() in RESERVED_VARS) return null
+        val value = evalMode(m.groupValues[2], angleMode).getOrElse { return null }
+        Assignment(name, value)
+    }.getOrNull()
+
+    private fun isWordChar(c: Char): Boolean = c.isLetterOrDigit() || c == '_' || c == '.'
+
+    /** Substitute defined variable names in [input]; reserved words are skipped. */
+    fun substitute(input: String, vars: Map<String, BigDecimal>): String {
+        if (vars.isEmpty()) return input
+        val out = StringBuilder(input.length + 16)
+        var i = 0
+        while (i < input.length) {
+            val c = input[i]
+            if (!(c.isLetter() || c == '_') || (i > 0 && isWordChar(input[i - 1]))) {
+                out.append(c)
+                i++
+                continue
+            }
+            var j = i
+            while (j < input.length && (input[j].isLetterOrDigit() || input[j] == '_')) j++
+            val word = input.substring(i, j)
+            if (word.uppercase() in RESERVED_VARS || word !in vars) {
+                out.append(word)
+            } else {
+                out.append(vars.getValue(word).toPlainString())
+            }
+            i = j
+        }
+        return out.toString()
+    }
+
+    fun eval(input: String, angleDeg: Boolean = true, vars: Map<String, BigDecimal> = emptyMap()): Result<BigDecimal> = runCatching {
         require(input.length <= 20000) { "expression too long" }
-        var expr = input.trim()
+        var expr = substitute(input.trim(), vars)
             .replace("×", "*")
             .replace("÷", "/")
             .replace("−", "-")
@@ -59,11 +110,11 @@ object Engine {
      * returns degrees, and explicit radian spellings (`SINR(`/`COSR(`/`TANR(`)
      * are left untouched.
      */
-    fun evalMode(input: String, mode: String = "DEG"): Result<BigDecimal> = runCatching {
+    fun evalMode(input: String, mode: String = "DEG", vars: Map<String, BigDecimal> = emptyMap()): Result<BigDecimal> = runCatching {
         when (mode.trim().uppercase()) {
-            "RAD" -> eval(input, false).getOrThrow()
-            "GRA" -> eval(gradToDeg(input), true).getOrThrow()
-            else -> eval(input, true).getOrThrow()
+            "RAD" -> eval(input, false, vars).getOrThrow()
+            "GRA" -> eval(gradToDeg(input), true, vars).getOrThrow()
+            else -> eval(input, true, vars).getOrThrow()
         }
     }
 
