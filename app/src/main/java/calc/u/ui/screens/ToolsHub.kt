@@ -7,6 +7,8 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.scaleIn
 import androidx.compose.animation.scaleOut
 import androidx.compose.animation.togetherWith
+import calc.u.ui.theme.ExpressiveSprings
+import calc.u.ui.theme.FluentMotion
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -578,8 +580,12 @@ fun ToolsHub(onOpen: (String) -> Unit, vm: ToolsHubViewModel = hiltViewModel()) 
                         AnimatedContent(
                             targetState = expanded,
                             transitionSpec = {
-                                (fadeIn(tween(150)) + scaleIn(initialScale = 0.8f, animationSpec = tween(150)))
-                                    .togetherWith(fadeOut(tween(150)) + scaleOut(targetScale = 0.8f, animationSpec = tween(150)))
+                                (fadeIn(tween(FluentMotion.Short)) +
+                                    scaleIn(initialScale = 0.8f, animationSpec = ExpressiveSprings.SpatialFast))
+                                    .togetherWith(
+                                        fadeOut(tween(FluentMotion.Short)) +
+                                            scaleOut(targetScale = 0.8f, animationSpec = ExpressiveSprings.SpatialFast)
+                                    )
                             },
                             label = "categoryExpand"
                         ) { shown ->
