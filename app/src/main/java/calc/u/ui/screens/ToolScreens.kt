@@ -2478,7 +2478,7 @@ fun MathScreen(onNavigate: (String) -> Unit = {}) {
         Modifier.fillMaxSize().padding(vertical = 16.dp).padding(bottom = 72.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
-        LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        LazyRow(modifier = Modifier.padding(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             items(tabs) { (id, label) ->
                 FilterChip(selected = tab == id, onClick = { tab = id }, label = { Text(label) })
             }
@@ -3979,7 +3979,7 @@ fun StepsScreen(onNavigate: (String) -> Unit = {}) {
         Modifier.fillMaxSize().padding(vertical = 16.dp).padding(bottom = 72.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
-        LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        LazyRow(modifier = Modifier.padding(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             items(tabs) { (id, label) ->
                 FilterChip(selected = tab == id, onClick = { tab = id }, label = { Text(label) })
             }
