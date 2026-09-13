@@ -71,7 +71,7 @@ private fun fmtHMSLong(ms: Long): String = runCatching {
 @Composable
 fun TimeLabScreen() {
     var tab by remember { mutableStateOf("stopwatch") }
-    Column(Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+    Column(Modifier.fillMaxSize().padding(16.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
         LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             items(listOf("stopwatch" to "Stopwatch", "timer" to "Timer", "pomodoro" to "Pomodoro")) { (id, label) ->
                 FilterChip(selected = tab == id, onClick = { tab = id }, label = { Text(label) })

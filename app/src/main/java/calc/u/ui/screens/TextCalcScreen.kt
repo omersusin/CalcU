@@ -87,8 +87,8 @@ fun TextCalcScreen() {
     fun bodyWithResults(): String = runCatching { TextCalc.renderWithResults(text) }.getOrDefault(text)
 
     LazyColumn(
-        modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp, vertical = 12.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp)
+        modifier = Modifier.fillMaxSize().padding(16.dp),
+        verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
         item {
             Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
@@ -218,6 +218,7 @@ fun TextCalcScreen() {
             items(sessions, key = { it.name + it.updatedAt }) { s ->
                 Card(
                     modifier = Modifier.fillMaxWidth(),
+                    shape = MaterialTheme.shapes.large,
                     colors = CardDefaults.cardColors(
                         containerColor = MaterialTheme.colorScheme.surfaceContainerLow
                     )

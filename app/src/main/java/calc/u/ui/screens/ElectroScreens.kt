@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
@@ -131,7 +132,7 @@ private fun ColorDropdown(
 @Composable
 fun ElectroScreen() {
     var tab by remember { mutableStateOf("resistor") }
-    Column(Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+    Column(Modifier.fillMaxSize().padding(16.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
         LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             items(listOf("resistor" to "Resistor", "subnet" to "Subnet")) { (id, label) ->
                 FilterChip(selected = tab == id, onClick = { tab = id }, label = { Text(label) })
