@@ -2573,7 +2573,7 @@ private fun NumbersContent() {
         val sign = if (rd < 0) "-" else ""
         "$sign${kotlin.math.abs(rn)}/${kotlin.math.abs(rd)} = ${fmt(fn.toDouble() / fd.toDouble(), 6)}"
     }.getOrDefault("—")
-    LazyColumn(Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+    LazyColumn(Modifier.fillMaxSize().padding(16.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
         item {
             SectionCard("Number theory") {
                 Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -3459,7 +3459,7 @@ fun GeometryScreen() {
             else -> emptyList()
         }
     }.getOrDefault(listOf("Result" to "—"))
-    LazyColumn(Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+    LazyColumn(Modifier.fillMaxSize().padding(16.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
         item {
             SectionCard("Shape") {
                 LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -3560,7 +3560,7 @@ fun HealthScreen(onNavigate: (String) -> Unit = {}) {
         1.725 to "Active",
         1.9 to "Athlete"
     )
-    LazyColumn(Modifier.fillMaxSize().padding(bottom = 72.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+    LazyColumn(Modifier.fillMaxSize().padding(start = 16.dp, end = 16.dp, bottom = 72.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
         item {
             SectionCard("BMI") {
                 LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -3990,7 +3990,7 @@ fun StepsScreen(onNavigate: (String) -> Unit = {}) {
                     val p = ep.toDoubleOrNull()
                     val annual = er.toDoubleOrNull()
                     val months = en.toIntOrNull()
-                    LazyColumn(Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                    LazyColumn(Modifier.fillMaxSize().padding(16.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
                         item {
                             SectionCard("Inputs") {
                                 NumField(ep, { ep = it }, "Principal")
@@ -4031,7 +4031,7 @@ fun StepsScreen(onNavigate: (String) -> Unit = {}) {
                 "gcd" -> {
                     val a = g1.toLongOrNull()
                     val b = g2.toLongOrNull()
-                    LazyColumn(Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                    LazyColumn(Modifier.fillMaxSize().padding(16.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
                         item {
                             SectionCard("Inputs") {
                                 NumField(g1, { g1 = it }, "a", integer = true)
@@ -4084,7 +4084,7 @@ fun StepsScreen(onNavigate: (String) -> Unit = {}) {
                     val f = catMap[safeCf]
                     val t = catMap[safeCt]
                     val names = catMap.keys.sorted().joinToString(", ")
-                    LazyColumn(Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                    LazyColumn(Modifier.fillMaxSize().padding(16.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
                         item {
                             SectionCard("Inputs") {
                                 NumField(cv, { cv = it }, "Value")
@@ -4131,7 +4131,7 @@ fun StepsScreen(onNavigate: (String) -> Unit = {}) {
                     val a = qa.toDoubleOrNull()
                     val b = qb.toDoubleOrNull()
                     val c = qc.toDoubleOrNull()
-                    LazyColumn(Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                    LazyColumn(Modifier.fillMaxSize().padding(16.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
                         item {
                             SectionCard("Inputs") {
                                 NumField(qa, { qa = it }, "a")
