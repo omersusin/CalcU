@@ -41,7 +41,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Backspace
+import androidx.compose.material.icons.automirrored.filled.Backspace
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.Delete
@@ -1293,7 +1293,7 @@ private fun BackKey(
         contentAlignment = Alignment.Center
     ) {
         Icon(
-            Icons.Filled.Backspace,
+            Icons.AutoMirrored.Filled.Backspace,
             contentDescription = "Backspace, long-press to clear",
             tint = content
         )
