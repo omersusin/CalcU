@@ -682,7 +682,7 @@ object Units {
             require(v != 0.0) { "efficiency must be non-zero" }
             WHKM_CONST / v
         }
-        else -> v
+        else -> v * ev.getValue(from).toBase
     }
 
     fun miPerKwhToEv(v: Double, to: String): Double = when (to) {
@@ -690,7 +690,7 @@ object Units {
             require(v != 0.0) { "efficiency must be non-zero" }
             WHKM_CONST / v
         }
-        else -> v
+        else -> v / ev.getValue(to).toBase
     }
 
     fun convertEv(value: Double, from: String, to: String): Double {
