@@ -609,6 +609,9 @@ private fun contrastRatio(fg: Color, bg: Color): Float {
 @SuppressLint("RestrictedApi")
 @Composable
 fun dynamicFixedScheme(context: Context, dark: Boolean): ColorScheme {
+    if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S) {
+        return if (dark) darkColorScheme() else lightColorScheme()
+    }
     val base = if (dark) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context)
     val seedInt = runCatching { colorToArgb(base.primary) }.getOrNull() ?: return base
     val palette = runCatching { TonalPalette.fromInt(seedInt) }.getOrNull() ?: return base
