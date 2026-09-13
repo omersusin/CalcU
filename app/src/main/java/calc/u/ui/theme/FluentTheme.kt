@@ -593,7 +593,7 @@ private fun colorToArgb(color: Color): Int {
 private fun relativeLuminance(color: Color): Float {
     fun channel(v: Float): Float {
         val c = v.coerceIn(0f, 1f).toDouble()
-        return if (c <= 0.04045) (c / 12.92).toFloat() else kotlin.math.pow((c + 0.055) / 1.055, 2.4).toFloat()
+        return if (c <= 0.04045) (c / 12.92).toFloat() else Math.pow((c + 0.055) / 1.055, 2.4).toFloat()
     }
     return 0.2126f * channel(color.red) + 0.7152f * channel(color.green) + 0.0722f * channel(color.blue)
 }
