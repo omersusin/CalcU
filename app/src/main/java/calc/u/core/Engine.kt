@@ -27,6 +27,9 @@ object Engine {
         expr = expr.replace(Regex("√\\s*([0-9]+(?:\\.[0-9]+)?)"), "SQRT($1)")
         expr = expr.replace(Regex("√\\s*(PI\\b)"), "SQRT($1)")
         expr = expr.replace(Regex("√\\s*([A-Za-z_][A-Za-z0-9_.]*)"), "SQRT($1)")
+        expr = expr.replace(Regex("\\bln\\s*\\(", RegexOption.IGNORE_CASE), "LOG(")
+        expr = expr.replace(Regex("(\\d+(?:\\.\\d+)?)\\s*!\\s*(?![A-Za-z_0-9])"), "FACT($1)")
+        expr = expr.replace(Regex("(\\d+(?:\\.\\d+)?)\\s*%"), "$1/100")
         while (expr.isNotEmpty() && expr.last() in "+-*/^%×÷−") {
             expr = expr.dropLast(1).trimEnd()
         }

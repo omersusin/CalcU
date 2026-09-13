@@ -364,4 +364,21 @@ class EngineTest {
         assertTrue(Engine.radixConvert("0", "1", 10, 2, 12).startsWith("0.00011"))
         assertEquals("50%", Engine.formatPercentMode(0.5, "percent"))
     }
+
+    @Test fun factorialActuallyEvaluates() {
+        assertEquals(120.0, Engine.eval("5!").getOrThrow().toDouble(), 1e-9)
+        assertEquals(5040.0, Engine.eval("7!+0").getOrThrow().toDouble(), 1e-9)
+        assertEquals(3628800.0, Engine.eval("10!").getOrThrow().toDouble(), 1e-9)
+    }
+
+    @Test fun percentActuallyEvaluatesAsFraction() {
+        assertEquals(0.5, Engine.eval("50%").getOrThrow().toDouble(), 1e-9)
+        assertEquals(0.25, Engine.eval("25%").getOrThrow().toDouble(), 1e-9)
+        assertEquals(100.1, Engine.eval("100+10%").getOrThrow().toDouble(), 1e-9)
+    }
+
+    @Test fun naturalLogActuallyEvaluates() {
+        assertEquals(kotlin.math.ln(2.0), Engine.eval("ln(2)").getOrThrow().toDouble(), 1e-9)
+        assertEquals(kotlin.math.ln(10.0), Engine.eval("ln(10)").getOrThrow().toDouble(), 1e-9)
+    }
 }

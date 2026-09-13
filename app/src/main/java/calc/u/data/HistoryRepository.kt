@@ -24,7 +24,7 @@ class HistoryRepository @Inject constructor(@ApplicationContext private val ctx:
     }.catch { emit(emptyList()) }
     suspend fun push(expr: String, result: String) {
         runCatching {
-            val cap = runCatching { settingsRepo.historyCap.first() }.getOrDefault(200)
+            val cap = currentCap()
             val entry = "${System.currentTimeMillis()}|$expr=$result|"
             ctx.dataStore.edit { p ->
                 val cur: MutableList<String> = try { Json.decodeFromString<MutableList<String>>(p[key] ?: "[]") } catch (e: Exception) { mutableListOf() }
@@ -33,6 +33,9 @@ class HistoryRepository @Inject constructor(@ApplicationContext private val ctx:
             }
         }
     }
+
+    private suspend fun currentCap(): Int =
+        runCatching { settingsRepo.historyCap.first() }.getOrDefault(200)
     fun search(q: String): Flow<List<String>> = history.map { list ->
         if (q.isBlank()) list else list.filter { it.contains(q, ignoreCase = true) }
     }
@@ -41,7 +44,7 @@ class HistoryRepository @Inject constructor(@ApplicationContext private val ctx:
             ctx.dataStore.edit { p ->
                 val cur: MutableList<String> = try { Json.decodeFromString<MutableList<String>>(p[key] ?: "[]") } catch (e: Exception) { mutableListOf() }
                 if (index in cur.indices) cur.removeAt(index)
-                p[key] = runCatching { Json.encodeToString(cur.take(200)) }.getOrDefault("[]")
+                p[key] = runCatching { Json.encodeToString(cur.take(currentCap())) }.getOrDefault("[]")
             }
         }
     }
@@ -56,7 +59,7 @@ class HistoryRepository @Inject constructor(@ApplicationContext private val ctx:
                     val body = parts?.getOrNull(1) ?: ""
                     cur[index] = "$ts|$body|$clean"
                 }
-                p[key] = runCatching { Json.encodeToString(cur.take(200)) }.getOrDefault("[]")
+                p[key] = runCatching { Json.encodeToString(cur.take(currentCap())) }.getOrDefault("[]")
             }
         }
     }

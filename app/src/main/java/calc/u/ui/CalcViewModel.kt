@@ -23,6 +23,7 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import java.math.BigDecimal
+import java.math.RoundingMode
 import javax.inject.Inject
 
 data class CalcUiState(
@@ -59,6 +60,8 @@ class CalcViewModel @Inject constructor(
         historyRepo.activityLast14Days().stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyMap())
     val decimals: StateFlow<Int> =
         settingsRepo.decimals.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 10)
+    val precisionSlider: StateFlow<Int> =
+        settingsRepo.precisionSlider.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 10)
     val numberFormat: StateFlow<String> =
         settingsRepo.numberFormat.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), "locale")
     val fractions: StateFlow<Boolean> =
@@ -70,8 +73,18 @@ class CalcViewModel @Inject constructor(
     val keypadShape: StateFlow<String> =
         settingsRepo.keypadShape.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), "circles")
 
-    private fun fmt(v: BigDecimal): String =
-        Engine.format(v, decimals.value, numberFormat.value, fractions.value)
+    private fun fmt(v: BigDecimal): String {
+        val rounded = if (precisionSlider.value in 1..15) {
+            roundSig(v, precisionSlider.value)
+        } else v
+        return Engine.format(rounded, decimals.value, numberFormat.value, fractions.value)
+    }
+
+    private fun roundSig(v: BigDecimal, sf: Int): BigDecimal = runCatching {
+        if (v.scale() <= 0) return v
+        val newScale = sf - (v.precision() - v.scale())
+        v.setScale(newScale.coerceAtMost(12).coerceAtLeast(-24), RoundingMode.HALF_UP)
+    }.getOrDefault(v)
 
     private fun parseResult(s: String): Double? {
         if (s.isBlank()) return null
