@@ -27,12 +27,15 @@ import androidx.compose.material.icons.filled.AttachMoney
 import androidx.compose.material.icons.filled.BarChart
 import androidx.compose.material.icons.filled.Build
 import androidx.compose.material.icons.filled.Calculate
+import androidx.compose.material.icons.filled.Category
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Code
 import androidx.compose.material.icons.filled.Done
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Explore
 import androidx.compose.material.icons.filled.ExpandLess
 import androidx.compose.material.icons.filled.ExpandMore
+import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.GridOn
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.QrCode
@@ -45,6 +48,7 @@ import androidx.compose.material.icons.filled.Straighten
 import androidx.compose.material.icons.filled.SwapHoriz
 import androidx.compose.material.icons.filled.Timeline
 import androidx.compose.material.icons.filled.Timer
+import androidx.compose.material.icons.filled.Widgets
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.FloatingActionButton
@@ -95,6 +99,8 @@ private val HubTools = listOf(
     ToolEntry("Finance", "Finance", "finance"),
     ToolEntry("Math", "Math", "math"),
     ToolEntry("Steps", "Math", "steps"),
+    ToolEntry("Geometry", "Math", "geometry"),
+    ToolEntry("Programmer", "Math", "programmer"),
     ToolEntry("Stopwatch", "Time", "time"),
     ToolEntry("Timer", "Time", "time"),
     ToolEntry("Pomodoro", "Time", "time"),
@@ -116,6 +122,7 @@ private val HubTools = listOf(
     ToolEntry("Number words", "Everyday", "everyday"),
     ToolEntry("Paint & tiles", "Everyday", "everyday"),
     ToolEntry("Ideal weight", "Everyday", "everyday"),
+    ToolEntry("Health", "Health", "health"),
     ToolEntry("Metronome", "Everyday", "everyday"),
     ToolEntry("Ruler", "Everyday", "ruler"),
     ToolEntry("Compass", "Sensors", "sensors"),
@@ -131,13 +138,17 @@ private val RouteLabels = mapOf(
     "finance" to "Finance",
     "math" to "Math",
     "steps" to "Steps",
+    "geometry" to "Geometry",
+    "programmer" to "Programmer",
     "time" to "Time Lab",
     "electro" to "Electro",
     "textdata" to "Text+Data",
     "everyday" to "Everyday",
+    "health" to "Health",
     "qrscan" to "QR Scan",
     "sensors" to "Sensors",
     "ruler" to "Ruler",
+    "analyze" to "Analyze",
     "tools" to "Tools",
     "settings" to "Settings"
 )
@@ -183,14 +194,33 @@ private fun toolIcon(entry: ToolEntry): ImageVector = when (entry.route) {
     "finance" -> Icons.Filled.AttachMoney
     "math" -> Icons.Filled.GridOn
     "steps" -> Icons.Filled.Timeline
+    "geometry" -> Icons.Filled.Category
+    "programmer" -> Icons.Filled.Code
     "time" -> Icons.Filled.Timer
     "electro" -> Icons.Filled.Build
     "textdata" -> if (entry.name == "QR") Icons.Filled.QrCode else Icons.Filled.ShortText
-    "everyday" -> Icons.Filled.Apps
+    "everyday" -> Icons.Filled.Widgets
+    "health" -> Icons.Filled.Favorite
     "ruler" -> Icons.Filled.Straighten
     "sensors" -> Icons.Filled.Explore
     "analyze" -> Icons.Filled.BarChart
     else -> Icons.Filled.Apps
+}
+
+// Tool identity is "route#name" so favorites/recents/reorder act on one tool,
+// not on every tool sharing a route (e.g. the 10 Text+Data entries).
+// ToolPrefs only stores opaque strings, so composite keys persist without
+// touching ToolPrefs; legacy route-only keys still rank via rankOf fallback.
+private fun toolKey(entry: ToolEntry): String = "${entry.route}#${entry.name}"
+
+private fun keyRoute(key: String): String = key.substringBefore("#")
+
+private fun rankOf(order: List<String>, entry: ToolEntry): Int {
+    val exact = order.indexOf(toolKey(entry))
+    if (exact >= 0) return exact
+    val legacy = order.indexOf(entry.route)
+    if (legacy >= 0) return legacy
+    return Int.MAX_VALUE
 }
 
 @HiltViewModel
@@ -202,23 +232,35 @@ class ToolsHubViewModel @Inject constructor(private val prefs: ToolPrefs) : View
     val favTools = prefs.favTools
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptySet<String>())
 
-    fun move(route: String, delta: Int) {
-        val cur = hubOrder.value.toMutableList()
-        val idx = cur.indexOf(route)
+    fun move(id: String, delta: Int) {
+        val stored = hubOrder.value
+        val seq = if (stored.any { "#" in it }) {
+            stored.toMutableList()
+        } else {
+            HubTools.sortedWith(
+                compareBy(
+                    { e: ToolEntry -> stored.indexOf(e.route).takeIf { it >= 0 } ?: Int.MAX_VALUE },
+                    { e: ToolEntry -> HubTools.indexOf(e) }
+                )
+            ).map { toolKey(it) }.toMutableList()
+        }
+        HubTools.map { toolKey(it) }.forEach { if (!seq.contains(it)) seq.add(it) }
+        seq.removeAll { k -> HubTools.none { toolKey(it) == k } }
+        val idx = seq.indexOf(id)
         if (idx == -1) return
-        val to = (idx + delta).coerceIn(0, cur.size - 1)
+        val to = (idx + delta).coerceIn(0, seq.size - 1)
         if (to == idx) return
-        cur.removeAt(idx)
-        cur.add(to, route)
-        viewModelScope.launch { prefs.setHubOrder(cur) }
+        seq.removeAt(idx)
+        seq.add(to, id)
+        viewModelScope.launch { prefs.setHubOrder(seq) }
     }
 
-    fun record(route: String) {
-        viewModelScope.launch { prefs.record(route) }
+    fun record(key: String) {
+        viewModelScope.launch { prefs.record(key) }
     }
 
-    fun toggleFav(route: String) {
-        viewModelScope.launch { prefs.toggleFavTool(route) }
+    fun toggleFav(key: String) {
+        viewModelScope.launch { prefs.toggleFavTool(key) }
     }
 }
 
@@ -246,9 +288,12 @@ fun ToolsHub(onOpen: (String) -> Unit, vm: ToolsHubViewModel = hiltViewModel()) 
     var collapsedList by rememberSaveable { mutableStateOf(emptyList<String>()) }
     val collapsed = remember(collapsedList) { collapsedList.toSet() }
     val searchFocus = remember { FocusRequester() }
-    fun open(route: String) {
-        vm.record(route)
-        onOpen(route)
+    val calcEntry = remember {
+        HubTools.firstOrNull { it.route == "calc" } ?: ToolEntry("Calculator", "Everyday", "calc")
+    }
+    fun open(entry: ToolEntry, key: String = toolKey(entry)) {
+        vm.record(key)
+        onOpen(entry.route)
     }
     val searching = query.isNotBlank()
     val filtered = remember(query) {
@@ -256,28 +301,27 @@ fun ToolsHub(onOpen: (String) -> Unit, vm: ToolsHubViewModel = hiltViewModel()) 
         else HubTools.filter { it.name.contains(query, ignoreCase = true) }
     }
     val grouped = remember(filtered) { filtered.groupBy { it.category } }
-    val routeRank = remember(order) { order.withIndex().associate { it.value to it.index } }
     val orderedGroups = remember(grouped, order) {
         val cats = grouped.keys.sortedWith(
             compareBy(
-                { cat -> grouped.getValue(cat).minOf { routeRank[it.route] ?: Int.MAX_VALUE } },
+                { cat -> grouped.getValue(cat).minOf { rankOf(order, it) } },
                 { cat -> HubTools.indexOfFirst { t -> t.category == cat } }
             )
         )
         cats.associateWith { cat ->
             grouped.getValue(cat).sortedWith(
-                compareBy({ routeRank[it.route] ?: Int.MAX_VALUE }, { HubTools.indexOf(it) })
+                compareBy({ rankOf(order, it) }, { HubTools.indexOf(it) })
             )
         }
     }
-    val favEntries = remember(favs) { HubTools.filter { favs.contains(it.route) }.distinctBy { it.name } }
-    val recentRoutes = remember(recents) { recents.distinct() }
+    val favEntries = remember(favs) { HubTools.filter { favs.contains(toolKey(it)) } }
+    val recentKeys = remember(recents) { recents.distinct() }
 
     Scaffold(
         modifier = Modifier.fillMaxSize(),
         floatingActionButton = {
             FloatingActionButton(
-                onClick = { open("calc") },
+                onClick = { open(calcEntry) },
                 containerColor = MaterialTheme.colorScheme.inverseSurface,
                 contentColor = MaterialTheme.colorScheme.inverseOnSurface
             ) {
@@ -372,13 +416,13 @@ fun ToolsHub(onOpen: (String) -> Unit, vm: ToolsHubViewModel = hiltViewModel()) 
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.spacedBy(20.dp)
                     ) {
-                        items(favEntries, key = { it.name }) { tool ->
+                        items(favEntries, key = { toolKey(it) }) { tool ->
                             Column(
                                 horizontalAlignment = Alignment.CenterHorizontally,
                                 verticalArrangement = Arrangement.spacedBy(8.dp),
                                 modifier = Modifier
                                     .widthIn(max = 76.dp)
-                                    .clickable { open(tool.route) }
+                                    .clickable { open(tool) }
                             ) {
                                 Box(
                                     modifier = Modifier.size(72.dp),
@@ -406,7 +450,7 @@ fun ToolsHub(onOpen: (String) -> Unit, vm: ToolsHubViewModel = hiltViewModel()) 
                                                 .size(24.dp)
                                                 .clip(CircleShape)
                                                 .background(MaterialTheme.colorScheme.inverseSurface)
-                                                .clickable { vm.toggleFav(tool.route) }
+                                                .clickable { vm.toggleFav(toolKey(tool)) }
                                         ) {
                                             Icon(
                                                 Icons.Filled.Star,
@@ -429,7 +473,7 @@ fun ToolsHub(onOpen: (String) -> Unit, vm: ToolsHubViewModel = hiltViewModel()) 
                     }
                 }
             }
-            if (query.isBlank() && recentRoutes.isNotEmpty()) {
+            if (query.isBlank() && recentKeys.isNotEmpty()) {
                 item {
                     Text(
                         "Recent",
@@ -437,13 +481,14 @@ fun ToolsHub(onOpen: (String) -> Unit, vm: ToolsHubViewModel = hiltViewModel()) 
                         modifier = Modifier.semantics { heading() }
                     )
                 }
-                items(recentRoutes, key = { "recent-$it" }) { route ->
-                    val rep = HubTools.firstOrNull { it.route == route }
-                    val label = RouteLabels[route] ?: rep?.name ?: route
-                    val category = rep?.category ?: "Everyday"
-                    val iconEntry = rep ?: ToolEntry(label, category, route)
+                items(recentKeys, key = { "recent-$it" }) { key ->
+                    val entry = HubTools.firstOrNull { toolKey(it) == key }
+                    val route = entry?.route ?: keyRoute(key)
+                    val label = entry?.name ?: (RouteLabels[route] ?: route)
+                    val category = entry?.category ?: "Everyday"
+                    val iconEntry = entry ?: ToolEntry(label, category, route)
                     Card(
-                        modifier = Modifier.fillMaxWidth().clickable { open(route) },
+                        modifier = Modifier.fillMaxWidth().clickable { open(iconEntry, key) },
                         shape = RoundedCornerShape(20.dp),
                         colors = CardDefaults.cardColors(
                             containerColor = MaterialTheme.colorScheme.surfaceContainerLow
@@ -515,10 +560,10 @@ fun ToolsHub(onOpen: (String) -> Unit, vm: ToolsHubViewModel = hiltViewModel()) 
                     }
                 }
                 if (expanded) {
-                    items(tools, key = { it.name }) { tool ->
-                        val starred = favs.contains(tool.route)
+                    items(tools, key = { toolKey(it) }) { tool ->
+                        val starred = favs.contains(toolKey(tool))
                         Card(
-                            modifier = Modifier.fillMaxWidth().clickable { open(tool.route) },
+                            modifier = Modifier.fillMaxWidth().clickable { open(tool) },
                             shape = RoundedCornerShape(20.dp),
                             colors = CardDefaults.cardColors(
                                 containerColor = MaterialTheme.colorScheme.surfaceContainerLow
@@ -552,20 +597,20 @@ fun ToolsHub(onOpen: (String) -> Unit, vm: ToolsHubViewModel = hiltViewModel()) 
                                     )
                                 }
                                 if (editMode) {
-                                    IconButton(onClick = { vm.move(tool.route, -1) }) {
+                                    IconButton(onClick = { vm.move(toolKey(tool), -1) }) {
                                         Icon(
                                             Icons.Filled.ArrowUpward,
                                             contentDescription = "Move ${tool.name} up"
                                         )
                                     }
-                                    IconButton(onClick = { vm.move(tool.route, 1) }) {
+                                    IconButton(onClick = { vm.move(toolKey(tool), 1) }) {
                                         Icon(
                                             Icons.Filled.ArrowDownward,
                                             contentDescription = "Move ${tool.name} down"
                                         )
                                     }
                                 }
-                                IconButton(onClick = { vm.toggleFav(tool.route) }) {
+                                IconButton(onClick = { vm.toggleFav(toolKey(tool)) }) {
                                     Icon(
                                         if (starred) Icons.Filled.Star else Icons.Filled.StarBorder,
                                         contentDescription = if (starred) "Unstar ${tool.name}" else "Star ${tool.name}",

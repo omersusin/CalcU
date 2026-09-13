@@ -1,6 +1,8 @@
 package calc.u.ui
 
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.CubicBezierEasing
+import androidx.compose.animation.core.Easing
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloatAsState
@@ -8,9 +10,11 @@ import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.slideInVertically
+import androidx.compose.foundation.background
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -18,7 +22,6 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Calculate
 import androidx.compose.material.icons.filled.ChevronLeft
@@ -40,6 +43,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.AnnotatedString
@@ -51,52 +55,109 @@ import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.foundation.shape.RoundedCornerShape
 import calc.u.ui.theme.FluentElevation
 import calc.u.ui.theme.FluentMotion
 
+private val CascadeEasing: Easing = CubicBezierEasing(0.4f, 0.0f, 0.2f, 1.0f)
+private const val CascadeDuration = 350
+
+fun staggerDelayHeader(): Int = 0
+
+fun staggerDelayControl(): Int = 60
+
+fun staggerDelayCard(order: Int): Int = minOf(110 + 45 * order, 260)
+
+fun staggerDelayItem(index: Int): Int = minOf(80 + 45 * index, 360)
+
+private fun cascadeEnter(delayMillis: Int) =
+    fadeIn(tween(CascadeDuration, delayMillis = delayMillis, easing = CascadeEasing)) +
+        slideInVertically(tween(CascadeDuration, delayMillis = delayMillis, easing = CascadeEasing)) { density ->
+            with(density) { 18.dp.roundToPx() }
+        }
+
 @Composable
-fun SectionCard(title: String, modifier: Modifier = Modifier, content: @Composable () -> Unit) {
+fun FluentStaggerHeader(content: @Composable () -> Unit) {
     AnimatedVisibility(
         visible = true,
-        enter = fadeIn(tween(FluentMotion.Medium, easing = FluentMotion.Standard)) +
-            slideInVertically(tween(FluentMotion.Medium, easing = FluentMotion.Standard)) { it / 10 },
-        modifier = modifier
+        enter = cascadeEnter(staggerDelayHeader())
+    ) { content() }
+}
+
+@Composable
+fun FluentStaggerControl(content: @Composable () -> Unit) {
+    AnimatedVisibility(
+        visible = true,
+        enter = cascadeEnter(staggerDelayControl())
+    ) { content() }
+}
+
+@Composable
+fun FluentStaggerCard(order: Int, content: @Composable () -> Unit) {
+    AnimatedVisibility(
+        visible = true,
+        enter = cascadeEnter(staggerDelayCard(order))
+    ) { content() }
+}
+
+@Composable
+fun SectionCard(title: String, modifier: Modifier = Modifier, content: @Composable () -> Unit) {
+    Column(
+        modifier,
+        verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        Column(
-            Modifier.fillMaxWidth(),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
-        ) {
-            Text(
-                title,
-                style = MaterialTheme.typography.labelLarge.copy(letterSpacing = 0.4.sp),
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(horizontal = 4.dp).semantics { heading() }
+        Text(
+            title,
+            style = MaterialTheme.typography.labelLarge.copy(letterSpacing = 0.4.sp),
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(horizontal = 4.dp).semantics { heading() }
+        )
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            shape = MaterialTheme.shapes.large,
+            colors = CardDefaults.cardColors(
+                containerColor = MaterialTheme.colorScheme.surfaceContainerLowest
             )
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                shape = MaterialTheme.shapes.large,
-                colors = CardDefaults.cardColors(
-                    containerColor = MaterialTheme.colorScheme.surfaceContainerLowest
-                )
+        ) {
+            Column(
+                Modifier.padding(20.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                Column(
-                    Modifier.padding(20.dp),
-                    verticalArrangement = Arrangement.spacedBy(12.dp)
-                ) {
-                    content()
-                }
+                content()
             }
         }
     }
 }
 
 @Composable
-fun ResultLine(label: String, value: String, modifier: Modifier = Modifier) {
+private fun ResultCore(
+    label: String,
+    value: String,
+    icon: ImageVector?,
+    tint: Color,
+    modifier: Modifier = Modifier
+) {
     Row(
         modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.SpaceBetween,
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
+        Box(
+            modifier = Modifier.size(32.dp)
+                .background(tint.copy(alpha = 0.12f), RoundedCornerShape(8.dp)),
+            contentAlignment = Alignment.Center
+        ) {
+            if (icon != null) {
+                Icon(icon, contentDescription = null, tint = tint, modifier = Modifier.size(18.dp))
+            } else {
+                Text(
+                    label.trim().firstOrNull()?.uppercase() ?: "–",
+                    style = MaterialTheme.typography.labelLarge,
+                    color = tint,
+                    maxLines = 1
+                )
+            }
+        }
         Text(
             label,
             style = MaterialTheme.typography.bodyMedium,
@@ -114,6 +175,28 @@ fun ResultLine(label: String, value: String, modifier: Modifier = Modifier) {
     }
 }
 
+@Composable
+fun ResultLine(
+    label: String,
+    value: String,
+    modifier: Modifier = Modifier,
+    icon: ImageVector? = null,
+    tint: Color = MaterialTheme.colorScheme.primary
+) {
+    ResultCore(label = label, value = value, icon = icon, tint = tint, modifier = modifier)
+}
+
+@Composable
+fun ToolResultRow(
+    icon: ImageVector,
+    label: String,
+    value: String,
+    modifier: Modifier = Modifier,
+    tint: Color = MaterialTheme.colorScheme.primary
+) {
+    ResultCore(label = label, value = value, icon = icon, tint = tint, modifier = modifier)
+}
+
 enum class FluentKeyKind { Digit, Operator, Equals, Sci }
 
 private val ExpressionOperators = setOf('+', '-', '−', '×', '÷', '/', '*', '%', '^', '√', '(', ')', '!')
@@ -128,11 +211,10 @@ fun tintExpression(input: String, number: Color, operator: Color): AnnotatedStri
 
 @Composable
 fun FluentStagger(index: Int, content: @Composable () -> Unit) {
-    val delay = minOf(index * 40, 240)
+    val delay = staggerDelayItem(index)
     AnimatedVisibility(
         visible = true,
-        enter = fadeIn(tween(FluentMotion.Medium, delayMillis = delay, easing = FluentMotion.Standard)) +
-            slideInVertically(tween(FluentMotion.Medium, delayMillis = delay, easing = FluentMotion.Standard)) { it / 8 }
+        enter = cascadeEnter(delay)
     ) { content() }
 }
 
@@ -230,13 +312,29 @@ fun Modifier.pressScale(pressed: Boolean, pressedScale: Float = 0.96f): Modifier
 }
 
 @Composable
+fun Modifier.pressBounce(pressed: Boolean, pressedScale: Float = 0.96f): Modifier {
+    val scale by animateFloatAsState(
+        targetValue = if (pressed) pressedScale else 1f,
+        animationSpec = spring(
+            stiffness = Spring.StiffnessMediumLow,
+            dampingRatio = Spring.DampingRatioMediumBouncy
+        ),
+        label = "press-bounce"
+    )
+    return this.graphicsLayer(scaleX = scale, scaleY = scale)
+}
+
+@Composable
 fun AnimatedSection(
     title: String,
     modifier: Modifier = Modifier,
     index: Int = 0,
     content: @Composable () -> Unit
 ) {
-    FluentStagger(index = index) {
+    AnimatedVisibility(
+        visible = true,
+        enter = cascadeEnter(staggerDelayCard(index))
+    ) {
         SectionCard(title = title, modifier = modifier, content = content)
     }
 }
@@ -246,9 +344,9 @@ fun JumpToCalcFab(onJump: () -> Unit, modifier: Modifier = Modifier) {
     SmallFloatingActionButton(
         onClick = onJump,
         modifier = modifier.size(48.dp),
-        shape = RoundedCornerShape(12.dp),
-        containerColor = MaterialTheme.colorScheme.inverseSurface,
-        contentColor = MaterialTheme.colorScheme.inverseOnSurface
+        shape = CircleShape,
+        containerColor = MaterialTheme.colorScheme.primaryContainer,
+        contentColor = MaterialTheme.colorScheme.onPrimaryContainer
     ) {
         Icon(Icons.Filled.Calculate, contentDescription = "Back to calculator")
     }

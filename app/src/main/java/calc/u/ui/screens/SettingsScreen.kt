@@ -150,6 +150,7 @@ fun SettingsScreen(vm: SettingsViewModel = hiltViewModel()) {
     val precisionSlider by vm.precisionSlider.collectAsStateWithLifecycle()
     val options = listOf(
         "system" to "System",
+        "botanical" to "Botanical",
         "light" to "Light",
         "dark" to "Dark",
         "amoled" to "AMOLED",
@@ -502,6 +503,10 @@ fun SettingsScreen(vm: SettingsViewModel = hiltViewModel()) {
                         "Investment formulas after CalcHub (MIT); matrix/constants/solver interaction ideas re-implemented from Stagnant09/Android-Calculator (unlicensed, ideas only).",
                         style = MaterialTheme.typography.bodyMedium
                     )
+                    Text(
+                        "Lato typeface by Lukasz Dziedzic (SIL Open Font License 1.1); see assets/licenses/OFL-Lato.txt.",
+                        style = MaterialTheme.typography.bodyMedium
+                    )
                 }
             }
         }
@@ -670,6 +675,15 @@ private val themeShowcases = listOf(
         tertiary = Color(0xFF38656A),
         previewSurface = Color(0xFFF9FAEF),
         previewOnSurface = Color(0xFF1A1C16)
+    ),
+    ThemeShowcase(
+        id = "botanical",
+        label = "Botanical",
+        primary = Color(0xFF4F6632),
+        secondary = Color(0xFF58634A),
+        tertiary = Color(0xFF6A5F27),
+        previewSurface = Color(0xFFFAFAF0),
+        previewOnSurface = Color(0xFF303429)
     ),
     ThemeShowcase(
         id = "light",

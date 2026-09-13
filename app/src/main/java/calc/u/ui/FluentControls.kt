@@ -5,8 +5,10 @@ import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.shrinkVertically
+import androidx.compose.foundation.LocalIndication
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -17,6 +19,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
@@ -56,9 +59,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
-import calc.u.ui.theme.FluentMotion
 import calc.u.ui.theme.FluentSpace
-import calc.u.ui.theme.infoSeverityColor
 
 enum class SpinMode { Inline, Hidden }
 
@@ -68,6 +69,7 @@ const val WARNING = 2
 const val ERROR = 3
 
 private val NumericInput = Regex("-?[0-9]*\\.?[0-9]*([eE][+-]?[0-9]*)?")
+private val FieldGroupShape = RoundedCornerShape(16.dp)
 
 @Composable
 fun CalcUNumberBox(
@@ -113,7 +115,7 @@ fun CalcUNumberBox(
             placeholder = { if (placeholder != null) Text(placeholder) },
             singleLine = true,
             isError = isError,
-            shape = MaterialTheme.shapes.medium,
+            shape = FieldGroupShape,
             keyboardOptions = KeyboardOptions(
                 keyboardType = if (integer) KeyboardType.Number else KeyboardType.Decimal
             ),
@@ -126,7 +128,7 @@ fun CalcUNumberBox(
                         Box(
                             Modifier.size(40.dp).clickable(
                                 interactionSource = remember { MutableInteractionSource() },
-                                indication = null
+                                indication = LocalIndication.current
                             ) { spin(smallChange) }.semantics { contentDescription = "Increase" },
                             contentAlignment = Alignment.Center
                         ) {
@@ -135,7 +137,7 @@ fun CalcUNumberBox(
                         Box(
                             Modifier.size(40.dp).clickable(
                                 interactionSource = remember { MutableInteractionSource() },
-                                indication = null
+                                indication = LocalIndication.current
                             ) { spin(-smallChange) }.semantics { contentDescription = "Decrease" },
                             contentAlignment = Alignment.Center
                         ) {
@@ -165,7 +167,19 @@ fun FluentInfoBar(
     modifier: Modifier = Modifier,
     onClose: (() -> Unit)? = null
 ) {
-    val color = infoSeverityColor(severity)
+    val scheme = MaterialTheme.colorScheme
+    val container = when (severity) {
+        SUCCESS -> scheme.tertiaryContainer
+        WARNING -> scheme.secondaryContainer
+        ERROR -> scheme.errorContainer
+        else -> scheme.primaryContainer
+    }
+    val onContainer = when (severity) {
+        SUCCESS -> scheme.onTertiaryContainer
+        WARNING -> scheme.onSecondaryContainer
+        ERROR -> scheme.onErrorContainer
+        else -> scheme.onPrimaryContainer
+    }
     val icon = when (severity) {
         SUCCESS -> Icons.Filled.CheckCircle
         WARNING -> Icons.Filled.Warning
@@ -175,7 +189,7 @@ fun FluentInfoBar(
     Card(
         modifier = modifier.fillMaxWidth(),
         shape = MaterialTheme.shapes.large,
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerHigh),
+        colors = CardDefaults.cardColors(containerColor = container, contentColor = onContainer),
         border = null
     ) {
         Row(
@@ -183,13 +197,13 @@ fun FluentInfoBar(
             horizontalArrangement = Arrangement.spacedBy(FluentSpace.X12),
             verticalAlignment = Alignment.Top
         ) {
-            Icon(icon, contentDescription = null, tint = color)
+            Icon(icon, contentDescription = null, tint = onContainer)
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(FluentSpace.X4)) {
-                Text(title, style = MaterialTheme.typography.titleSmall)
+                Text(title, style = MaterialTheme.typography.titleSmall, color = onContainer)
                 Text(
                     message,
                     style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                    color = onContainer
                 )
             }
             if (onClose != null) {
@@ -216,6 +230,8 @@ fun FluentExpander(
     fun toggle() {
         if (expanded == null) internal = !internal
     }
+    val headerInteractions = remember { MutableInteractionSource() }
+    val headerPressed by headerInteractions.collectIsPressedAsState()
     Card(
         modifier = modifier.fillMaxWidth(),
         shape = MaterialTheme.shapes.large,
@@ -224,9 +240,10 @@ fun FluentExpander(
         Column {
             Row(
                 Modifier.fillMaxWidth()
+                    .pressBounce(headerPressed)
                     .clickable(
-                        interactionSource = remember { MutableInteractionSource() },
-                        indication = null
+                        interactionSource = headerInteractions,
+                        indication = LocalIndication.current
                     ) { toggle() }
                     .padding(FluentSpace.X16),
                 verticalAlignment = Alignment.CenterVertically
@@ -317,14 +334,14 @@ fun FluentTeachingTip(
         Box(
             Modifier.fillMaxSize().clickable(
                 interactionSource = remember { MutableInteractionSource() },
-                indication = null
+                indication = LocalIndication.current
             ) { onClose() },
             contentAlignment = Alignment.BottomCenter
         ) {
             Box(
                 modifier.padding(FluentSpace.X16).clickable(
                     interactionSource = remember { MutableInteractionSource() },
-                    indication = null,
+                    indication = LocalIndication.current,
                     enabled = true,
                     onClick = {}
                 )
@@ -362,27 +379,35 @@ fun FluentSearchPill(
     hint: String,
     modifier: Modifier = Modifier
 ) {
-    OutlinedTextField(
-        value = query,
-        onValueChange = onQuery,
-        modifier = modifier.fillMaxWidth().height(52.dp),
-        placeholder = { Text(hint) },
-        leadingIcon = { Icon(Icons.Filled.Search, contentDescription = null) },
-        trailingIcon = {
-            if (query.isNotEmpty()) {
-                IconButton(onClick = { onQuery("") }) {
-                    Icon(Icons.Filled.Close, contentDescription = "Clear search")
+    Column(modifier, verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        Text(
+            hint,
+            style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            maxLines = 1
+        )
+        OutlinedTextField(
+            value = query,
+            onValueChange = onQuery,
+            modifier = Modifier.fillMaxWidth().height(52.dp),
+            placeholder = { Text(hint) },
+            leadingIcon = { Icon(Icons.Filled.Search, contentDescription = null) },
+            trailingIcon = {
+                if (query.isNotEmpty()) {
+                    IconButton(onClick = { onQuery("") }) {
+                        Icon(Icons.Filled.Close, contentDescription = "Clear search")
+                    }
                 }
-            }
-        },
-        singleLine = true,
-        shape = CircleShape,
-        keyboardOptions = KeyboardOptions(
-            keyboardType = KeyboardType.Text,
-            imeAction = ImeAction.Search
-        ),
-        keyboardActions = KeyboardActions.Default
-    )
+            },
+            singleLine = true,
+            shape = FieldGroupShape,
+            keyboardOptions = KeyboardOptions(
+                keyboardType = KeyboardType.Text,
+                imeAction = ImeAction.Search
+            ),
+            keyboardActions = KeyboardActions.Default
+        )
+    }
 }
 
 @Composable

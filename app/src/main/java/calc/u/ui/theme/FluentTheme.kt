@@ -19,10 +19,12 @@ import androidx.compose.runtime.ReadOnlyComposable
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.font.Font
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import calc.u.R
 import com.google.android.material.color.utilities.TonalPalette
 
 object FluentAccent {
@@ -104,23 +106,28 @@ object FluentExpressive {
     val GroupHeaderLetterSpacing = 0.4.sp
 }
 
+private val Lato = FontFamily(Font(R.font.lato_regular))
+
 private fun fluentType(): Typography {
     val f = FontFamily.Default
     fun s(size: Int, height: Int, w: FontWeight) = TextStyle(
         fontFamily = f, fontWeight = w, fontSize = size.sp, lineHeight = height.sp
     )
+    fun l(size: Int, height: Int, w: FontWeight) = TextStyle(
+        fontFamily = Lato, fontWeight = w, fontSize = size.sp, lineHeight = height.sp
+    )
     val semi = FontWeight.SemiBold
     val reg = FontWeight.Normal
     val base = Typography(
-        displayLarge = s(64, 68, semi),
-        displayMedium = s(52, 58, semi),
-        displaySmall = s(40, 46, semi),
-        headlineLarge = s(36, 44, semi),
-        headlineMedium = s(24, 32, semi),
-        headlineSmall = s(20, 26, semi),
-        titleLarge = s(20, 28, semi),
-        titleMedium = s(16, 22, semi),
-        titleSmall = s(16, 22, semi),
+        displayLarge = l(57, 64, semi),
+        displayMedium = l(45, 52, semi),
+        displaySmall = l(36, 44, semi),
+        headlineLarge = l(36, 44, semi),
+        headlineMedium = l(24, 32, semi),
+        headlineSmall = l(20, 26, semi),
+        titleLarge = l(20, 28, semi),
+        titleMedium = l(16, 22, semi),
+        titleSmall = l(16, 22, semi),
         bodyLarge = s(18, 24, reg),
         bodyMedium = s(14, 20, reg),
         bodySmall = s(12, 16, reg),
@@ -232,6 +239,81 @@ private val FluentContrast = darkColorScheme(
     outlineVariant = Color.White
 )
 
+private val BotanicalLight = lightColorScheme(
+    primary = Color(0xFF4F6632),
+    onPrimary = Color(0xFFEFFFD4),
+    primaryContainer = Color(0xFFD0ECAB),
+    onPrimaryContainer = Color(0xFF425826),
+    secondary = Color(0xFF58634A),
+    onSecondary = Color(0xFFEFFFD4),
+    secondaryContainer = Color(0xFFDCE7C7),
+    onSecondaryContainer = Color(0xFF425826),
+    tertiary = Color(0xFF6A5F27),
+    onTertiary = Color(0xFFEFFFD4),
+    tertiaryContainer = Color(0xFFF6E6A0),
+    onTertiaryContainer = Color(0xFF425826),
+    error = Color(0xFFA73B21),
+    onError = Color.White,
+    background = Color(0xFFFAFAF0),
+    onBackground = Color(0xFF303429),
+    surface = Color(0xFFFAFAF0),
+    onSurface = Color(0xFF303429),
+    surfaceVariant = Color(0xFFE1E4D4),
+    onSurfaceVariant = Color(0xFF5C6154),
+    surfaceDim = Color(0xFFD8DCCC),
+    surfaceContainerLowest = Color(0xFFFFFFFF),
+    surfaceContainerLow = Color(0xFFF3F5E9),
+    surfaceContainer = Color(0xFFEDEFE2),
+    surfaceContainerHigh = Color(0xFFE7EADB),
+    surfaceContainerHighest = Color(0xFFE1E4D4),
+    inverseSurface = Color(0xFF0D0F0A),
+    inverseOnSurface = Color(0xFFE4E7D7),
+    outline = Color(0xFF787C6F),
+    outlineVariant = Color(0xFFB0B4A5),
+    scrim = Color(0x52000000)
+)
+
+private val BotanicalDark = darkColorScheme(
+    primary = Color(0xFFB9CE9B),
+    onPrimary = Color(0xFF34451F),
+    primaryContainer = Color(0xFF465830),
+    onPrimaryContainer = Color(0xFFD5EBB6),
+    secondary = Color(0xFFC0CBAD),
+    onSecondary = Color(0xFF34451F),
+    secondaryContainer = Color(0xFF353F28),
+    onSecondaryContainer = Color(0xFFD5EBB6),
+    tertiary = Color(0xFFFFF4CB),
+    onTertiary = Color(0xFF34451F),
+    tertiaryContainer = Color(0xFFF6E6A0),
+    onTertiaryContainer = Color(0xFF465830),
+    error = Color(0xFFF97758),
+    onError = Color.Black,
+    background = Color(0xFF0D0F0A),
+    onBackground = Color(0xFFE4E7D7),
+    surface = Color(0xFF0D0F0A),
+    onSurface = Color(0xFFE4E7D7),
+    surfaceVariant = Color(0xFF23271D),
+    onSurfaceVariant = Color(0xFF919587),
+    surfaceContainerLowest = Color(0xFF000000),
+    surfaceContainerLow = Color(0xFF12140E),
+    surfaceContainer = Color(0xFF181B13),
+    surfaceContainerHigh = Color(0xFF1D2118),
+    surfaceContainerHighest = Color(0xFF23271D),
+    inverseSurface = Color(0xFFFAFAF0),
+    inverseOnSurface = Color(0xFF303429),
+    outline = Color(0xFF73776A),
+    outlineVariant = Color(0xFF45493E),
+    scrim = Color(0x52000000)
+)
+
+// Companion roles (onSecondary/onTertiary/inverseOnSurface) reuse palette
+// values above; no new hues introduced.
+
+/**
+ * Radii lock: extraSmall 4 / small 8 / medium 12 / large 16 / extraLarge 28.
+ * Hero surfaces use extraLarge (28), grouped cards use large (16). Frozen —
+ * do not change without a design review.
+ */
 val FluentShapes = Shapes(
     extraSmall = RoundedCornerShape(4.dp),
     small = RoundedCornerShape(8.dp),
@@ -334,6 +416,7 @@ fun CalcUTheme(
             "dark" -> dynamicDarkColorScheme(context)
             "amoled" -> FluentAmoled
             "contrast" -> FluentContrast
+            "botanical" -> if (dark) BotanicalDark else BotanicalLight
             "ocean" -> seedScheme(0xFF0061A4.toInt(), dark)
             "forest" -> seedScheme(0xFF1B6B4A.toInt(), dark)
             "sunset" -> seedScheme(0xFFB23C17.toInt(), dark)
@@ -355,6 +438,7 @@ fun CalcUTheme(
         "dark" -> FluentDark
         "amoled" -> FluentAmoled
         "contrast" -> FluentContrast
+        "botanical" -> if (dark) BotanicalDark else BotanicalLight
         "ocean" -> seedScheme(0xFF0061A4.toInt(), dark)
         "forest" -> seedScheme(0xFF1B6B4A.toInt(), dark)
         "sunset" -> seedScheme(0xFFB23C17.toInt(), dark)

@@ -3,18 +3,21 @@ package calc.u.ui.screens
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateContentSize
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.animateColorAsState
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.animation.togetherWith
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.LocalIndication
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -78,13 +81,16 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import calc.u.core.AutocompleteIndex
@@ -95,7 +101,6 @@ import calc.u.ui.CalcEffect
 import calc.u.ui.CalcViewModel
 import calc.u.ui.QuickOverlay
 import calc.u.ui.QuickSettings
-import calc.u.ui.FluentCalcKey
 import calc.u.ui.FluentInfoBar
 import calc.u.ui.FluentKeyKind
 import calc.u.ui.FluentStagger
@@ -106,6 +111,8 @@ import calc.u.ui.theme.FluentMotion
 import calc.u.ui.tintExpression
 import kotlinx.coroutines.delay
 import android.content.Intent
+import android.view.HapticFeedbackConstants
+import android.view.SoundEffectConstants
 import android.content.res.Configuration
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.gestures.detectTransformGestures
@@ -209,16 +216,17 @@ private fun InlineTape(
     }
     LazyColumn(
         state = listState,
-        modifier = modifier.fillMaxWidth().heightIn(max = 120.dp),
+        modifier = modifier.fillMaxWidth().heightIn(max = 96.dp),
         verticalArrangement = Arrangement.spacedBy(4.dp)
     ) {
         items(tape, key = { it.id }) { e ->
             Text(
                 e.expression + " = " + e.result,
-                style = MaterialTheme.typography.bodySmall,
+                style = MaterialTheme.typography.titleLarge.copy(fontFeatureSettings = "tnum"),
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
+                overflow = TextOverflow.StartEllipsis,
+                softWrap = false,
                 textAlign = TextAlign.End,
                 modifier = Modifier.fillMaxWidth()
                     .clickable { onRecall(e.result) }
@@ -229,8 +237,10 @@ private fun InlineTape(
 }
 
 /**
- * Fit-without-scroll display text (CalcYou/zeevy/Unitto pattern, re-implemented):
- * shrinks font size on width overflow instead of wrapping to another line.
+ * Fit-without-scroll display text (zeevy pattern, re-implemented):
+ * shrinks in 2sp steps down to a 10sp floor on width overflow.
+ * Single responsibility: size only — no enter/exit animation here
+ * (AnimatedContent on the result line owns movement).
  */
 @Composable
 private fun ShrinkText(
@@ -238,21 +248,26 @@ private fun ShrinkText(
     modifier: Modifier = Modifier,
     style: TextStyle = MaterialTheme.typography.titleLarge,
     color: Color = MaterialTheme.colorScheme.onSurface,
-    maxLines: Int = 3,
-    align: TextAlign = TextAlign.End
+    maxLines: Int = 2,
+    align: TextAlign = TextAlign.End,
+    overflow: TextOverflow = TextOverflow.Clip
 ) {
-    var scale by remember(text) { mutableStateOf(1f) }
+    val startSp = runCatching { style.fontSize.value }.getOrDefault(20f)
+    var sizeSp by remember(text, startSp) { mutableStateOf(startSp) }
     Text(
         text = text,
-        style = style.copy(fontSize = style.fontSize * scale),
+        style = style.copy(
+            fontSize = sizeSp.coerceAtLeast(10f).sp,
+            fontFeatureSettings = "tnum"
+        ),
         color = color,
         maxLines = maxLines,
-        overflow = TextOverflow.Ellipsis,
+        overflow = overflow,
         softWrap = false,
         textAlign = align,
         modifier = modifier,
         onTextLayout = { result ->
-            if (result.didOverflowWidth && scale > 0.55f) scale *= 0.92f
+            if (result.didOverflowWidth && sizeSp > 10f) sizeSp -= 2f
         }
     )
 }
@@ -272,20 +287,23 @@ private fun CalculatorDisplayCard(
     onCopyResult: () -> Unit,
     onDisplayLongPress: () -> Unit,
     modifier: Modifier = Modifier,
-    compact: Boolean = false
+    compact: Boolean = false,
+    justEvaluated: Boolean = false,
+    onPaste: (String) -> Unit = {}
 ) {
+    val clipboard = LocalClipboardManager.current
+    val haptics = LocalHapticFeedback.current
     val displayScroll = rememberScrollState()
+    // Post-`=` the tape already shows the equation, so the top slot rests blank.
+    val topText = if (justEvaluated) AnnotatedString("") else input
     Column(modifier, verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Card(
             colors = CardDefaults.cardColors(
                 containerColor = MaterialTheme.colorScheme.surfaceContainerLow
             ),
             shape = MaterialTheme.shapes.extraLarge,
-            modifier = Modifier.clip(MaterialTheme.shapes.extraLarge)
-                .combinedClickable(
-                    onClick = {},
-                    onLongClick = onDisplayLongPress
-                )
+            elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+            border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary)
         ) {
             Column(
                 Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 16.dp).animateContentSize()
@@ -293,12 +311,26 @@ private fun CalculatorDisplayCard(
                 verticalArrangement = Arrangement.spacedBy(8.dp),
                 horizontalAlignment = Alignment.End
             ) {
+                // Slot 1 (stable): expression line — paste on long-press.
                 ShrinkText(
-                    text = input,
+                    text = topText,
                     style = if (compact) MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
                     else MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
-                    maxLines = 3,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 2,
+                    overflow = TextOverflow.Clip,
                     modifier = Modifier.fillMaxWidth()
+                        .pointerInput(Unit) {
+                            detectTapGestures(
+                                onLongPress = {
+                                    runCatching {
+                                        val pasted = clipboard.getText()?.text.orEmpty()
+                                        if (pasted.isNotBlank()) onPaste(pasted) else onDisplayLongPress()
+                                    }
+                                    runCatching { haptics.performHapticFeedback(HapticFeedbackType.LongPress) }
+                                }
+                            )
+                        }
                 )
                 if (suggestions.isNotEmpty()) {
                     LazyRow(
@@ -323,6 +355,8 @@ private fun CalculatorDisplayCard(
                         modifier = Modifier.fillMaxWidth()
                     )
                 }
+                // Slot 2 (stable): result line — single AnimatedContent, fade+slide
+                // only; the size stays fixed so columns never wobble.
                 AnimatedContent(
                     targetState = result,
                     transitionSpec = {
@@ -331,14 +365,52 @@ private fun CalculatorDisplayCard(
                     },
                     label = "result"
                 ) { target ->
-                    ShrinkText(
-                        text = AnnotatedString(formatResult(target)),
-                        style = if (compact) MaterialTheme.typography.displayMedium.copy(fontFeatureSettings = "tnum")
-                        else MaterialTheme.typography.displayLarge.copy(fontFeatureSettings = "tnum"),
-                        color = MaterialTheme.colorScheme.onSurface,
-                        maxLines = 2,
-                        modifier = Modifier.fillMaxWidth()
-                    )
+                    val formatted = formatResult(target)
+                    val isError = target.isNotBlank() &&
+                        (target == "Error" || target.any { it.isLetter() })
+                    if (isError) {
+                        Text(
+                            text = formatted,
+                            style = MaterialTheme.typography.titleLarge.copy(
+                                fontWeight = FontWeight.SemiBold,
+                                fontFeatureSettings = "tnum"
+                            ),
+                            color = MaterialTheme.colorScheme.error,
+                            maxLines = 2,
+                            overflow = TextOverflow.Ellipsis,
+                            softWrap = false,
+                            textAlign = TextAlign.End,
+                            modifier = Modifier.fillMaxWidth()
+                                .pointerInput(Unit) {
+                                    detectTapGestures(
+                                        onLongPress = {
+                                            runCatching { haptics.performHapticFeedback(HapticFeedbackType.LongPress) }
+                                            onCopyResult()
+                                        }
+                                    )
+                                }
+                        )
+                    } else {
+                        Text(
+                            text = formatted,
+                            style = if (compact) MaterialTheme.typography.displayMedium.copy(fontFeatureSettings = "tnum")
+                            else MaterialTheme.typography.displayLarge.copy(fontFeatureSettings = "tnum"),
+                            color = MaterialTheme.colorScheme.onSurface,
+                            maxLines = 2,
+                            overflow = TextOverflow.Ellipsis,
+                            softWrap = false,
+                            textAlign = TextAlign.End,
+                            modifier = Modifier.fillMaxWidth()
+                                .pointerInput(Unit) {
+                                    detectTapGestures(
+                                        onLongPress = {
+                                            runCatching { haptics.performHapticFeedback(HapticFeedbackType.LongPress) }
+                                            onCopyResult()
+                                        }
+                                    )
+                                }
+                        )
+                    }
                 }
                 Row(
                     modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
@@ -362,7 +434,7 @@ private fun CalculatorDisplayCard(
                 }
             }
         }
-        DisplayMiniGraph(input = graphInput, modifier = Modifier.heightIn(max = 140.dp))
+        DisplayMiniGraph(input = graphInput, modifier = Modifier.heightIn(max = 120.dp))
     }
 }
 
@@ -473,6 +545,7 @@ fun CalculatorScreen(vm: CalcViewModel = hiltViewModel()) {
     var quickOpen by remember { mutableStateOf(false) }
     var inverse by remember { mutableStateOf(false) }
     var percentMode by rememberSaveable { mutableStateOf("off") }
+    var justEvaluated by rememberSaveable { mutableStateOf(false) }
     remember {
         AutocompleteIndex.build(
             listOf("sin", "cos", "tan", "asin", "acos", "atan", "log", "ln", "sqrt")
@@ -519,13 +592,13 @@ fun CalculatorScreen(vm: CalcViewModel = hiltViewModel()) {
                 ) {
                     InlineTape(
                         onRecall = { vm.onTapeRecall(it) },
-                        modifier = Modifier.heightIn(max = 80.dp)
+                        modifier = Modifier.heightIn(max = 96.dp)
                     )
                     CalculatorDisplayCard(
                         input = tintExpression(
                             st.input.ifBlank { "0" },
-                            MaterialTheme.colorScheme.onSurface,
-                            MaterialTheme.colorScheme.onSurface
+                            MaterialTheme.colorScheme.onSurfaceVariant,
+                            MaterialTheme.colorScheme.primary
                         ),
                         result = st.result,
                         formatResult = { displayResult(it) },
@@ -540,6 +613,7 @@ fun CalculatorScreen(vm: CalcViewModel = hiltViewModel()) {
                         showCopy = st.result.isNotBlank(),
                         onSuggestion = { s ->
                             tapFeedback()
+                            justEvaluated = false
                             val count = completion.end - completion.start
                             repeat(count) { vm.onBackspace() }
                             vm.onInput(s.insertBefore + s.insertAfter)
@@ -551,7 +625,9 @@ fun CalculatorScreen(vm: CalcViewModel = hiltViewModel()) {
                             quickOpen = true
                         },
                         modifier = Modifier.weight(1f),
-                        compact = true
+                        compact = true,
+                        justEvaluated = justEvaluated,
+                        onPaste = { pasted -> justEvaluated = false; vm.onInput(pasted) }
                     )
                 }
                 Column(
@@ -578,16 +654,17 @@ fun CalculatorScreen(vm: CalcViewModel = hiltViewModel()) {
                         onKey = { k ->
                             tapFeedback()
                             when (k) {
-                                "=" -> vm.onEquals()
-                                "ANS" -> vm.onAns()
-                                "x²" -> vm.onInput("^2")
-                                else -> vm.onInput(k)
+                                "=" -> { vm.onEquals(); justEvaluated = true }
+                                "ANS" -> { justEvaluated = false; vm.onAns() }
+                                "x²" -> { justEvaluated = false; vm.onInput("^2") }
+                                else -> { justEvaluated = false; vm.onInput(k) }
                             }
                         },
-                        onClear = { tapFeedback(); vm.onClear() },
-                        onBack = { tapFeedback(); vm.onBackspace() },
+                        onClear = { tapFeedback(); justEvaluated = false; vm.onClear() },
+                        onBack = { tapFeedback(); justEvaluated = false; vm.onBackspace() },
                         onBackLong = {
                             if (vibration) haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+                            justEvaluated = false
                             vm.onClear()
                         },
                         inverse = inverse,
@@ -608,8 +685,8 @@ fun CalculatorScreen(vm: CalcViewModel = hiltViewModel()) {
                 CalculatorDisplayCard(
                     input = tintExpression(
                         st.input.ifBlank { "0" },
-                        MaterialTheme.colorScheme.onSurface,
-                        MaterialTheme.colorScheme.onSurface
+                        MaterialTheme.colorScheme.onSurfaceVariant,
+                        MaterialTheme.colorScheme.primary
                     ),
                     result = st.result,
                     formatResult = { displayResult(it) },
@@ -624,6 +701,7 @@ fun CalculatorScreen(vm: CalcViewModel = hiltViewModel()) {
                     showCopy = st.result.isNotBlank(),
                     onSuggestion = { s ->
                         tapFeedback()
+                        justEvaluated = false
                         val count = completion.end - completion.start
                         repeat(count) { vm.onBackspace() }
                         vm.onInput(s.insertBefore + s.insertAfter)
@@ -635,7 +713,9 @@ fun CalculatorScreen(vm: CalcViewModel = hiltViewModel()) {
                         quickOpen = true
                     },
                     modifier = Modifier.weight(1f),
-                    compact = false
+                    compact = false,
+                    justEvaluated = justEvaluated,
+                    onPaste = { pasted -> justEvaluated = false; vm.onInput(pasted) }
                 )
                 CalculatorModeChips(
                     angleMode = st.angleMode,
@@ -657,16 +737,17 @@ fun CalculatorScreen(vm: CalcViewModel = hiltViewModel()) {
                     onKey = { k ->
                         tapFeedback()
                         when (k) {
-                            "=" -> vm.onEquals()
-                            "ANS" -> vm.onAns()
-                            "x²" -> vm.onInput("^2")
-                            else -> vm.onInput(k)
+                            "=" -> { vm.onEquals(); justEvaluated = true }
+                            "ANS" -> { justEvaluated = false; vm.onAns() }
+                            "x²" -> { justEvaluated = false; vm.onInput("^2") }
+                            else -> { justEvaluated = false; vm.onInput(k) }
                         }
                     },
-                    onClear = { tapFeedback(); vm.onClear() },
-                    onBack = { tapFeedback(); vm.onBackspace() },
+                    onClear = { tapFeedback(); justEvaluated = false; vm.onClear() },
+                    onBack = { tapFeedback(); justEvaluated = false; vm.onBackspace() },
                     onBackLong = {
                         if (vibration) haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+                        justEvaluated = false
                         vm.onClear()
                     },
                     inverse = inverse,
@@ -758,6 +839,7 @@ private fun HistorySheetContent(
         query.isBlank() || h.contains(query, ignoreCase = true)
     }.take(50)
     Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        if (activity.values.any { it > 0 }) {
         Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
             Row(
                 Modifier.fillMaxWidth(),
@@ -785,6 +867,7 @@ private fun HistorySheetContent(
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
+        }
         }
         Row(
             Modifier.fillMaxWidth(),
@@ -954,6 +1037,115 @@ private val InverseLongPress = mapOf(
     "e^(" to "ln("
 )
 
+/**
+ * ONE key implementation for the whole pad (CalcYou circles + dialer feel,
+ * re-implemented): every key is a circle with the same press physics —
+ * 0.88 spring snap, container flash toward primary, 150ms retained
+ * tap-pulse, keyboard-tap haptic plus click sound. A small dot marks keys
+ * that carry a long-press secondary.
+ */
+@OptIn(ExperimentalFoundationApi::class)
+@Composable
+private fun CalcKey(
+    label: String,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    kind: FluentKeyKind = FluentKeyKind.Digit,
+    keyHeight: Dp = 48.dp,
+    onLongClick: (() -> Unit)? = null
+) {
+    val haptics = LocalHapticFeedback.current
+    val view = LocalView.current
+    val interactions = remember { MutableInteractionSource() }
+    val pressed by interactions.collectIsPressedAsState()
+    var pulsed by remember { mutableStateOf(false) }
+    LaunchedEffect(pulsed) {
+        if (pulsed) {
+            runCatching { delay(150) }
+            pulsed = false
+        }
+    }
+    val active = pressed || pulsed
+    val pressSpec = spring<Float>(
+        stiffness = Spring.StiffnessMediumLow,
+        dampingRatio = Spring.DampingRatioMediumBouncy
+    )
+    val scale by animateFloatAsState(
+        if (active) 0.88f else 1f,
+        animationSpec = pressSpec,
+        label = "calc-key-press"
+    )
+    val scheme = MaterialTheme.colorScheme
+    val isClear = label == "AC" || label == "C"
+    val baseContainer = when {
+        isClear -> scheme.tertiaryContainer
+        kind == FluentKeyKind.Equals -> scheme.primaryContainer
+        kind == FluentKeyKind.Operator -> scheme.secondaryContainer
+        kind == FluentKeyKind.Sci -> scheme.surfaceContainerHighest
+        else -> scheme.surfaceContainerHigh
+    }
+    val baseContent = when {
+        isClear -> scheme.onTertiaryContainer
+        kind == FluentKeyKind.Equals -> scheme.onPrimaryContainer
+        kind == FluentKeyKind.Operator -> scheme.onSecondaryContainer
+        kind == FluentKeyKind.Sci -> scheme.onSurface
+        else -> scheme.onSurface
+    }
+    val container by animateColorAsState(
+        if (active) scheme.primary else baseContainer,
+        label = "calc-key-flash"
+    )
+    val content by animateColorAsState(
+        if (active) scheme.onPrimary else baseContent,
+        label = "calc-key-content"
+    )
+    fun fireTap() {
+        runCatching { view.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP) }
+        runCatching { haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove) }
+        runCatching { view.playSoundEffect(SoundEffectConstants.CLICK) }
+        pulsed = true
+        onClick()
+    }
+    Box(
+        modifier = modifier.heightIn(min = 48.dp).height(keyHeight)
+            .graphicsLayer(scaleX = scale, scaleY = scale)
+            .clip(CircleShape)
+            .background(container, CircleShape)
+            .combinedClickable(
+                interactionSource = interactions,
+                indication = LocalIndication.current,
+                onClick = { fireTap() },
+                onLongClick = onLongClick?.let { secondary ->
+                    {
+                        runCatching { haptics.performHapticFeedback(HapticFeedbackType.LongPress) }
+                        runCatching { view.playSoundEffect(SoundEffectConstants.CLICK) }
+                        pulsed = true
+                        secondary()
+                    }
+                }
+            ),
+        contentAlignment = Alignment.Center
+    ) {
+        Text(
+            label,
+            style = if (kind == FluentKeyKind.Sci) MaterialTheme.typography.titleSmall
+            else MaterialTheme.typography.titleLarge,
+            color = content,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            softWrap = false
+        )
+        if (onLongClick != null) {
+            Box(
+                Modifier.align(Alignment.TopEnd)
+                    .padding(top = 12.dp, end = 14.dp)
+                    .size(5.dp)
+                    .background(scheme.primary, CircleShape)
+            )
+        }
+    }
+}
+
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun SciKey(
@@ -963,39 +1155,14 @@ private fun SciKey(
     modifier: Modifier = Modifier,
     compact: Boolean = false
 ) {
-    if (onLongClick == null) {
-        FluentCalcKey(
-            label = label,
-            onClick = onClick,
-            modifier = modifier,
-            kind = FluentKeyKind.Sci,
-            keyHeight = if (compact) 40.dp else 48.dp
-        )
-        return
-    }
-    val haptics = LocalHapticFeedback.current
-    Box(
-        modifier = modifier.heightIn(min = if (compact) 40.dp else 48.dp)
-            .clip(CircleShape)
-            .border(1.dp, MaterialTheme.colorScheme.outlineVariant, CircleShape)
-            .combinedClickable(
-                onClick = onClick,
-                onLongClick = {
-                    runCatching { haptics.performHapticFeedback(HapticFeedbackType.LongPress) }
-                    onLongClick()
-                }
-            ),
-        contentAlignment = Alignment.Center
-    ) {
-        Text(
-            label,
-            style = MaterialTheme.typography.titleSmall,
-            color = MaterialTheme.colorScheme.primary,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-            softWrap = false
-        )
-    }
+    CalcKey(
+        label = label,
+        onClick = onClick,
+        onLongClick = onLongClick,
+        modifier = modifier,
+        kind = FluentKeyKind.Sci,
+        keyHeight = 48.dp
+    )
 }
 
 @OptIn(ExperimentalFoundationApi::class)
@@ -1015,17 +1182,6 @@ private fun Keypad(
         else -> SimpleKeypad(onKey, onClear, onBack, onBackLong, inverse, compact)
     }
 }
-
-private fun keypadRowEnter(delay: Int) =
-    fadeIn(tween(FluentMotion.Medium, delayMillis = delay, easing = FluentMotion.Standard)) +
-        slideInVertically(tween(FluentMotion.Medium, delayMillis = delay, easing = FluentMotion.Standard)) { it / 10 }
-
-private val DigitRows = listOf(
-    listOf("7", "8", "9", "÷"),
-    listOf("4", "5", "6", "×"),
-    listOf("1", "2", "3", "−"),
-    listOf("0", ".", "+", "=")
-)
 
 private fun sciRowsFor(inverse: Boolean) = if (!inverse) listOf(
     listOf("(", ")", "^", "√"),
@@ -1047,39 +1203,20 @@ private fun DigitKey(
 ) {
     // Long-press on a digit inserts plain "^n" text (never superscript
     // characters); Engine evaluates "^" as power, guaranteed.
-    if (label.length != 1 || label[0] !in '0'..'9') {
-        FluentCalcKey(
-            label = label,
-            onClick = { onKey(label) },
-            modifier = modifier,
-            kind = FluentKeyKind.Digit,
-            keyHeight = if (compact) 48.dp else 56.dp
-        )
-        return
-    }
-    val haptics = LocalHapticFeedback.current
-    Box(
-        modifier = modifier.heightIn(min = if (compact) 48.dp else 56.dp)
-            .clip(CircleShape)
-            .background(MaterialTheme.colorScheme.secondaryContainer)
-            .combinedClickable(
-                onClick = { onKey(label) },
-                onLongClick = {
-                    runCatching { haptics.performHapticFeedback(HapticFeedbackType.LongPress) }
-                    onKey("^$label")
-                }
-            ),
-        contentAlignment = Alignment.Center
-    ) {
-        Text(
-            label,
-            style = MaterialTheme.typography.titleLarge,
-            color = MaterialTheme.colorScheme.onSecondaryContainer,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-            softWrap = false
-        )
-    }
+    val isDigit = label.length == 1 && label[0] in '0'..'9'
+    val isOp = label in setOf("+", "-", "−", "×", "÷", "/", "*", "%", "^", "=")
+    CalcKey(
+        label = label,
+        onClick = { onKey(label) },
+        onLongClick = if (isDigit) {
+            { onKey("^$label") }
+        } else {
+            null
+        },
+        modifier = modifier,
+        kind = if (isOp) FluentKeyKind.Operator else FluentKeyKind.Digit,
+        keyHeight = 48.dp
+    )
 }
 
 @OptIn(ExperimentalFoundationApi::class)
@@ -1091,30 +1228,70 @@ private fun BackKey(
     tall: Boolean = false,
     compact: Boolean = false
 ) {
-    val backInteractions = remember { MutableInteractionSource() }
-    val backPressed by backInteractions.collectIsPressedAsState()
-    val backScale by animateFloatAsState(
-        if (backPressed) 0.96f else 1f,
-        animationSpec = tween(FluentMotion.Short, easing = FluentMotion.Standard),
+    // Delete rides the same circle + physics as digits (digit bg, dot hint
+    // for the long-press-to-clear secondary).
+    val haptics = LocalHapticFeedback.current
+    val view = LocalView.current
+    val interactions = remember { MutableInteractionSource() }
+    val pressed by interactions.collectIsPressedAsState()
+    var pulsed by remember { mutableStateOf(false) }
+    LaunchedEffect(pulsed) {
+        if (pulsed) {
+            runCatching { delay(150) }
+            pulsed = false
+        }
+    }
+    val active = pressed || pulsed
+    val scale by animateFloatAsState(
+        if (active) 0.88f else 1f,
+        animationSpec = spring(
+            stiffness = Spring.StiffnessMediumLow,
+            dampingRatio = Spring.DampingRatioMediumBouncy
+        ),
         label = "back-press"
     )
+    val scheme = MaterialTheme.colorScheme
+    val container by animateColorAsState(
+        if (active) scheme.primary else scheme.surfaceContainerHigh,
+        label = "back-flash"
+    )
+    val content by animateColorAsState(
+        if (active) scheme.onPrimary else scheme.onSurface,
+        label = "back-content"
+    )
     Box(
-        modifier = modifier.heightIn(min = if (compact) 48.dp else if (tall) 64.dp else 56.dp)
-            .graphicsLayer(scaleX = backScale, scaleY = backScale)
-            .clip(MaterialTheme.shapes.large)
-            .background(MaterialTheme.colorScheme.inverseSurface)
+        modifier = modifier.heightIn(min = 48.dp).height(48.dp)
+            .graphicsLayer(scaleX = scale, scaleY = scale)
+            .clip(CircleShape)
+            .background(container, CircleShape)
             .combinedClickable(
-                interactionSource = backInteractions,
+                interactionSource = interactions,
                 indication = LocalIndication.current,
-                onClick = onBack,
-                onLongClick = onBackLong
+                onClick = {
+                    runCatching { view.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP) }
+                    runCatching { haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove) }
+                    runCatching { view.playSoundEffect(SoundEffectConstants.CLICK) }
+                    pulsed = true
+                    onBack()
+                },
+                onLongClick = {
+                    runCatching { haptics.performHapticFeedback(HapticFeedbackType.LongPress) }
+                    pulsed = true
+                    onBackLong()
+                }
             ),
         contentAlignment = Alignment.Center
     ) {
         Icon(
             Icons.Filled.Backspace,
             contentDescription = "Backspace, long-press to clear",
-            tint = MaterialTheme.colorScheme.inverseOnSurface
+            tint = content
+        )
+        Box(
+            Modifier.align(Alignment.TopEnd)
+                .padding(top = 12.dp, end = 14.dp)
+                .size(5.dp)
+                .background(scheme.primary, CircleShape)
         )
     }
 }
@@ -1126,9 +1303,9 @@ private fun SciRowsGrid(
     staggerBase: Int = 0,
     compact: Boolean = false
 ) {
-    // Scientific dark-slate function block (dynamic-safe, never hardcoded).
+    // Scientific function block (dynamic-safe, never hardcoded).
+    // Switches instantly: no entrance cascade replay.
     val sciRows = sciRowsFor(inverse)
-    val gap = if (compact) 6.dp else 8.dp
     Card(
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.surfaceContainerHighest
@@ -1137,21 +1314,19 @@ private fun SciRowsGrid(
     ) {
         Column(
             modifier = Modifier.fillMaxWidth().padding(8.dp),
-            verticalArrangement = Arrangement.spacedBy(gap)
+            verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            sciRows.forEachIndexed { i, row ->
-                AnimatedVisibility(visible = true, enter = keypadRowEnter((i + staggerBase) * 32)) {
-                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(gap)) {
-                        row.forEach { k ->
-                            val alt = InverseLongPress[k]
-                            SciKey(
-                                label = k,
-                                onClick = { onKey(if (k == "x²") "^2" else k) },
-                                onLongClick = alt?.let { a -> { onKey(if (a == "x²") "^2" else a) } },
-                                modifier = Modifier.weight(1f),
-                                compact = compact
-                            )
-                        }
+            sciRows.forEach { row ->
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    row.forEach { k ->
+                        val alt = InverseLongPress[k]
+                        SciKey(
+                            label = k,
+                            onClick = { onKey(if (k == "x²") "^2" else k) },
+                            onLongClick = alt?.let { a -> { onKey(if (a == "x²") "^2" else a) } },
+                            modifier = Modifier.weight(1f),
+                            compact = compact
+                        )
                     }
                 }
             }
@@ -1166,20 +1341,17 @@ private fun FnThinRow(
     compact: Boolean = false,
     trailingAns: Boolean = false
 ) {
-    // Thin √ π ^ ! function row above the keypad; reuses existing sci callbacks.
-    val gap = if (compact) 6.dp else 8.dp
+    // √ π ^ ! function row above the keypad; full 48dp keys, instant switch.
     val keys = if (trailingAns) listOf("√", "π", "^", "!", "ANS") else listOf("√", "π", "^", "!")
-    AnimatedVisibility(visible = true, enter = keypadRowEnter(staggerDelay)) {
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(gap)) {
-            keys.forEach { k ->
-                FluentCalcKey(
-                    label = k,
-                    onClick = { onKey(k) },
-                    modifier = Modifier.weight(1f),
-                    kind = FluentKeyKind.Sci,
-                    keyHeight = if (compact) 28.dp else 32.dp
-                )
-            }
+    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        keys.forEach { k ->
+            CalcKey(
+                label = k,
+                onClick = { onKey(k) },
+                modifier = Modifier.weight(1f),
+                kind = FluentKeyKind.Sci,
+                keyHeight = 48.dp
+            )
         }
     }
 }
@@ -1191,47 +1363,43 @@ private fun ParenPercentDivideRow(
     staggerDelay: Int = 32,
     compact: Boolean = false
 ) {
-    // () % ÷ row with pale-tint AC; all circular.
-    val gap = if (compact) 6.dp else 8.dp
-    val keyHeight = if (compact) 48.dp else 56.dp
-    AnimatedVisibility(visible = true, enter = keypadRowEnter(staggerDelay)) {
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(gap)) {
-            FluentCalcKey(
-                label = "AC",
-                onClick = onClear,
-                modifier = Modifier.weight(1f),
-                kind = FluentKeyKind.Sci,
-                keyHeight = keyHeight
-            )
-            FluentCalcKey(
-                label = "(",
-                onClick = { onKey("(") },
-                modifier = Modifier.weight(1f),
-                kind = FluentKeyKind.Sci,
-                keyHeight = keyHeight
-            )
-            FluentCalcKey(
-                label = ")",
-                onClick = { onKey(")") },
-                modifier = Modifier.weight(1f),
-                kind = FluentKeyKind.Sci,
-                keyHeight = keyHeight
-            )
-            FluentCalcKey(
-                label = "%",
-                onClick = { onKey("%") },
-                modifier = Modifier.weight(1f),
-                kind = FluentKeyKind.Sci,
-                keyHeight = keyHeight
-            )
-            FluentCalcKey(
-                label = "÷",
-                onClick = { onKey("÷") },
-                modifier = Modifier.weight(1f),
-                kind = FluentKeyKind.Operator,
-                keyHeight = keyHeight
-            )
-        }
+    // () % ÷ row with pale-tint AC; all circular, 48dp, instant switch.
+    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        CalcKey(
+            label = "AC",
+            onClick = onClear,
+            modifier = Modifier.weight(1f),
+            kind = FluentKeyKind.Sci,
+            keyHeight = 48.dp
+        )
+        CalcKey(
+            label = "(",
+            onClick = { onKey("(") },
+            modifier = Modifier.weight(1f),
+            kind = FluentKeyKind.Sci,
+            keyHeight = 48.dp
+        )
+        CalcKey(
+            label = ")",
+            onClick = { onKey(")") },
+            modifier = Modifier.weight(1f),
+            kind = FluentKeyKind.Sci,
+            keyHeight = 48.dp
+        )
+        CalcKey(
+            label = "%",
+            onClick = { onKey("%") },
+            modifier = Modifier.weight(1f),
+            kind = FluentKeyKind.Sci,
+            keyHeight = 48.dp
+        )
+        CalcKey(
+            label = "÷",
+            onClick = { onKey("÷") },
+            modifier = Modifier.weight(1f),
+            kind = FluentKeyKind.Operator,
+            keyHeight = 48.dp
+        )
     }
 }
 
@@ -1242,30 +1410,26 @@ private fun DigitRowsGrid(
     compact: Boolean = false
 ) {
     // All-circular digit rows with tonal operators; bottom action row lives in
-    // ClearBackRow so = stays the largest dark-primary circle beside ⌫.
-    val gap = if (compact) 6.dp else 8.dp
-    val keyHeight = if (compact) 48.dp else 56.dp
+    // ClearBackRow where = is a plain circle beside circular ⌫.
     val rows = listOf(
         listOf("7", "8", "9", "×"),
         listOf("4", "5", "6", "−"),
         listOf("1", "2", "3", "+")
     )
-    Column(verticalArrangement = Arrangement.spacedBy(gap)) {
-        rows.forEachIndexed { j, row ->
-            AnimatedVisibility(visible = true, enter = keypadRowEnter((j + staggerBase) * 32)) {
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(gap)) {
-                    row.forEach { k ->
-                        if (k.length == 1 && k[0] in '0'..'9') {
-                            DigitKey(label = k, onKey = onKey, modifier = Modifier.weight(1f), compact = compact)
-                        } else {
-                            FluentCalcKey(
-                                label = k,
-                                onClick = { onKey(k) },
-                                modifier = Modifier.weight(1f),
-                                kind = FluentKeyKind.Operator,
-                                keyHeight = keyHeight
-                            )
-                        }
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        rows.forEach { row ->
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                row.forEach { k ->
+                    if (k.length == 1 && k[0] in '0'..'9') {
+                        DigitKey(label = k, onKey = onKey, modifier = Modifier.weight(1f), compact = compact)
+                    } else {
+                        CalcKey(
+                            label = k,
+                            onClick = { onKey(k) },
+                            modifier = Modifier.weight(1f),
+                            kind = FluentKeyKind.Operator,
+                            keyHeight = 48.dp
+                        )
                     }
                 }
             }
@@ -1282,28 +1446,24 @@ private fun ClearBackRow(
     compact: Boolean = false,
     onKey: (String) -> Unit = {}
 ) {
-    // Bottom action row: 0 . ⌫ (dark rounded-square) = (dark primary, largest).
-    val gap = if (compact) 6.dp else 8.dp
-    val keyHeight = if (compact) 48.dp else 56.dp
-    AnimatedVisibility(visible = true, enter = keypadRowEnter(staggerDelay)) {
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(gap)) {
-            DigitKey(label = "0", onKey = onKey, modifier = Modifier.weight(1f), compact = compact)
-            FluentCalcKey(
-                label = ".",
-                onClick = { onKey(".") },
-                modifier = Modifier.weight(1f),
-                kind = FluentKeyKind.Digit,
-                keyHeight = keyHeight
-            )
-            BackKey(onBack = onBack, onBackLong = onBackLong, modifier = Modifier.weight(1f), compact = compact)
-            FluentCalcKey(
-                label = "=",
-                onClick = { onKey("=") },
-                modifier = Modifier.weight(1f),
-                kind = FluentKeyKind.Equals,
-                keyHeight = keyHeight
-            )
-        }
+    // Bottom action row: 0 . ⌫ = — every key a 48dp circle, = included.
+    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        DigitKey(label = "0", onKey = onKey, modifier = Modifier.weight(1f), compact = compact)
+        CalcKey(
+            label = ".",
+            onClick = { onKey(".") },
+            modifier = Modifier.weight(1f),
+            kind = FluentKeyKind.Digit,
+            keyHeight = 48.dp
+        )
+        BackKey(onBack = onBack, onBackLong = onBackLong, modifier = Modifier.weight(1f), compact = compact)
+        CalcKey(
+            label = "=",
+            onClick = { onKey("=") },
+            modifier = Modifier.weight(1f),
+            kind = FluentKeyKind.Equals,
+            keyHeight = 48.dp
+        )
     }
 }
 
@@ -1316,7 +1476,7 @@ private fun SimpleKeypad(
     inverse: Boolean,
     compact: Boolean = false
 ) {
-    Column(verticalArrangement = Arrangement.spacedBy(if (compact) 6.dp else 8.dp)) {
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         FnThinRow(onKey = onKey, staggerDelay = 0, compact = compact)
         ParenPercentDivideRow(onKey = onKey, onClear = onClear, staggerDelay = 32, compact = compact)
         DigitRowsGrid(onKey = onKey, staggerBase = 2, compact = compact)
@@ -1341,7 +1501,7 @@ private fun ClassicKeypad(
     compact: Boolean = false
 ) {
     var sciOpen by rememberSaveable { mutableStateOf(true) }
-    Column(verticalArrangement = Arrangement.spacedBy(if (compact) 6.dp else 8.dp)) {
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.Start,
@@ -1351,12 +1511,7 @@ private fun ClassicKeypad(
                 Text(if (sciOpen) "Scientific ▾" else "Scientific ▸")
             }
         }
-        AnimatedVisibility(
-            visible = sciOpen,
-            enter = keypadRowEnter(0),
-            exit = fadeOut(tween(FluentMotion.Medium, easing = FluentMotion.Standard)) +
-                slideOutVertically(tween(FluentMotion.Medium, easing = FluentMotion.Standard)) { it / 10 }
-        ) {
+        if (sciOpen) {
             SciRowsGrid(onKey = onKey, inverse = inverse, staggerBase = 0, compact = compact)
         }
         FnThinRow(onKey = onKey, staggerDelay = 32, compact = compact, trailingAns = true)
@@ -1383,10 +1538,10 @@ private fun ModernKeypad(
     inverse: Boolean,
     compact: Boolean = false
 ) {
-    // Scientific variant: dark-slate function block on top, thin √ π ^ ! row
-    // (with ANS, reusing the existing onKey("ANS") path), () % ÷ row, then
-    // all-circular digits with a tall dark-primary = beside rounded-square ⌫.
-    Column(verticalArrangement = Arrangement.spacedBy(if (compact) 6.dp else 8.dp)) {
+    // Scientific variant: function block on top, √ π ^ ! row with ANS
+    // (reusing the existing onKey("ANS") path), () % ÷ row, then
+    // all-circular digits with circular = beside circular ⌫. Instant switch.
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         SciRowsGrid(onKey = onKey, inverse = inverse, staggerBase = 0, compact = compact)
         FnThinRow(onKey = onKey, staggerDelay = 96, compact = compact, trailingAns = true)
         ParenPercentDivideRow(onKey = onKey, onClear = onClear, staggerDelay = 128, compact = compact)

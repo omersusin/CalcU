@@ -7,9 +7,13 @@ import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Clear
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledIconButton
 import androidx.compose.material3.FilledTonalButton
@@ -18,6 +22,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
@@ -57,6 +62,9 @@ private fun smartParen(text: String): String {
     }
 }
 
+private fun isPadOperator(k: String): Boolean =
+    k == "÷" || k == "×" || k == "−" || k == "+" || k == "%" || k == "()"
+
 @Composable
 private fun RowScope.PadKey(
     label: String,
@@ -64,12 +72,41 @@ private fun RowScope.PadKey(
     onClick: () -> Unit
 ) {
     val modifier = Modifier.weight(1f).height(56.dp)
+    val circle = CircleShape
+    if (label == "AC") {
+        Button(
+            onClick = onClick,
+            modifier = modifier,
+            shape = circle,
+            colors = ButtonDefaults.buttonColors(
+                containerColor = MaterialTheme.colorScheme.tertiaryContainer,
+                contentColor = MaterialTheme.colorScheme.onTertiaryContainer
+            )
+        ) {
+            Text(label, style = MaterialTheme.typography.titleLarge, maxLines = 1)
+        }
+        return
+    }
+    if (isPadOperator(label)) {
+        FilledTonalButton(
+            onClick = onClick,
+            modifier = modifier,
+            shape = circle,
+            colors = ButtonDefaults.filledTonalButtonColors(
+                containerColor = MaterialTheme.colorScheme.secondaryContainer,
+                contentColor = MaterialTheme.colorScheme.onSecondaryContainer
+            )
+        ) {
+            Text(label, style = MaterialTheme.typography.titleLarge, maxLines = 1)
+        }
+        return
+    }
     if (tonal) {
-        FilledTonalButton(onClick = onClick, modifier = modifier) {
+        FilledTonalButton(onClick = onClick, modifier = modifier, shape = circle) {
             Text(label, style = MaterialTheme.typography.titleLarge, maxLines = 1)
         }
     } else {
-        OutlinedButton(onClick = onClick, modifier = modifier) {
+        OutlinedButton(onClick = onClick, modifier = modifier, shape = circle) {
             Text(label, style = MaterialTheme.typography.titleLarge, maxLines = 1)
         }
     }
@@ -94,7 +131,8 @@ fun NumPadSheet(state: NumPadState, title: String) {
             ) {
                 Text(
                     title,
-                    style = MaterialTheme.typography.titleLarge,
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.weight(1f).semantics { heading() },
                     maxLines = 1
                 )
@@ -110,6 +148,13 @@ fun NumPadSheet(state: NumPadState, title: String) {
                     Icon(Icons.Filled.Check, contentDescription = "Done")
                 }
             }
+            OutlinedTextField(
+                value = state.text,
+                onValueChange = { state.text = it },
+                modifier = Modifier.fillMaxWidth(),
+                singleLine = true,
+                shape = RoundedCornerShape(16.dp)
+            )
             val rows = listOf(
                 listOf("AC", "()", "%", "÷"),
                 listOf("7", "8", "9", "×"),

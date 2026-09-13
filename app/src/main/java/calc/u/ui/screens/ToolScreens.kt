@@ -1,11 +1,21 @@
 package calc.u.ui.screens
 
+import android.content.Context
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.Crossfade
+import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -18,6 +28,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
@@ -49,6 +60,9 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Slider
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.SnackbarResult
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberModalBottomSheetState
@@ -71,6 +85,7 @@ import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.AnnotatedString
@@ -78,6 +93,9 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.datastore.preferences.core.edit
+import androidx.datastore.preferences.core.stringPreferencesKey
+import androidx.datastore.preferences.preferencesDataStore
 import calc.u.core.ClockAngle
 import calc.u.core.ClockKit
 import calc.u.core.ColorKit
@@ -110,7 +128,13 @@ import java.util.Calendar
 import kotlin.math.PI
 import kotlin.math.sqrt
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
+
+private val Context.converterRowsStore by preferencesDataStore("calcu-converter-rows")
+
+private fun rowsKey(cat: String) = stringPreferencesKey("rows_${cat}_order")
 
 private fun fmt(v: Double, digits: Int = 4): String {
     if (!v.isFinite()) return "—"
@@ -586,14 +610,23 @@ private fun UnitExprCard() {
         )
         UnitDropdown(safeTarget, targets, { target = it }, "Target unit")
         HorizontalDivider()
-        if (out == null) {
-            Text(
-                "Incompatible or unknown units",
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.error
-            )
-        } else {
-            ResultLine("1 ($expr) in $safeTarget", fmt(out, 6))
+        AnimatedContent(
+            targetState = out?.let { fmt(it, 6) } ?: "error",
+            transitionSpec = {
+                (fadeIn(tween(250)) + slideInVertically(tween(250) { it / 4 })) togetherWith
+                    (fadeOut(tween(250)) + slideOutVertically(tween(250) { -it / 4 }))
+            },
+            label = "expr-output"
+        ) { state ->
+            if (state == "error") {
+                Text(
+                    "Incompatible or unknown units",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.error
+                )
+            } else {
+                ResultLine("1 ($expr) in $safeTarget", state)
+            }
         }
     }
 }
@@ -660,9 +693,8 @@ fun ConvertersScreen() {
             if (back.isFinite()) input = fmt(back)
         }
     }
-    // Rows live in a Column (not a LazyColumn), so long-press drag reorder is
-    // fragile there; use robust up/down movers. Order stays in-memory for this
-    // round (no UnitPrefsRepository change) to avoid cross-agent conflicts.
+    // Reorder helper modeled on ToolsHub move()/hubOrder: index-based splice,
+    // re-implemented here for converter rows (independent implementation).
     fun moveRow(unit: String, delta: Int) {
         val idx = effectiveRows.indexOf(unit)
         if (idx < 0) return
@@ -682,7 +714,13 @@ fun ConvertersScreen() {
     var sheetTarget by remember { mutableStateOf<String?>(null) }
     var query by remember { mutableStateOf("") }
     var swapped by remember { mutableStateOf(false) }
-    val rotation by animateFloatAsState(if (swapped) 180f else 0f, label = "swap")
+    val rotation by animateFloatAsState(
+        if (swapped) 180f else 0f,
+        animationSpec = tween(300, easing = FastOutSlowInEasing),
+        label = "swap"
+    )
+    val snackbar = remember { SnackbarHostState() }
+    val converterListState = rememberLazyListState()
     val favorites by prefs.favoritesFlow(cat).collectAsState(initial = emptySet())
     val hidden by prefs.hiddenFlow(cat).collectAsState(initial = emptySet())
     LaunchedEffect(cat) {
@@ -692,6 +730,14 @@ fun ConvertersScreen() {
             if (savedFrom != null && savedFrom in units) from = savedFrom
             if (savedTo != null && savedTo in units) to = savedTo
         }
+        runCatching {
+            val saved = appCtx.converterRowsStore.data.map { it[rowsKey(cat)] }.first()
+            val restored = saved?.split(",")?.map { it.trim() }?.filter { it in units }?.distinct().orEmpty()
+            if (restored.isNotEmpty()) {
+                toRows = restored
+                if (restored.firstOrNull() in units) to = restored.firstOrNull() ?: to
+            }
+        }
     }
     LaunchedEffect(safeTo) {
         if (safeTo.isNotBlank() && safeTo != to && safeTo in units) to = safeTo
@@ -699,6 +745,14 @@ fun ConvertersScreen() {
     LaunchedEffect(cat, from, to) {
         runCatching {
             if (from in units && to in units) prefs.savePair(cat, from, to)
+        }
+    }
+    LaunchedEffect(cat, toRows) {
+        runCatching {
+            val clean = toRows.filter { it in units }.distinct()
+            if (clean.isNotEmpty()) {
+                appCtx.converterRowsStore.edit { it[rowsKey(cat)] = clean.joinToString(",") }
+            }
         }
     }
     if (undoVisible) {
@@ -820,7 +874,7 @@ fun ConvertersScreen() {
                                     else MaterialTheme.colorScheme.onSurface
                                 )
                                 Text(
-                                    previewFor(u),
+                                    previewFor(u).let { pv -> if (pv == "—") pv else "$pv $u" },
                                     style = MaterialTheme.typography.bodyMedium,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = if (isHidden) 0.5f else 1f)
                                 )
@@ -854,10 +908,12 @@ fun ConvertersScreen() {
             }
         }
     }
-    LazyColumn(
-        Modifier.fillMaxSize().padding(vertical = 16.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp)
-    ) {
+    Box(Modifier.fillMaxSize()) {
+        LazyColumn(
+            state = converterListState,
+            modifier = Modifier.fillMaxSize().padding(vertical = 16.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
         item {
             UnitExprCard()
         }
@@ -871,10 +927,25 @@ fun ConvertersScreen() {
                     TextButton(
                         onClick = {
                             if (input.isNotEmpty() || rowOverrides.isNotEmpty()) {
-                                lastCleared = input
+                                val saved = input
+                                val savedOverrides = rowOverrides
+                                lastCleared = saved
                                 input = ""
                                 rowOverrides = emptyMap()
                                 undoVisible = true
+                                scope.launch {
+                                    val res = snackbar.showSnackbar(
+                                        message = "Cleared",
+                                        actionLabel = "Undo",
+                                        withDismissAction = true
+                                    )
+                                    if (res == SnackbarResult.ActionPerformed) {
+                                        input = saved
+                                        rowOverrides = savedOverrides
+                                        lastCleared = null
+                                        undoVisible = false
+                                    }
+                                }
                             }
                         },
                         enabled = input.isNotEmpty() || rowOverrides.isNotEmpty()
@@ -898,21 +969,32 @@ fun ConvertersScreen() {
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Box(Modifier.weight(1f).clickable { openPicker("from") }) {
-                        OutlinedTextField(
-                            value = safeFrom,
-                            onValueChange = {},
-                            enabled = false,
-                            label = { Text("From") },
-                            modifier = Modifier.fillMaxWidth()
-                        )
+                        AnimatedContent(
+                            targetState = safeFrom,
+                            transitionSpec = {
+                                (fadeIn(tween(250)) + slideInVertically(tween(250) { it / 4 })) togetherWith
+                                    (fadeOut(tween(250)) + slideOutVertically(tween(250) { -it / 4 }))
+                            },
+                            label = "from-label"
+                        ) { target ->
+                            OutlinedTextField(
+                                value = target,
+                                onValueChange = {},
+                                enabled = false,
+                                label = { Text("From") },
+                                modifier = Modifier.fillMaxWidth()
+                            )
+                        }
                     }
                     FilledTonalIconButton(onClick = {
                         val f = from
                         val first = effectiveRows.firstOrNull() ?: safeTo
+                        val carried = convertOrNull(v, safeFrom, first)?.let { fmt(it) }
                         from = first
                         to = f
                         toRows = if (effectiveRows.isEmpty()) listOf(f)
                         else effectiveRows.toMutableList().also { it[0] = f }
+                        if (carried != null && carried != "—" && carried.isNotBlank()) input = carried
                         rowOverrides = emptyMap()
                         swapped = !swapped
                     }, modifier = Modifier.size(48.dp)) {
@@ -924,75 +1006,138 @@ fun ConvertersScreen() {
                     }
                 }
                 HorizontalDivider()
-                FluentStagger(0) {
-                    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                        effectiveRows.forEachIndexed { index, u ->
-                            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                                Row(
-                                    horizontalArrangement = Arrangement.spacedBy(4.dp),
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
-                                    Icon(
-                                        Icons.Filled.DragHandle,
-                                        contentDescription = "Reorder $u",
-                                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                                        modifier = Modifier.size(24.dp)
-                                    )
-                                    Box(Modifier.weight(1f).clickable { openPicker("row:$u") }) {
-                                        OutlinedTextField(
-                                            value = u,
-                                            onValueChange = {},
-                                            enabled = false,
-                                            label = { Text("To unit") },
-                                            modifier = Modifier.fillMaxWidth()
-                                        )
-                                    }
-                                    Box(Modifier.weight(1f)) {
-                                        NumField(rowText(u), { reverseFromRow(it, u) }, "Value in $u")
-                                    }
-                                    IconButton(
-                                        onClick = { moveRow(u, -1) },
-                                        enabled = index > 0,
-                                        modifier = Modifier.size(40.dp)
+                Crossfade(
+                    targetState = effectiveRows.isEmpty(),
+                    animationSpec = tween(250),
+                    label = "rows-empty"
+                ) { isEmpty ->
+                    if (isEmpty) {
+                        Text(
+                            "No units — add one below.",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    } else {
+                        FluentStagger(0) {
+                            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                                effectiveRows.forEachIndexed { index, u ->
+                                    val output = rowText(u)
+                                    val factor = factorFor(u)
+                                    Column(
+                                        verticalArrangement = Arrangement.spacedBy(4.dp),
+                                        modifier = Modifier.pointerInput(u) {
+                                            var acc = 0f
+                                            detectDragGesturesAfterLongPress(
+                                                onDragStart = { acc = 0f },
+                                                onDragEnd = { acc = 0f },
+                                                onDragCancel = { acc = 0f },
+                                                onDrag = { change, dragAmount ->
+                                                    change.consume()
+                                                    acc += dragAmount.y
+                                                    if (acc > 96f) {
+                                                        moveRow(u, 1)
+                                                        acc = 0f
+                                                    } else if (acc < -96f) {
+                                                        moveRow(u, -1)
+                                                        acc = 0f
+                                                    }
+                                                }
+                                            )
+                                        }
                                     ) {
-                                        Icon(
-                                            Icons.Filled.KeyboardArrowUp,
-                                            contentDescription = "Move $u up"
-                                        )
-                                    }
-                                    IconButton(
-                                        onClick = { moveRow(u, 1) },
-                                        enabled = index < effectiveRows.size - 1,
-                                        modifier = Modifier.size(40.dp)
-                                    ) {
-                                        Icon(
-                                            Icons.Filled.KeyboardArrowDown,
-                                            contentDescription = "Move $u down"
-                                        )
-                                    }
-                                    TextButton(
-                                        onClick = {
-                                            toRows = effectiveRows.filter { it != u }
-                                            if (effectiveRows.firstOrNull() == u) {
-                                                to = effectiveRows.getOrNull(1) ?: safeFrom
+                                        Row(
+                                            horizontalArrangement = Arrangement.spacedBy(4.dp),
+                                            verticalAlignment = Alignment.CenterVertically
+                                        ) {
+                                            Icon(
+                                                Icons.Filled.DragHandle,
+                                                contentDescription = "Reorder $u",
+                                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                                modifier = Modifier.size(24.dp)
+                                            )
+                                            Box(Modifier.weight(1f).clickable { openPicker("row:$u") }) {
+                                                AnimatedContent(
+                                                    targetState = u,
+                                                    transitionSpec = {
+                                                        (fadeIn(tween(250)) + slideInVertically(tween(250) { it / 4 })) togetherWith
+                                                            (fadeOut(tween(250)) + slideOutVertically(tween(250) { -it / 4 }))
+                                                    },
+                                                    label = "row-unit"
+                                                ) { target ->
+                                                    OutlinedTextField(
+                                                        value = target,
+                                                        onValueChange = {},
+                                                        enabled = false,
+                                                        label = { Text("To unit") },
+                                                        modifier = Modifier.fillMaxWidth()
+                                                    )
+                                                }
                                             }
-                                            rowOverrides = emptyMap()
-                                        },
-                                        enabled = effectiveRows.size > 1
-                                    ) { Text("X") }
+                                            Box(Modifier.weight(1f)) {
+                                                AnimatedContent(
+                                                    targetState = output,
+                                                    transitionSpec = {
+                                                        (fadeIn(tween(250)) + slideInVertically(tween(250) { it / 4 })) togetherWith
+                                                            (fadeOut(tween(250)) + slideOutVertically(tween(250) { -it / 4 }))
+                                                    },
+                                                    label = "row-output"
+                                                ) { target ->
+                                                    NumField(target, { reverseFromRow(it, u) }, "Value in $u")
+                                                }
+                                            }
+                                            IconButton(
+                                                onClick = { moveRow(u, -1) },
+                                                enabled = index > 0,
+                                                modifier = Modifier.size(40.dp)
+                                            ) {
+                                                Icon(
+                                                    Icons.Filled.KeyboardArrowUp,
+                                                    contentDescription = "Move $u up"
+                                                )
+                                            }
+                                            IconButton(
+                                                onClick = { moveRow(u, 1) },
+                                                enabled = index < effectiveRows.size - 1,
+                                                modifier = Modifier.size(40.dp)
+                                            ) {
+                                                Icon(
+                                                    Icons.Filled.KeyboardArrowDown,
+                                                    contentDescription = "Move $u down"
+                                                )
+                                            }
+                                            TextButton(
+                                                onClick = {
+                                                    toRows = effectiveRows.filter { it != u }
+                                                    if (effectiveRows.firstOrNull() == u) {
+                                                        to = effectiveRows.getOrNull(1) ?: safeFrom
+                                                    }
+                                                    rowOverrides = emptyMap()
+                                                },
+                                                enabled = effectiveRows.size > 1
+                                            ) { Text("X") }
+                                        }
+                                        AnimatedContent(
+                                            targetState = factor,
+                                            transitionSpec = {
+                                                fadeIn(tween(250)) togetherWith fadeOut(tween(250))
+                                            },
+                                            label = "row-factor"
+                                        ) { target ->
+                                            Text(
+                                                "1 ${safeFrom.ifBlank { "source" }} = $target $u",
+                                                style = MaterialTheme.typography.labelSmall,
+                                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                                            )
+                                        }
+                                    }
                                 }
-                                Text(
-                                    "1 ${safeFrom.ifBlank { "source" }} = ${factorFor(u)} $u",
-                                    style = MaterialTheme.typography.labelSmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
                             }
                         }
                     }
                 }
                 TextButton(onClick = { openPicker("add") }) { Text("+ Add unit") }
                 Text(
-                    "Use ↑ ↓ to reorder • X to remove a row • + to add more units.",
+                    "Long-press drag or ↑ ↓ to reorder • X to remove a row • + to add more units.",
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -1017,11 +1162,20 @@ fun ConvertersScreen() {
                     val cmDef = Units.length["cm"]
                     HorizontalDivider()
                     FluentStagger(1) {
-                        Column {
-                            ResultLine("Centimeters", fmt(totalCm, 2))
-                            if (cmDef != null) {
-                                Units.length.forEach { (name, def) ->
-                                    ResultLine(name, runCatching { fmt(Units.convert(totalCm, cmDef, def), 4) }.getOrDefault("—"))
+                        AnimatedContent(
+                            targetState = fmt(totalCm, 2),
+                            transitionSpec = {
+                                (fadeIn(tween(250)) + slideInVertically(tween(250) { it / 4 })) togetherWith
+                                    (fadeOut(tween(250)) + slideOutVertically(tween(250) { -it / 4 }))
+                            },
+                            label = "ft-output"
+                        ) { cmState ->
+                            Column {
+                                ResultLine("Centimeters", cmState)
+                                if (cmDef != null) {
+                                    Units.length.forEach { (name, def) ->
+                                        ResultLine(name, runCatching { fmt(Units.convert(totalCm, cmDef, def), 4) }.getOrDefault("—"))
+                                    }
                                 }
                             }
                         }
@@ -1052,9 +1206,18 @@ fun ConvertersScreen() {
                     }.getOrNull()
                     HorizontalDivider()
                     FluentStagger(2) {
-                        Column {
-                            ResultLine("Volume", "${fmt(volMl, 2)} mL" + (if (volFrac != null) " ($volFrac)" else ""))
-                            ResultLine("Weight", "${fmt(weight, 2)} g" + (if (wtFrac != null) " ($wtFrac)" else ""))
+                        AnimatedContent(
+                            targetState = "${fmt(volMl, 2)}|${fmt(weight, 2)}",
+                            transitionSpec = {
+                                (fadeIn(tween(250)) + slideInVertically(tween(250) { it / 4 })) togetherWith
+                                    (fadeOut(tween(250)) + slideOutVertically(tween(250) { -it / 4 }))
+                            },
+                            label = "cups-output"
+                        ) {
+                            Column {
+                                ResultLine("Volume", "${fmt(volMl, 2)} mL" + (if (volFrac != null) " ($volFrac)" else ""))
+                                ResultLine("Weight", "${fmt(weight, 2)} g" + (if (wtFrac != null) " ($wtFrac)" else ""))
+                            }
                         }
                     }
                 }
@@ -1065,18 +1228,27 @@ fun ConvertersScreen() {
                 NumField(baseInput, { baseInput = it }, "Integer", integer = true)
                 HorizontalDivider()
                 FluentStagger(3) {
-                    Column {
-                        ResultLine("Binary", if (baseLong == null) "—" else runCatching { Units.fromBase(baseLong.toDouble(), 2) }.getOrDefault("—"))
-                        ResultLine("Octal", if (baseLong == null) "—" else runCatching { Units.fromBase(baseLong.toDouble(), 8) }.getOrDefault("—"))
-                        ResultLine("Hex", if (baseLong == null) "—" else runCatching { Units.fromBase(baseLong.toDouble(), 16) }.getOrDefault("—"))
-                        val roman = if (baseLong == null || baseLong < 1 || baseLong > 3999) "—"
-                        else runCatching { Units.toRoman(baseLong.toInt()) }.getOrDefault("—").ifEmpty { "—" }
-                        ResultLine("Roman", roman)
-                        Text(
-                            "I=1 V=5 X=10 L=50 C=100 D=500 M=1000",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
+                    AnimatedContent(
+                        targetState = "$baseInput",
+                        transitionSpec = {
+                            (fadeIn(tween(250)) + slideInVertically(tween(250) { it / 4 })) togetherWith
+                                (fadeOut(tween(250)) + slideOutVertically(tween(250) { -it / 4 }))
+                        },
+                        label = "base-output"
+                    ) {
+                        Column {
+                            ResultLine("Binary", if (baseLong == null) "—" else runCatching { Units.fromBase(baseLong.toDouble(), 2) }.getOrDefault("—"))
+                            ResultLine("Octal", if (baseLong == null) "—" else runCatching { Units.fromBase(baseLong.toDouble(), 8) }.getOrDefault("—"))
+                            ResultLine("Hex", if (baseLong == null) "—" else runCatching { Units.fromBase(baseLong.toDouble(), 16) }.getOrDefault("—"))
+                            val roman = if (baseLong == null || baseLong < 1 || baseLong > 3999) "—"
+                            else runCatching { Units.toRoman(baseLong.toInt()) }.getOrDefault("—").ifEmpty { "—" }
+                            ResultLine("Roman", roman)
+                            Text(
+                                "I=1 V=5 X=10 L=50 C=100 D=500 M=1000",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
                     }
                 }
             }
@@ -1116,15 +1288,29 @@ fun ConvertersScreen() {
                 }
                 HorizontalDivider()
                 FluentStagger(4) {
-                    Column {
-                        ResultLine("Hex→RGB", rgbFromHex?.let { "${it.first}, ${it.second}, ${it.third}" } ?: "—")
-                        ResultLine("RGB→Hex", hexFromRgb ?: "—")
-                        ResultLine("HSL", hsl?.let { "${fmt(it.first, 1)}°, ${fmt(it.second * 100, 1)}%, ${fmt(it.third * 100, 1)}%" } ?: "—")
+                    AnimatedContent(
+                        targetState = "${rgbFromHex?.let { "${it.first},${it.second},${it.third}" } ?: "—"}|${hexFromRgb ?: "—"}",
+                        transitionSpec = {
+                            (fadeIn(tween(250)) + slideInVertically(tween(250) { it / 4 })) togetherWith
+                                (fadeOut(tween(250)) + slideOutVertically(tween(250) { -it / 4 }))
+                        },
+                        label = "color-output"
+                    ) {
+                        Column {
+                            ResultLine("Hex→RGB", rgbFromHex?.let { "${it.first}, ${it.second}, ${it.third}" } ?: "—")
+                            ResultLine("RGB→Hex", hexFromRgb ?: "—")
+                            ResultLine("HSL", hsl?.let { "${fmt(it.first, 1)}°, ${fmt(it.second * 100, 1)}%, ${fmt(it.third * 100, 1)}%" } ?: "—")
+                        }
                     }
                 }
                 Box(Modifier.fillMaxWidth().height(48.dp).background(swatch))
             }
         }
+        }
+        SnackbarHost(
+            hostState = snackbar,
+            modifier = Modifier.align(Alignment.BottomCenter).padding(16.dp)
+        )
     }
 }
 

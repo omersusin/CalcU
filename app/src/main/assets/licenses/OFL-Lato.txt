@@ -1,0 +1,11 @@
+Lato typeface attribution (SIL Open Font License 1.1)
+
+The Lato font files bundled with this app (res/font/lato_regular.ttf)
+are by Lukasz Dziedzic (Łukasz Dziedzic).
+
+Copyright (c) 2010-2011 by tyPoland Lukasz Dziedzic.
+
+Licensed under the SIL Open Font License, Version 1.1. The full license
+text ships with the upstream Lato release; this file records attribution
+only. Under the OFL, the font may be used, studied, modified and
+redistributed, bundled with this software, but not sold on its own.

@@ -5,25 +5,33 @@ import android.view.WindowManager
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Apps
 import androidx.compose.material.icons.filled.AttachMoney
 import androidx.compose.material.icons.filled.BarChart
 import androidx.compose.material.icons.filled.Build
 import androidx.compose.material.icons.filled.Calculate
+import androidx.compose.material.icons.filled.Category
+import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.Code
 import androidx.compose.material.icons.filled.Explore
+import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.GridOn
 import androidx.compose.material.icons.filled.Menu
+import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.QrCode
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.ShortText
 import androidx.compose.material.icons.filled.ShowChart
@@ -31,7 +39,11 @@ import androidx.compose.material.icons.filled.Straighten
 import androidx.compose.material.icons.filled.SwapHoriz
 import androidx.compose.material.icons.filled.Timeline
 import androidx.compose.material.icons.filled.Timer
+import androidx.compose.material.icons.filled.Widgets
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.DrawerValue
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -47,6 +59,7 @@ import androidx.compose.material3.PermanentDrawerSheet
 import androidx.compose.material3.PermanentNavigationDrawer
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.rememberDrawerState
@@ -83,7 +96,10 @@ import calc.u.ui.screens.TextDataScreen
 import calc.u.ui.screens.TimeLabScreen
 import calc.u.ui.screens.ElectroScreen
 import calc.u.ui.screens.EverydayScreen
+import calc.u.ui.screens.GeometryScreen
+import calc.u.ui.screens.HealthScreen
 import calc.u.ui.screens.QrScanScreen
+import calc.u.ui.screens.ProgrammerScreen
 import calc.u.ui.screens.RulerScreen
 import calc.u.ui.screens.SensorScreen
 import calc.u.ui.screens.ToolsHub
@@ -105,20 +121,45 @@ private val ToolDests = listOf(
     Dest("finance", "Finance", Icons.Filled.AttachMoney),
     Dest("math", "Math", Icons.Filled.GridOn),
     Dest("steps", "Steps", Icons.Filled.Timeline),
+    Dest("geometry", "Geometry", Icons.Filled.Category),
+    Dest("programmer", "Programmer", Icons.Filled.Code),
     Dest("time", "Time Lab", Icons.Filled.Timer),
     Dest("electro", "Electro", Icons.Filled.Build),
     Dest("textdata", "Text+Data", Icons.Filled.ShortText),
-    Dest("everyday", "Everyday", Icons.Filled.Apps),
     Dest("qrscan", "QR Scan", Icons.Filled.QrCode),
-    Dest("sensors", "Sensors", Icons.Filled.Explore),
+    Dest("everyday", "Everyday", Icons.Filled.Widgets),
     Dest("ruler", "Ruler", Icons.Filled.Straighten),
+    Dest("health", "Health", Icons.Filled.Favorite),
+    Dest("sensors", "Sensors", Icons.Filled.Explore),
     Dest("analyze", "Analyze", Icons.Filled.BarChart),
     Dest("tools", "Tools", Icons.Filled.Apps)
+)
+
+private data class DrawerGroup(val title: String, val routes: List<String>)
+
+private val DrawerGroups = listOf(
+    DrawerGroup("Calculate", listOf("programmer")),
+    DrawerGroup("Convert", listOf("convert")),
+    DrawerGroup("Finance", listOf("finance")),
+    DrawerGroup("Math", listOf("math", "steps", "geometry")),
+    DrawerGroup("Time", listOf("time")),
+    DrawerGroup("Electro+Network", listOf("electro")),
+    DrawerGroup("Text+Data", listOf("textdata", "qrscan")),
+    DrawerGroup("Everyday", listOf("everyday", "ruler", "health")),
+    DrawerGroup("System", listOf("sensors", "analyze", "tools"))
 )
 
 private val SettingsDest = Dest("settings", "Settings", Icons.Filled.Settings)
 
 private val AllDests = MainDests + ToolDests + SettingsDest
+
+private val AllRoutes = AllDests.map { it.route }.toSet()
+
+private fun nextTheme(current: String): String = when (current) {
+    "light" -> "dark"
+    "dark" -> "system"
+    else -> "light"
+}
 
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
@@ -143,12 +184,14 @@ class MainActivity : ComponentActivity() {
                 val nav = rememberNavController()
                     val drawer = rememberDrawerState(DrawerValue.Closed)
                     val scope = rememberCoroutineScope()
-                    val startRoute = intent?.getStringExtra("dest")?.takeIf {
-                        it in setOf("graph", "time", "electro", "textdata", "everyday", "sensors", "tools", "qrscan", "ruler", "analyze")
-                    } ?: "calc"
+                    val startRoute = intent?.getStringExtra("dest")?.takeIf { it in AllRoutes } ?: "calc"
                     var route by remember { mutableStateOf(startRoute) }
+                    var overflowOpen by remember { mutableStateOf(false) }
+                    var showAbout by remember { mutableStateOf(false) }
+                    val vibrationOn by settingsRepo.vibration.collectAsStateWithLifecycle(initialValue = true)
+                    val fractionsOn by settingsRepo.fractions.collectAsStateWithLifecycle(initialValue = true)
                     fun go(r: String) {
-                        val safe = r.takeIf { it in setOf("calc", "graph", "convert", "finance", "math", "steps", "time", "electro", "textdata", "everyday", "sensors", "tools", "qrscan", "ruler", "analyze", "settings") } ?: return
+                        val safe = r.takeIf { it in AllRoutes } ?: return
                         route = safe
                         runCatching { nav.navigate(safe) { launchSingleTop = true; popUpTo("calc") } }
                     }
@@ -156,6 +199,7 @@ class MainActivity : ComponentActivity() {
                         val expanded = maxWidth >= 1008.dp
                         val rail = maxWidth >= 600.dp && !expanded
                         val pane: @Composable () -> Unit = {
+                            val destByRoute = ToolDests.associateBy { it.route }
                             Column(Modifier.fillMaxSize().padding(vertical = 12.dp)) {
                                 Text(
                                     "CalcU",
@@ -174,14 +218,29 @@ class MainActivity : ComponentActivity() {
                                 }
                                 HorizontalDivider(Modifier.padding(vertical = 8.dp))
                                 LazyColumn(Modifier.weight(1f)) {
-                                    items(ToolDests, key = { it.route }) { d ->
-                                        NavigationDrawerItem(
-                                            label = { Text(d.label) },
-                                            icon = { Icon(d.icon, contentDescription = null) },
-                                            selected = route == d.route,
-                                            onClick = { go(d.route); scope.launch { drawer.close() } },
-                                            modifier = Modifier.padding(NavigationDrawerItemDefaults.ItemPadding)
-                                        )
+                                    DrawerGroups.forEach { group ->
+                                        item(key = "drawer-group-${group.title}") {
+                                            Text(
+                                                group.title,
+                                                style = MaterialTheme.typography.labelLarge,
+                                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                                modifier = Modifier
+                                                    .padding(horizontal = 28.dp, vertical = 4.dp)
+                                                    .semantics { heading() }
+                                            )
+                                        }
+                                        items(group.routes, key = { "drawer-$it" }) { r ->
+                                            val d = destByRoute[r]
+                                            if (d != null) {
+                                                NavigationDrawerItem(
+                                                    label = { Text(d.label) },
+                                                    icon = { Icon(d.icon, contentDescription = null) },
+                                                    selected = route == d.route,
+                                                    onClick = { go(d.route); scope.launch { drawer.close() } },
+                                                    modifier = Modifier.padding(NavigationDrawerItemDefaults.ItemPadding)
+                                                )
+                                            }
+                                        }
                                     }
                                 }
                                 HorizontalDivider(Modifier.padding(vertical = 8.dp))
@@ -207,8 +266,57 @@ class MainActivity : ComponentActivity() {
                                                 ) { Icon(Icons.Filled.Menu, contentDescription = "Open navigation") }
                                             }
                                         },
+                                        actions = {
+                                            IconButton(onClick = { go("tools") }) {
+                                                Icon(Icons.Filled.Search, contentDescription = "Search tools")
+                                            }
+                                            IconButton(onClick = { overflowOpen = true }) {
+                                                Icon(Icons.Filled.MoreVert, contentDescription = "More options")
+                                            }
+                                            DropdownMenu(
+                                                expanded = overflowOpen,
+                                                onDismissRequest = { overflowOpen = false }
+                                            ) {
+                                                DropdownMenuItem(
+                                                    text = { Text("Vibration") },
+                                                    leadingIcon = {
+                                                        if (vibrationOn) Icon(Icons.Filled.Check, contentDescription = null)
+                                                    },
+                                                    onClick = {
+                                                        scope.launch { settingsRepo.setVibration(!vibrationOn) }
+                                                        overflowOpen = false
+                                                    }
+                                                )
+                                                DropdownMenuItem(
+                                                    text = { Text("Fractions") },
+                                                    leadingIcon = {
+                                                        if (fractionsOn) Icon(Icons.Filled.Check, contentDescription = null)
+                                                    },
+                                                    onClick = {
+                                                        scope.launch { settingsRepo.setFractions(!fractionsOn) }
+                                                        overflowOpen = false
+                                                    }
+                                                )
+                                                DropdownMenuItem(
+                                                    text = { Text("Theme: $theme") },
+                                                    onClick = {
+                                                        scope.launch { settingsRepo.setTheme(nextTheme(theme)) }
+                                                        overflowOpen = false
+                                                    }
+                                                )
+                                                HorizontalDivider()
+                                                DropdownMenuItem(
+                                                    text = { Text("Settings") },
+                                                    onClick = { overflowOpen = false; go("settings") }
+                                                )
+                                                DropdownMenuItem(
+                                                    text = { Text("About") },
+                                                    onClick = { overflowOpen = false; showAbout = true }
+                                                )
+                                            }
+                                        },
                                         colors = TopAppBarDefaults.topAppBarColors(
-                                            containerColor = MaterialTheme.colorScheme.surfaceContainer
+                                            containerColor = MaterialTheme.colorScheme.surfaceContainerHigh
                                         )
                                     )
                                 },
@@ -218,9 +326,14 @@ class MainActivity : ComponentActivity() {
                                     }
                                 }
                             ) { pad ->
+                                if (showAbout) {
+                                    AboutDialog(onClose = { showAbout = false })
+                                }
                                 Row(Modifier.padding(pad).fillMaxSize()) {
                                     if (rail) {
-                                        NavigationRail {
+                                        NavigationRail(
+                                            modifier = Modifier.verticalScroll(rememberScrollState())
+                                        ) {
                                             (MainDests + ToolDests).forEach { d ->
                                                 NavigationRailItem(
                                                     selected = route == d.route,
@@ -229,7 +342,6 @@ class MainActivity : ComponentActivity() {
                                                     label = { Text(d.label) }
                                                 )
                                             }
-                                            Spacer(Modifier.weight(1f))
                                             NavigationRailItem(
                                                 selected = route == SettingsDest.route,
                                                 onClick = { go(SettingsDest.route) },
@@ -238,10 +350,11 @@ class MainActivity : ComponentActivity() {
                                             )
                                         }
                                     }
+                                    Box(Modifier.weight(1f), contentAlignment = Alignment.TopCenter) {
                                     NavHost(
                                         navController = nav,
                                         startDestination = startRoute,
-                                        modifier = Modifier.weight(1f).widthIn(max = 840.dp)
+                                        modifier = Modifier.widthIn(max = 840.dp).fillMaxSize()
                                     ) {
                                         composable("calc") { Centered { CalculatorScreen() } }
                                         composable("graph") { Centered { GraphScreen() } }
@@ -249,6 +362,9 @@ class MainActivity : ComponentActivity() {
                                         composable("finance") { Centered { FinanceScreen(onNavigate = { if (it == "back") nav.popBackStack() else go(it) }) } }
                                         composable("math") { Centered { MathScreen(onNavigate = { if (it == "back") nav.popBackStack() else go(it) }) } }
                                         composable("steps") { Centered { StepsScreen(onNavigate = { if (it == "back") nav.popBackStack() else go(it) }) } }
+                                        composable("geometry") { Centered { GeometryScreen() } }
+                                        composable("health") { Centered { HealthScreen(onNavigate = { if (it == "back") nav.popBackStack() else go(it) }) } }
+                                        composable("programmer") { Centered { ProgrammerScreen() } }
                                         composable("time") { Centered { TimeLabScreen() } }
                                         composable("electro") { Centered { ElectroScreen() } }
                                         composable("textdata") { Centered { TextDataScreen() } }
@@ -269,6 +385,7 @@ class MainActivity : ComponentActivity() {
                                         }
                                         composable("tools") { Centered { ToolsHub(onOpen = { go(it) }) } }
                                         composable("settings") { Centered { SettingsScreen() } }
+                                    }
                                     }
                                 }
                             }
@@ -293,9 +410,19 @@ class MainActivity : ComponentActivity() {
 }
 
 @Composable
+private fun AboutDialog(onClose: () -> Unit) {
+    AlertDialog(
+        onDismissRequest = onClose,
+        confirmButton = { TextButton(onClick = onClose) { Text("Close") } },
+        title = { Text("CalcU") },
+        text = { Text("Free forever: no ads, no tracking, local only.") }
+    )
+}
+
+@Composable
 private fun Centered(content: @Composable () -> Unit) {
     androidx.compose.foundation.layout.Box(
-        Modifier.fillMaxSize().padding(horizontal = 16.dp),
+        Modifier.fillMaxSize(),
         contentAlignment = Alignment.TopCenter
     ) { content() }
 }
