@@ -70,6 +70,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -1213,10 +1214,12 @@ fun ConvertersScreen() {
                                     (fadeOut(tween(250)) + slideOutVertically(tween(250) { -it / 4 }))
                             },
                             label = "cups-output"
-                        ) { _ ->
+                        ) { target ->
+                            key(target) {
                             Column {
                                 ResultLine("Volume", "${fmt(volMl, 2)} mL" + (if (volFrac != null) " ($volFrac)" else ""))
                                 ResultLine("Weight", "${fmt(weight, 2)} g" + (if (wtFrac != null) " ($wtFrac)" else ""))
+                            }
                             }
                         }
                     }
@@ -1235,7 +1238,8 @@ fun ConvertersScreen() {
                                 (fadeOut(tween(250)) + slideOutVertically(tween(250) { -it / 4 }))
                         },
                         label = "base-output"
-                    ) { _ ->
+                    ) { target ->
+                        key(target) {
                         Column {
                             ResultLine("Binary", if (baseLong == null) "—" else runCatching { Units.fromBase(baseLong.toDouble(), 2) }.getOrDefault("—"))
                             ResultLine("Octal", if (baseLong == null) "—" else runCatching { Units.fromBase(baseLong.toDouble(), 8) }.getOrDefault("—"))
@@ -1248,6 +1252,7 @@ fun ConvertersScreen() {
                                 style = MaterialTheme.typography.labelSmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
+                        }
                         }
                     }
                 }
@@ -1295,11 +1300,13 @@ fun ConvertersScreen() {
                                 (fadeOut(tween(250)) + slideOutVertically(tween(250) { -it / 4 }))
                         },
                         label = "color-output"
-                    ) { _ ->
+                    ) { target ->
+                        key(target) {
                         Column {
                             ResultLine("Hex→RGB", rgbFromHex?.let { "${it.first}, ${it.second}, ${it.third}" } ?: "—")
                             ResultLine("RGB→Hex", hexFromRgb ?: "—")
                             ResultLine("HSL", hsl?.let { "${fmt(it.first, 1)}°, ${fmt(it.second * 100, 1)}%, ${fmt(it.third * 100, 1)}%" } ?: "—")
+                        }
                         }
                     }
                 }
