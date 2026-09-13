@@ -290,7 +290,7 @@ private fun KeypadMiniPreview(
             }
             if (layout == "classic") {
                 Box(
-                    modifier = Modifier.fillMaxWidth().height(12.dp)
+                    modifier = Modifier.fillMaxWidth().height(20.dp)
                         .clip(RoundedCornerShape(4.dp))
                         .background(sciColor),
                     contentAlignment = Alignment.CenterStart

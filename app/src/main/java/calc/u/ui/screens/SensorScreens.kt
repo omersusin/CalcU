@@ -190,7 +190,7 @@ fun CompassScreen() {
             ) {
                 val cx = size.width / 2f
                 val cy = size.height / 2f
-                val radius = size.minDimension / 2f
+                val radius = size.minDimension / 2f - 2.dp.toPx()
                 drawCircle(color = track, radius = radius, style = Stroke(width = 2.dp.toPx()))
                 for (deg in 0 until 360 step 15) {
                     val cardinal = deg % 90 == 0
@@ -320,7 +320,7 @@ fun LevelScreen() {
             ) {
                 val cx = size.width / 2f
                 val cy = size.height / 2f
-                val radius = size.minDimension / 2f
+                val radius = size.minDimension / 2f - 2.dp.toPx()
                 drawCircle(color = track, radius = radius, style = Stroke(width = 2.dp.toPx()))
                 drawLine(
                     color = onSurfaceVariant,
@@ -335,7 +335,7 @@ fun LevelScreen() {
                     strokeWidth = 1.dp.toPx()
                 )
                 drawCircle(color = onSurfaceVariant, radius = 4.dp.toPx(), center = Offset(cx, cy))
-                val maxOffset = radius - 24.dp.toPx()
+                val maxOffset = radius - 32.dp.toPx()
                 val bx = cx + (shownRoll / 45f).coerceIn(-1f, 1f) * maxOffset
                 val by = cy + (shownPitch / 45f).coerceIn(-1f, 1f) * maxOffset
                 drawCircle(color = primary, radius = 18.dp.toPx(), center = Offset(bx, by))

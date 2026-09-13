@@ -281,12 +281,18 @@ private fun PieChart(
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
             Canvas(Modifier.size(132.dp)) {
+                val sw = 18.dp.toPx()
+                val inset = sw / 2f + 1.dp.toPx()
+                val arcTopLeft = Offset(inset, inset)
+                val arcSize = Size(size.width - inset * 2f, size.height - inset * 2f)
                 drawArc(
                     color = track,
                     startAngle = 0f,
                     sweepAngle = 360f,
                     useCenter = false,
-                    style = Stroke(width = 18.dp.toPx(), cap = StrokeCap.Round)
+                    topLeft = arcTopLeft,
+                    size = arcSize,
+                    style = Stroke(width = sw, cap = StrokeCap.Round)
                 )
                 if (sweep > 0f) {
                     drawArc(
@@ -294,14 +300,18 @@ private fun PieChart(
                         startAngle = -90f,
                         sweepAngle = 360f * firstFrac * sweep,
                         useCenter = false,
-                        style = Stroke(width = 18.dp.toPx(), cap = StrokeCap.Round)
+                        topLeft = arcTopLeft,
+                        size = arcSize,
+                        style = Stroke(width = sw, cap = StrokeCap.Round)
                     )
                     drawArc(
                         color = tertiary,
                         startAngle = -90f + 360f * firstFrac * sweep,
                         sweepAngle = 360f * (1f - firstFrac) * sweep,
                         useCenter = false,
-                        style = Stroke(width = 18.dp.toPx(), cap = StrokeCap.Round)
+                        topLeft = arcTopLeft,
+                        size = arcSize,
+                        style = Stroke(width = sw, cap = StrokeCap.Round)
                     )
                 }
             }
@@ -476,7 +486,7 @@ private fun BmiBar(bmi: Double) {
     )
     val frac = if (!bmi.isFinite()) -1f else ((bmi - 14.0) / (36.0 - 14.0)).toFloat().coerceIn(0f, 1f)
     val marker = MaterialTheme.colorScheme.onSurface
-    Canvas(modifier = Modifier.fillMaxWidth().height(12.dp)) {
+    Canvas(modifier = Modifier.fillMaxWidth().height(16.dp)) {
         val gap = 4.dp.toPx()
         val segW = (size.width - gap * (segments.size - 1)) / segments.size
         segments.forEachIndexed { i, c ->
@@ -494,9 +504,9 @@ private fun BmiBar(bmi: Double) {
                 color = marker,
                 topLeft = Offset(
                     x = (x - markerW / 2).coerceIn(0f, (size.width - markerW).coerceAtLeast(0f)),
-                    y = -2.dp.toPx()
+                    y = 0f
                 ),
-                size = Size(width = markerW, height = size.height + 4.dp.toPx()),
+                size = Size(width = markerW, height = size.height),
                 cornerRadius = CornerRadius(x = markerW / 2, y = markerW / 2)
             )
         }
@@ -1706,12 +1716,18 @@ fun FinanceScreen(onNavigate: (String) -> Unit = {}) {
                 Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
                     Canvas(Modifier.size(120.dp)) {
                         val invFrac = if (sipTotal <= 0) 0f else (sipInvested / sipTotal).toFloat().coerceIn(0f, 1f)
+                        val ssw = 18.dp.toPx()
+                        val sInset = ssw / 2f + 1.dp.toPx()
+                        val sTopLeft = Offset(sInset, sInset)
+                        val sSize = Size(size.width - sInset * 2f, size.height - sInset * 2f)
                         drawArc(
                             color = surfaceTrack,
                             startAngle = 0f,
                             sweepAngle = 360f,
                             useCenter = false,
-                            style = Stroke(width = 18.dp.toPx(), cap = StrokeCap.Round)
+                            topLeft = sTopLeft,
+                            size = sSize,
+                            style = Stroke(width = ssw, cap = StrokeCap.Round)
                         )
                         if (sipSweep > 0f) {
                             drawArc(
@@ -1719,14 +1735,18 @@ fun FinanceScreen(onNavigate: (String) -> Unit = {}) {
                                 startAngle = -90f,
                                 sweepAngle = 360f * invFrac * sipSweep,
                                 useCenter = false,
-                                style = Stroke(width = 18.dp.toPx(), cap = StrokeCap.Round)
+                                topLeft = sTopLeft,
+                                size = sSize,
+                                style = Stroke(width = ssw, cap = StrokeCap.Round)
                             )
                             drawArc(
                                 color = sipTertiary,
                                 startAngle = -90f + 360f * invFrac * sipSweep,
                                 sweepAngle = 360f * (1f - invFrac) * sipSweep,
                                 useCenter = false,
-                                style = Stroke(width = 18.dp.toPx(), cap = StrokeCap.Round)
+                                topLeft = sTopLeft,
+                                size = sSize,
+                                style = Stroke(width = ssw, cap = StrokeCap.Round)
                             )
                         }
                     }
