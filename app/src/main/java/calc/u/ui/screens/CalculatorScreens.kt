@@ -67,6 +67,8 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -109,6 +111,7 @@ import calc.u.ui.FluentTeachingTip
 import calc.u.ui.SectionCard
 import calc.u.ui.WARNING
 import calc.u.ui.theme.FluentMotion
+import calc.u.ui.theme.keyShape
 import calc.u.ui.tintExpression
 import kotlinx.coroutines.delay
 import android.content.Intent
@@ -124,6 +127,7 @@ import androidx.compose.material.icons.filled.ZoomIn
 import androidx.compose.material.icons.filled.ZoomOut
 import androidx.compose.material3.Checkbox
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalConfiguration
@@ -145,6 +149,8 @@ private fun historyNote(entry: String): String =
     if (entry.count { it == '|' } >= 2) entry.substringAfterLast("|") else ""
 
 private val MiniGraphHint = Regex("(sin|cos|tan|asin|acos|atan|log|ln|sqrt|\\^|/|\\*|\\(|\\d)")
+
+private val LocalKeyShape = compositionLocalOf<Shape> { CircleShape }
 
 @Composable
 private fun DisplayMiniGraph(input: String, modifier: Modifier = Modifier) {
@@ -522,6 +528,7 @@ fun CalculatorScreen(vm: CalcViewModel = hiltViewModel()) {
     val numberFormat by vm.numberFormat.collectAsStateWithLifecycle()
     val keepScreenOn by vm.keepScreenOn.collectAsStateWithLifecycle()
     val keypadLayout by vm.keypadLayout.collectAsStateWithLifecycle()
+    val keyShapeId by vm.keypadShape.collectAsStateWithLifecycle()
     val haptics = LocalHapticFeedback.current
     fun tapFeedback() {
         if (vibration) haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
@@ -581,6 +588,7 @@ fun CalculatorScreen(vm: CalcViewModel = hiltViewModel()) {
         }
     }
     Box(Modifier.fillMaxSize()) {
+        CompositionLocalProvider(LocalKeyShape provides keyShape(keyShapeId)) {
         val isLandscape = LocalConfiguration.current.orientation == Configuration.ORIENTATION_LANDSCAPE
         if (isLandscape) {
             Row(
@@ -806,6 +814,7 @@ fun CalculatorScreen(vm: CalcViewModel = hiltViewModel()) {
             )
         }
         SnackbarHost(hostState = snackbar, modifier = Modifier.align(Alignment.BottomCenter))
+        }
     }
 }
 
@@ -1110,8 +1119,8 @@ private fun CalcKey(
     Box(
         modifier = modifier.heightIn(min = 48.dp).height(keyHeight)
             .graphicsLayer(scaleX = scale, scaleY = scale)
-            .clip(CircleShape)
-            .background(container, CircleShape)
+            .clip(LocalKeyShape.current)
+            .background(container, LocalKeyShape.current)
             .combinedClickable(
                 interactionSource = interactions,
                 indication = LocalIndication.current,
@@ -1263,8 +1272,8 @@ private fun BackKey(
     Box(
         modifier = modifier.heightIn(min = 48.dp).height(48.dp)
             .graphicsLayer(scaleX = scale, scaleY = scale)
-            .clip(CircleShape)
-            .background(container, CircleShape)
+            .clip(LocalKeyShape.current)
+            .background(container, LocalKeyShape.current)
             .combinedClickable(
                 interactionSource = interactions,
                 indication = LocalIndication.current,

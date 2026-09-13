@@ -25,10 +25,13 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material3.Button
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.RadioButton
+import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.material3.SegmentedButton
 import androidx.compose.material3.SegmentedButtonDefaults
 import androidx.compose.material3.SingleChoiceSegmentedButtonRow
@@ -61,6 +64,10 @@ import calc.u.data.SettingsRepository
 import calc.u.ui.FluentExpander
 import calc.u.ui.SectionCard
 import calc.u.ui.theme.CalcUThemeSeeds
+import calc.u.ui.theme.CustomThemeId
+import calc.u.ui.theme.KeypadShapeIds
+import calc.u.ui.theme.hslToSeedArgb
+import calc.u.ui.theme.seedArgbToHsl
 import com.google.android.material.color.utilities.TonalPalette
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
@@ -68,6 +75,7 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import kotlin.math.roundToInt
 
 @HiltViewModel
 class SettingsViewModel @Inject constructor(
@@ -103,6 +111,10 @@ class SettingsViewModel @Inject constructor(
         repo.engineering.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
     val precisionSlider: StateFlow<Int> =
         repo.precisionSlider.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 10)
+    val customSeedArgb: StateFlow<Int?> =
+        repo.customSeedArgb.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
+    val keypadShape: StateFlow<String> =
+        repo.keypadShape.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), KeypadShapeIds.Circles)
 
     fun setTheme(value: String) {
         viewModelScope.launch { repo.setTheme(value) }
@@ -155,6 +167,17 @@ class SettingsViewModel @Inject constructor(
     fun setPrecisionSlider(value: Int) {
         viewModelScope.launch { repo.setPrecisionSlider(value) }
     }
+
+    fun setCustomSeedArgb(value: Int) {
+        viewModelScope.launch {
+            repo.setCustomSeedArgb(value)
+            repo.setTheme(CustomThemeId)
+        }
+    }
+
+    fun setKeypadShape(value: String) {
+        viewModelScope.launch { repo.setKeypadShape(value) }
+    }
 }
 
 @Composable
@@ -172,6 +195,9 @@ fun SettingsScreen(vm: SettingsViewModel = hiltViewModel()) {
     val memoryRow by vm.memoryRow.collectAsStateWithLifecycle()
     val engineering by vm.engineering.collectAsStateWithLifecycle()
     val precisionSlider by vm.precisionSlider.collectAsStateWithLifecycle()
+    val customSeedArgb by vm.customSeedArgb.collectAsStateWithLifecycle()
+    val keypadShape by vm.keypadShape.collectAsStateWithLifecycle()
+    var showCustomSheet by remember { mutableStateOf(false) }
     LazyColumn(
         Modifier.fillMaxSize().padding(vertical = 16.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)
@@ -261,6 +287,35 @@ fun SettingsScreen(vm: SettingsViewModel = hiltViewModel()) {
                         seeds = CalcUThemeSeeds.vivid,
                         selectedId = theme,
                         onSelect = { vm.setTheme(it) }
+                    )
+                    SeedGroupHeader("Custom")
+                    CustomSeedTile(
+                        selected = theme == CustomThemeId,
+                        customArgb = customSeedArgb,
+                        onSelect = { vm.setTheme(CustomThemeId) },
+                        onCustomize = { showCustomSheet = true }
+                    )
+                    SeedGroupHeader("Keypad shape")
+                    SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
+                        val shapes = listOf(
+                            KeypadShapeIds.Circles to "Circles",
+                            KeypadShapeIds.Squircle to "Squircle",
+                            KeypadShapeIds.Pill to "Pill"
+                        )
+                        shapes.forEachIndexed { index, (id, label) ->
+                            SegmentedButton(
+                                selected = keypadShape == id,
+                                onClick = { vm.setKeypadShape(id) },
+                                shape = SegmentedButtonDefaults.itemShape(index, shapes.size)
+                            ) {
+                                Text(label)
+                            }
+                        }
+                    }
+                    Text(
+                        "Shape rendering lives in keyShape() (FluentTheme); wiring it into CalculatorScreens keys + NumPadSheet is a follow-up — ids are stable.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
             }
@@ -542,6 +597,10 @@ fun SettingsScreen(vm: SettingsViewModel = hiltViewModel()) {
                         style = MaterialTheme.typography.bodyMedium
                     )
                     Text(
+                        "Custom-seed + button-shape personalization re-implemented from Calc-OS (MIT License, © 2026 HyBox); all code here is original.",
+                        style = MaterialTheme.typography.bodyMedium
+                    )
+                    Text(
                         "Lato typeface by Lukasz Dziedzic (SIL Open Font License 1.1); see assets/licenses/OFL-Lato.txt.",
                         style = MaterialTheme.typography.bodyMedium
                     )
@@ -691,6 +750,16 @@ fun SettingsScreen(vm: SettingsViewModel = hiltViewModel()) {
                 }
             }
         }
+    }
+    if (showCustomSheet) {
+        CustomSeedSheet(
+            initialArgb = customSeedArgb,
+            onApply = {
+                vm.setCustomSeedArgb(it)
+                showCustomSheet = false
+            },
+            onDismiss = { showCustomSheet = false }
+        )
     }
 }
 
@@ -911,5 +980,144 @@ private fun DynamicSeedTile(
                 onCheckedChange = onDynamicChange
             )
         }
+    }
+}
+
+@Composable
+private fun CustomSeedTile(
+    selected: Boolean,
+    customArgb: Int?,
+    onSelect: () -> Unit,
+    onCustomize: () -> Unit
+) {
+    val swatches = if (customArgb != null) {
+        seedSwatches(CalcUThemeSeeds.Seed(CustomThemeId, "Custom", customArgb))
+    } else {
+        val placeholder = MaterialTheme.colorScheme.outlineVariant
+        listOf(placeholder, placeholder, placeholder, placeholder)
+    }
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        SeedTile(
+            label = if (customArgb != null) "Custom" else "Custom — not set",
+            swatches = swatches,
+            selected = selected,
+            onClick = { if (customArgb != null) onSelect() else onCustomize() },
+            modifier = Modifier.fillMaxWidth()
+        )
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                "HSL sliders + live preview; Apply saves the seed and switches to it.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.weight(1f)
+            )
+            Button(onClick = onCustomize) {
+                Text("Customize")
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun CustomSeedSheet(
+    initialArgb: Int?,
+    onApply: (Int) -> Unit,
+    onDismiss: () -> Unit
+) {
+    val (initH, initS, initL) = remember(initialArgb) {
+        seedArgbToHsl(initialArgb ?: hslToSeedArgb(265f, 0.45f, 0.55f))
+    }
+    var hue by remember(initialArgb) { mutableStateOf(initH) }
+    var sat by remember(initialArgb) { mutableStateOf(initS) }
+    var light by remember(initialArgb) { mutableStateOf(initL) }
+    val previewArgb = hslToSeedArgb(hue, sat, light)
+    ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    ) {
+        Column(
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            Text(
+                "Custom seed",
+                style = MaterialTheme.typography.titleLarge,
+                modifier = Modifier.semantics { heading() }
+            )
+            Box(
+                modifier = Modifier.fillMaxWidth()
+                    .height(64.dp)
+                    .clip(MaterialTheme.shapes.large)
+                    .background(Color(previewArgb))
+            )
+            SwatchPreview(
+                swatches = seedSwatches(CalcUThemeSeeds.Seed(CustomThemeId, "Custom", previewArgb)),
+                selected = false
+            )
+            HslSliderRow(
+                label = "Hue",
+                valueText = "${hue.roundToInt()}°",
+                value = hue,
+                range = 0f..360f,
+                onChange = { hue = it.coerceIn(0f, 360f) }
+            )
+            HslSliderRow(
+                label = "Saturation",
+                valueText = "${(sat * 100f).roundToInt()}%",
+                value = sat,
+                range = 0f..1f,
+                onChange = { sat = it.coerceIn(0f, 1f) }
+            )
+            HslSliderRow(
+                label = "Lightness",
+                valueText = "${(light * 100f).roundToInt()}%",
+                value = light,
+                range = 0f..1f,
+                onChange = { light = it.coerceIn(0f, 1f) }
+            )
+            Button(
+                onClick = { onApply(previewArgb) },
+                modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)
+            ) {
+                Text("Apply")
+            }
+            Spacer(Modifier.height(16.dp))
+        }
+    }
+}
+
+@Composable
+private fun HslSliderRow(
+    label: String,
+    valueText: String,
+    value: Float,
+    range: ClosedFloatingPointRange<Float>,
+    onChange: (Float) -> Unit
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                label,
+                style = MaterialTheme.typography.bodyLarge,
+                modifier = Modifier.weight(1f)
+            )
+            Text(
+                valueText,
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+        Slider(
+            value = value,
+            onValueChange = onChange,
+            valueRange = range
+        )
     }
 }

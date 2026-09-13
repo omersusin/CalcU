@@ -92,6 +92,7 @@ import calc.u.ui.screens.GraphScreen
 import calc.u.ui.screens.MathScreen
 import calc.u.ui.screens.SettingsScreen
 import calc.u.ui.screens.StepsScreen
+import calc.u.ui.screens.TextCalcScreen
 import calc.u.ui.screens.TextDataScreen
 import calc.u.ui.screens.TimeLabScreen
 import calc.u.ui.screens.ElectroScreen
@@ -126,6 +127,7 @@ private val ToolDests = listOf(
     Dest("time", "Time Lab", Icons.Filled.Timer),
     Dest("electro", "Electro", Icons.Filled.Build),
     Dest("textdata", "Text+Data", Icons.Filled.ShortText),
+    Dest("textcalc", "Text Calc", Icons.Filled.Description),
     Dest("qrscan", "QR Scan", Icons.Filled.QrCode),
     Dest("everyday", "Everyday", Icons.Filled.Widgets),
     Dest("ruler", "Ruler", Icons.Filled.Straighten),
@@ -144,7 +146,7 @@ private val DrawerGroups = listOf(
     DrawerGroup("Math", listOf("math", "steps", "geometry")),
     DrawerGroup("Time", listOf("time")),
     DrawerGroup("Electro+Network", listOf("electro")),
-    DrawerGroup("Text+Data", listOf("textdata", "qrscan")),
+    DrawerGroup("Text+Data", listOf("textdata", "textcalc", "qrscan")),
     DrawerGroup("Everyday", listOf("everyday", "ruler", "health")),
     DrawerGroup("System", listOf("sensors", "analyze", "tools"))
 )
@@ -173,12 +175,13 @@ class MainActivity : ComponentActivity() {
             val themeMode by settingsRepo.themeMode.collectAsStateWithLifecycle(initialValue = "system")
             val themeAmoled by settingsRepo.amoled.collectAsStateWithLifecycle(initialValue = false)
             val dynamicColor by settingsRepo.dynamicColor.collectAsStateWithLifecycle(initialValue = true)
+            val customSeed by settingsRepo.customSeedArgb.collectAsStateWithLifecycle(initialValue = null)
             val keepOn by settingsRepo.keepScreenOn.collectAsStateWithLifecycle(initialValue = false)
             LaunchedEffect(keepOn) {
                 if (keepOn) window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
                 else window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
             }
-            CalcUTheme(theme = theme, mode = themeMode, amoled = themeAmoled, dynamic = dynamicColor) {
+            CalcUTheme(theme = theme, mode = themeMode, amoled = themeAmoled, dynamic = dynamicColor, customSeedArgb = customSeed) {
                 val tourSeen by settingsRepo.tourSeen.collectAsStateWithLifecycle(initialValue = true)
                 if (!tourSeen) {
                     val tourScope = rememberCoroutineScope()
@@ -371,6 +374,7 @@ class MainActivity : ComponentActivity() {
                                         composable("time") { Centered { TimeLabScreen() } }
                                         composable("electro") { Centered { ElectroScreen() } }
                                         composable("textdata") { Centered { TextDataScreen() } }
+                                        composable("textcalc") { Centered { TextCalcScreen() } }
                                         composable("everyday") { Centered { EverydayScreen() } }
                                         composable("sensors") { Centered { SensorScreen() } }
                                         composable("ruler") { Centered { RulerScreen() } }

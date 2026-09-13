@@ -67,6 +67,8 @@ class CalcViewModel @Inject constructor(
         settingsRepo.memoryRow.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), true)
     val keypadLayout: StateFlow<String> =
         settingsRepo.keypadLayout.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), "simple")
+    val keypadShape: StateFlow<String> =
+        settingsRepo.keypadShape.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), "circles")
 
     private fun fmt(v: BigDecimal): String =
         Engine.format(v, decimals.value, numberFormat.value, fractions.value)

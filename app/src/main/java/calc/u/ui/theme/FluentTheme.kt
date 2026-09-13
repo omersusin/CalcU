@@ -5,6 +5,7 @@ import android.os.Build
 import androidx.compose.animation.core.CubicBezierEasing
 import androidx.compose.animation.core.Easing
 import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ColorScheme
@@ -17,6 +18,7 @@ import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.ReadOnlyComposable
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.Font
@@ -328,6 +330,8 @@ private val BotanicalDark = darkColorScheme(
  * - Botanical: custom light/dark schemes (representative argb = light primary).
  * - Classics: Ocean/Forest/Sunset/Grape/Slate/Mono/Amber.
  * - Vivid: Nord/Dracula/Tokyo/Gruvbox/Catppuccin/Kanagawa/Rosé Pine.
+ * - Custom: user HSL seed id "custom" ([CustomThemeId]); argb is NOT in
+ *   [allById] — it comes from the `custom_seed_argb` pref via [seedScheme].
  *
  * Legacy ids "light", "dark", "amoled", "contrast" are NOT seeds: they stay
  * resolvable in [CalcUTheme] for backup compat but are hidden from the picker
@@ -362,6 +366,109 @@ object CalcUThemeSeeds {
         (listOf(botanical) + classics + vivid).associateBy { it.id }
 
     fun argbFor(id: String): Int? = allById[id]?.argb
+}
+
+/**
+ * Stable id for the user-defined custom seed. Stored in the existing "theme"
+ * pref like every other seed id (never renamed so backups keep working).
+ * The argb itself lives in the additive `custom_seed_argb` pref and is passed
+ * to [CalcUTheme] as `customSeedArgb`; see the "custom" branch there.
+ */
+const val CustomThemeId = "custom"
+
+/**
+ * Opaque-argb validation for the custom seed. Null/0 means "not set".
+ * Any set value is forced opaque so tonal palettes stay well-behaved.
+ */
+fun validatedCustomSeedArgb(raw: Int?): Int? {
+    if (raw == null || raw == 0) return null
+    return raw or 0xFF000000.toInt()
+}
+
+/**
+ * HSL <-> opaque argb helpers for the custom-seed bottom sheet.
+ * Hue is degrees 0-360, saturation/lightness are 0-1; all inputs clamped.
+ * Pure functions (no Android/Compose dependencies) so they stay unit-testable.
+ */
+fun hslToSeedArgb(hueDeg: Float, saturation: Float, lightness: Float): Int {
+    val h = hueDeg.coerceIn(0f, 360f).mod(360f) / 360f
+    val s = saturation.coerceIn(0f, 1f)
+    val l = lightness.coerceIn(0f, 1f)
+    val c = (1f - kotlin.math.abs(2f * l - 1f)) * s
+    val x = c * (1f - kotlin.math.abs((h * 6f).mod(2f) - 1f))
+    val m = l - c / 2f
+    val (r, g, b) = when ((h * 6f).toInt().coerceIn(0, 5)) {
+        0 -> Triple(c, x, 0f)
+        1 -> Triple(x, c, 0f)
+        2 -> Triple(0f, c, x)
+        3 -> Triple(0f, x, c)
+        4 -> Triple(x, 0f, c)
+        else -> Triple(c, 0f, x)
+    }
+    val ri = ((r + m) * 255f).toInt().coerceIn(0, 255)
+    val gi = ((g + m) * 255f).toInt().coerceIn(0, 255)
+    val bi = ((b + m) * 255f).toInt().coerceIn(0, 255)
+    return 0xFF000000.toInt() or (ri shl 16) or (gi shl 8) or bi
+}
+
+fun seedArgbToHsl(argb: Int): Triple<Float, Float, Float> {
+    val r = ((argb shr 16) and 0xFF) / 255f
+    val g = ((argb shr 8) and 0xFF) / 255f
+    val b = (argb and 0xFF) / 255f
+    val cmax = maxOf(r, g, b)
+    val cmin = minOf(r, g, b)
+    val delta = cmax - cmin
+    val l = (cmax + cmin) / 2f
+    if (delta == 0f) return Triple(0f, 0f, l.coerceIn(0f, 1f))
+    val s = (delta / (1f - kotlin.math.abs(2f * l - 1f))).coerceIn(0f, 1f)
+    val h = when (cmax) {
+        r -> (((g - b) / delta).mod(6f)) * 60f
+        g -> (((b - r) / delta) + 2f) * 60f
+        else -> (((r - g) / delta) + 4f) * 60f
+    }
+    return Triple(h.mod(360f).coerceIn(0f, 360f), s, l.coerceIn(0f, 1f))
+}
+
+/**
+ * Keypad shape ids (stable storage ids, same contract as seed ids).
+ * Personalization idea re-implemented from Calc-OS (MIT, see Settings
+ * attributions): Calc-OS maps pill/9999px (default), 16px rounded-rect and
+ * 4px square onto `--calc-btn-radius`. Here Circles ~ Calc-OS pill default,
+ * Squircle ~ 16px rounded rect, Pill ~ full stadium capsule.
+ */
+object KeypadShapeIds {
+    const val Circles = "circles"
+    const val Squircle = "squircle"
+    const val Pill = "pill"
+
+    val All: Set<String> = setOf(Circles, Squircle, Pill)
+
+    fun coerce(raw: String?): String = if (raw != null && All.contains(raw)) raw else Circles
+}
+
+/**
+ * Documented pure helper for keypad key shape.
+ *
+ * Follow-up wiring (call sites live outside the owned files — do NOT change
+ * them here):
+ * - CalculatorScreens.kt: `CalcKey` + `BackKey` currently hardcode
+ *   `.clip(CircleShape)` / `.background(..., CircleShape)` (lines ~1113-1114,
+ *   ~1266-1267). Thread `shape: Shape = keyShape(shapeId)` through `Keypad` ->
+ *   `SimpleKeypad`/`ClassicKeypad`/`ModernKeypad` -> `DigitKey`/`SciKey`/`CalcKey`
+ *   and `BackKey`, replacing both the clip and background shapes.
+ * - NumPadSheet.kt: `PadKey` currently hardcodes `val circle = CircleShape`
+ *   (line ~77) for Button/FilledTonalButton/OutlinedButton `shape =`. Add a
+ *   `shape: Shape` parameter defaulting to `keyShape(KeypadShapeIds.Circles)`
+ *   and pass the collected pref down from the caller.
+ * - Pref flow mirror: SettingsRepository.keypadShape +
+ *   CalcViewModel.keypadLayout pattern (`settingsRepo.keypadShape.stateIn(...)`
+ *   next to `keypadLayout`, default "circles").
+ * Existing call sites keep compiling: this helper is purely additive.
+ */
+fun keyShape(shapeId: String): Shape = when (shapeId) {
+    KeypadShapeIds.Pill -> RoundedCornerShape(percent = 50)
+    KeypadShapeIds.Squircle -> RoundedCornerShape(18.dp)
+    else -> CircleShape
 }
 
 private fun ColorScheme.withPureBlackBackground(): ColorScheme = copy(
@@ -484,15 +591,21 @@ fun seedScheme(seedArgb: Int, dark: Boolean): ColorScheme {
  *    variant, "system" (default) defers to the seed id / system setting.
  * 3. Seed id ([theme]): "system" follows the system dark setting, "light"
  *    pins light, "dark" pins dark (both flippable by [mode]), custom seeds
- *    resolve via [CalcUThemeSeeds] + [seedScheme]. Legacy ids "amoled" and
+ *    resolve via [CalcUThemeSeeds] + [seedScheme]. Id "custom" ([CustomThemeId])
+ *    resolves via [seedScheme] from [customSeedArgb] (validated, opaque);
+ *    with no custom argb stored it falls back exactly like an unknown seed.
+ *    Legacy ids "amoled" and
  *    "contrast" still resolve to [FluentAmoled]/[FluentContrast] for backup
  *    compat but are hidden from the picker.
  * 4. Dynamic wallpaper ([dynamic] on API 31+): "system"/"light"/"dark" bases
  *    use the wallpaper-derived scheme; seed schemes stay tonal by design.
  *
- * Seed id strings are never renamed so backups keep working. [mode] and
- * [amoled] are additive with safe defaults, so existing call sites such as
- * `CalcUTheme(theme = theme) { ... }` compile unchanged.
+ * Seed id strings are never renamed so backups keep working. [mode], [amoled]
+ * and [customSeedArgb] are additive with safe defaults, so existing call sites
+ * such as `CalcUTheme(theme = theme) { ... }` compile unchanged.
+ * NOTE (follow-up): MainActivity must collect `SettingsRepository.customSeedArgb`
+ * and pass it as [customSeedArgb]; until then theme id "custom" renders the
+ * dynamic/Fluent fallback.
  */
 @Composable
 fun CalcUTheme(
@@ -501,6 +614,7 @@ fun CalcUTheme(
     dynamic: Boolean = true,
     mode: String = "system",
     amoled: Boolean = false,
+    customSeedArgb: Int? = null,
     content: @Composable () -> Unit
 ) {
     val context = LocalContext.current
@@ -534,6 +648,16 @@ fun CalcUTheme(
                 if (effectiveDark) FluentDark else FluentLight
             }
         "botanical" -> if (effectiveDark) BotanicalDark else BotanicalLight
+        CustomThemeId -> {
+            val custom = validatedCustomSeedArgb(customSeedArgb)
+            if (custom != null) {
+                seedScheme(custom, effectiveDark)
+            } else if (useDynamic) {
+                if (effectiveDark) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context)
+            } else {
+                if (effectiveDark) FluentDark else FluentLight
+            }
+        }
         else -> {
             val argb = CalcUThemeSeeds.argbFor(theme)
             if (argb != null) {

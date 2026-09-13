@@ -117,6 +117,7 @@ private val HubTools = listOf(
     ToolEntry("Unix time", "Text+Data", "textdata"),
     ToolEntry("TOTP codes", "Text+Data", "textdata"),
     ToolEntry("Cipher", "Text+Data", "textdata"),
+    ToolEntry("Text calc", "Text+Data", "textcalc"),
     ToolEntry("Tally", "Everyday", "everyday"),
     ToolEntry("Dice & coin", "Everyday", "everyday"),
     ToolEntry("Number words", "Everyday", "everyday"),

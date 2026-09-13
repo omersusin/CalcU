@@ -68,7 +68,7 @@ const val SUCCESS = 1
 const val WARNING = 2
 const val ERROR = 3
 
-private val NumericInput = Regex("-?[0-9]*\\.?[0-9]*([eE][+-]?[0-9]*)?")
+private val NumericInput = Regex("-?[0-9]*[.,]?[0-9]*([eE][+-]?[0-9]*)?")
 private val FieldGroupShape = RoundedCornerShape(16.dp)
 
 @Composable
@@ -106,11 +106,13 @@ fun CalcUNumberBox(
             value = value,
             onValueChange = { next ->
                 if (next.isEmpty() || next.matches(NumericInput)) {
-                    lastValid = next
-                    onValueChange(next)
-                } else {
-                    onValueChange(lastValid)
+                    // Normalize locale decimal comma live so "3,5" computes as 3.5.
+                    val normalized = next.replace(',', '.')
+                    lastValid = normalized
+                    onValueChange(normalized)
                 }
+                // else: ignore the keystroke (never yank text back — that
+                // fights the IME and makes typing impossible).
             },
             placeholder = { if (placeholder != null) Text(placeholder) },
             singleLine = true,
@@ -120,7 +122,9 @@ fun CalcUNumberBox(
                 keyboardType = if (integer) KeyboardType.Number else KeyboardType.Decimal
             ),
             keyboardActions = KeyboardActions(onDone = {
-                if (value.toDoubleOrNull() == null && value.isNotEmpty()) onValueChange(lastValid)
+                val normalized = value.replace(',', '.')
+                if (normalized != value) onValueChange(normalized)
+                if (normalized.toDoubleOrNull() == null && normalized.isNotEmpty()) onValueChange(lastValid)
             }),
             trailingIcon = {
                 if (spinMode == SpinMode.Inline) {

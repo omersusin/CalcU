@@ -168,4 +168,32 @@ class SettingsRepository @Inject constructor(@ApplicationContext private val ctx
         val coerced = if (value in setOf("simple", "classic", "modern")) value else "simple"
         runCatching { ctx.settingsDataStore.edit { it[keypadLayoutKey] = coerced } }
     }
+
+    // Additive personalization keys (free forever): custom seed argb + keypad shape.
+    // Mirrors the keypadLayout pattern CalcViewModel reads (SettingsRepository Flow
+    // + stateIn + stable default). CalcViewModel itself is untouched here, so the
+    // keypad_shape flow below keeps the same shape for a follow-up to collect.
+    private val customSeedKey = androidx.datastore.preferences.core.intPreferencesKey("custom_seed_argb")
+
+    val customSeedArgb: Flow<Int?> = ctx.settingsDataStore.data.map {
+        val raw = it[customSeedKey] ?: return@map null
+        if (raw == 0) null else raw or 0xFF000000.toInt()
+    }.catch { emit(null) }
+
+    suspend fun setCustomSeedArgb(value: Int) {
+        val coerced = if (value == 0) 0 else value or 0xFF000000.toInt()
+        runCatching { ctx.settingsDataStore.edit { it[customSeedKey] = coerced } }
+    }
+
+    private val keypadShapeKey = stringPreferencesKey("keypad_shape")
+
+    val keypadShape: Flow<String> = ctx.settingsDataStore.data.map {
+        val raw = it[keypadShapeKey] ?: "circles"
+        if (raw in setOf("circles", "squircle", "pill")) raw else "circles"
+    }.catch { emit("circles") }
+
+    suspend fun setKeypadShape(value: String) {
+        val coerced = if (value in setOf("circles", "squircle", "pill")) value else "circles"
+        runCatching { ctx.settingsDataStore.edit { it[keypadShapeKey] = coerced } }
+    }
 }

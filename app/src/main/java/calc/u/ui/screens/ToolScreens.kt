@@ -341,7 +341,7 @@ private fun NumField(
     integer: Boolean = false
 ) {
     val pad = calc.u.ui.rememberNumPadState()
-    Box(modifier.clickable { pad.open(value, onChange) }) {
+    Box(modifier.fillMaxWidth().clickable { pad.open(value, onChange) }) {
         OutlinedTextField(
             value = value,
             onValueChange = {},
@@ -989,6 +989,7 @@ fun ConvertersScreen() {
                     }
                 }
                 Row(
+                    modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
@@ -1070,6 +1071,7 @@ fun ConvertersScreen() {
                                         }
                                     ) {
                                         Row(
+                                            modifier = Modifier.fillMaxWidth(),
                                             horizontalArrangement = Arrangement.spacedBy(4.dp),
                                             verticalAlignment = Alignment.CenterVertically
                                         ) {
@@ -2621,6 +2623,7 @@ private fun NumbersContent() {
         item {
             SectionCard("Linear solver") {
                 Row(
+                    modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
@@ -2636,6 +2639,7 @@ private fun NumbersContent() {
         item {
             SectionCard("Quadratic solver") {
                 Row(
+                    modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
@@ -2653,6 +2657,7 @@ private fun NumbersContent() {
         item {
             SectionCard("2x2 system solver") {
                 Row(
+                    modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
@@ -2663,6 +2668,7 @@ private fun NumbersContent() {
                     Box(Modifier.weight(1f)) { NumField(c1, { c1 = it }, "c1") }
                 }
                 Row(
+                    modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
@@ -2788,6 +2794,7 @@ private fun NumbersContent() {
                 if (listMode == "Manual") {
                     statVals.forEachIndexed { i, v ->
                         Row(
+                            modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.spacedBy(8.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
@@ -4191,7 +4198,7 @@ fun ProgrammerScreen() {
             ResultLine("a bin", av?.toString(2) ?: "—")
         }
         SectionCard("RNG") {
-            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 Box(Modifier.weight(1f)) { NumField(minStr, { minStr = it }, "Min", integer = true) }
                 Box(Modifier.weight(1f)) { NumField(maxStr, { maxStr = it }, "Max", integer = true) }
             }
