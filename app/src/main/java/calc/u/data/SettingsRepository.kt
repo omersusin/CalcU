@@ -25,6 +25,28 @@ class SettingsRepository @Inject constructor(@ApplicationContext private val ctx
         runCatching { ctx.settingsDataStore.edit { it[themeKey] = value } }
     }
 
+    // Additive theme keys: mode (system/light/dark) + AMOLED background toggle.
+    // Existing "theme" + "dynamic_color" keys keep working unchanged for backups.
+    private val themeModeKey = stringPreferencesKey("theme_mode")
+
+    val themeMode: Flow<String> = ctx.settingsDataStore.data.map {
+        val raw = it[themeModeKey] ?: "system"
+        if (raw in setOf("system", "light", "dark")) raw else "system"
+    }.catch { emit("system") }
+
+    suspend fun setThemeMode(value: String) {
+        val coerced = if (value in setOf("system", "light", "dark")) value else "system"
+        runCatching { ctx.settingsDataStore.edit { it[themeModeKey] = coerced } }
+    }
+
+    private val amoledKey = booleanPreferencesKey("theme_amoled")
+
+    val amoled: Flow<Boolean> = ctx.settingsDataStore.data.map { it[amoledKey] ?: false }.catch { emit(false) }
+
+    suspend fun setAmoled(value: Boolean) {
+        runCatching { ctx.settingsDataStore.edit { it[amoledKey] = value } }
+    }
+
     private val tipKey = booleanPreferencesKey("graph_tip_seen")
 
     val graphTipSeen: Flow<Boolean> = ctx.settingsDataStore.data.map { it[tipKey] ?: false }.catch { emit(false) }

@@ -5,27 +5,32 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material3.Button
 import androidx.compose.material3.FilterChip
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.RadioButton
+import androidx.compose.material3.SegmentedButton
+import androidx.compose.material3.SegmentedButtonDefaults
+import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
@@ -41,6 +46,8 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -52,6 +59,8 @@ import calc.u.data.BackupRepository
 import calc.u.data.SettingsRepository
 import calc.u.ui.FluentExpander
 import calc.u.ui.SectionCard
+import calc.u.ui.theme.CalcUThemeSeeds
+import com.google.android.material.color.utilities.TonalPalette
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import kotlinx.coroutines.flow.SharingStarted
@@ -65,6 +74,10 @@ class SettingsViewModel @Inject constructor(
 ) : ViewModel() {
     val theme: StateFlow<String> =
         repo.theme.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), "system")
+    val themeMode: StateFlow<String> =
+        repo.themeMode.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), "system")
+    val amoled: StateFlow<Boolean> =
+        repo.amoled.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
     val vibration: StateFlow<Boolean> =
         repo.vibration.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), true)
     val dynamicColor: StateFlow<Boolean> =
@@ -92,6 +105,14 @@ class SettingsViewModel @Inject constructor(
 
     fun setTheme(value: String) {
         viewModelScope.launch { repo.setTheme(value) }
+    }
+
+    fun setThemeMode(value: String) {
+        viewModelScope.launch { repo.setThemeMode(value) }
+    }
+
+    fun setAmoled(value: Boolean) {
+        viewModelScope.launch { repo.setAmoled(value) }
     }
 
     fun setVibration(value: Boolean) {
@@ -138,6 +159,8 @@ class SettingsViewModel @Inject constructor(
 @Composable
 fun SettingsScreen(vm: SettingsViewModel = hiltViewModel()) {
     val theme by vm.theme.collectAsStateWithLifecycle()
+    val themeMode by vm.themeMode.collectAsStateWithLifecycle()
+    val amoled by vm.amoled.collectAsStateWithLifecycle()
     val vibration by vm.vibration.collectAsStateWithLifecycle()
     val dynamicColor by vm.dynamicColor.collectAsStateWithLifecycle()
     val historyCap by vm.historyCap.collectAsStateWithLifecycle()
@@ -148,88 +171,102 @@ fun SettingsScreen(vm: SettingsViewModel = hiltViewModel()) {
     val memoryRow by vm.memoryRow.collectAsStateWithLifecycle()
     val engineering by vm.engineering.collectAsStateWithLifecycle()
     val precisionSlider by vm.precisionSlider.collectAsStateWithLifecycle()
-    val options = listOf(
-        "system" to "System",
-        "botanical" to "Botanical",
-        "light" to "Light",
-        "dark" to "Dark",
-        "amoled" to "AMOLED",
-        "contrast" to "High contrast",
-        "ocean" to "Ocean",
-        "forest" to "Forest",
-        "sunset" to "Sunset",
-        "grape" to "Grape",
-        "nord" to "Nord",
-        "dracula" to "Dracula",
-        "tokyo" to "Tokyo",
-        "gruvbox" to "Gruvbox",
-        "catppuccin" to "Catppuccin",
-        "kanagawa" to "Kanagawa",
-        "rosepine" to "Rosé Pine",
-        "mono" to "Mono",
-        "amber" to "Amber",
-        "slate" to "Slate"
-    )
     LazyColumn(
         Modifier.fillMaxSize().padding(vertical = 16.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
         item {
-            SectionCard("General") {
+            SectionCard("Theme") {
                 Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth()
-                            .horizontalScroll(rememberScrollState())
-                            .selectableGroup(),
-                        horizontalArrangement = Arrangement.spacedBy(12.dp)
-                    ) {
-                        themeShowcases.forEach { showcase ->
-                            ThemePreviewCard(
-                                showcase = showcase,
-                                selected = theme == showcase.id,
-                                onClick = { vm.setTheme(showcase.id) }
-                            )
+                    Text(
+                        "Mode",
+                        style = MaterialTheme.typography.labelLarge,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.semantics { heading() }
+                    )
+                    SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
+                        val modes = listOf("system" to "System", "light" to "Light", "dark" to "Dark")
+                        modes.forEachIndexed { index, (id, label) ->
+                            SegmentedButton(
+                                selected = themeMode == id,
+                                onClick = { vm.setThemeMode(id) },
+                                shape = SegmentedButtonDefaults.itemShape(index, modes.size)
+                            ) {
+                                Text(label)
+                            }
                         }
                     }
-                    Column(Modifier.selectableGroup()) {
-                        options.forEach { (id, label) ->
-                        Row(
-                            modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)
-                                .selectable(
-                                    selected = theme == id,
-                                    onClick = { vm.setTheme(id) },
-                                    role = Role.RadioButton
-                                ),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            RadioButton(
-                                selected = theme == id,
-                                onClick = { vm.setTheme(id) }
+                    Row(
+                        modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                "AMOLED background",
+                                style = MaterialTheme.typography.bodyLarge
                             )
                             Text(
-                                label,
-                                style = MaterialTheme.typography.bodyLarge,
-                                modifier = Modifier.padding(start = 8.dp)
+                                "Pure-black surfaces",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                         }
+                        Switch(
+                            checked = amoled,
+                            onCheckedChange = { vm.setAmoled(it) }
+                        )
+                    }
+                    Text(
+                        "Resolution: AMOLED toggle > Mode (Light/Dark force that variant, System follows the seed) > Seed. Seed ids stay stable so backups keep working. All seeds free forever.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    if (theme == "light" || theme == "dark" || theme == "amoled" || theme == "contrast") {
+                        Text(
+                            "Legacy theme \"" + theme + "\" active — pick a seed below to migrate (mode and background carry over).",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
                     }
                     if (Build.VERSION.SDK_INT >= 31) {
-                        Row(
-                            modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Text(
-                                "Dynamic color",
-                                style = MaterialTheme.typography.bodyLarge,
-                                modifier = Modifier.weight(1f)
-                            )
-                            Switch(
-                                checked = dynamicColor,
-                                onCheckedChange = { vm.setDynamicColor(it) }
-                            )
-                        }
+                        SeedGroupHeader("Dynamic")
+                        DynamicSeedTile(
+                            selected = theme == "system",
+                            dynamicOn = dynamicColor,
+                            onSelect = {
+                                vm.setTheme("system")
+                                vm.setDynamicColor(true)
+                            },
+                            onDynamicChange = {
+                                vm.setDynamicColor(it)
+                                if (it) vm.setTheme("system")
+                            }
+                        )
                     }
-                    }
+                    SeedGroupHeader("Botanical")
+                    SeedGrid(
+                        seeds = listOf(CalcUThemeSeeds.botanical),
+                        selectedId = theme,
+                        onSelect = { vm.setTheme(it) }
+                    )
+                    SeedGroupHeader("Classics")
+                    SeedGrid(
+                        seeds = CalcUThemeSeeds.classics,
+                        selectedId = theme,
+                        onSelect = { vm.setTheme(it) }
+                    )
+                    SeedGroupHeader("Vivid")
+                    SeedGrid(
+                        seeds = CalcUThemeSeeds.vivid,
+                        selectedId = theme,
+                        onSelect = { vm.setTheme(it) }
+                    )
+                }
+            }
+        }
+        item {
+            SectionCard("General") {
+                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                     Column(Modifier.selectableGroup()) {
                         listOf(
                             "locale" to "System locale",
@@ -656,76 +693,76 @@ fun SettingsScreen(vm: SettingsViewModel = hiltViewModel()) {
     }
 }
 
-private data class ThemeShowcase(
-    val id: String,
-    val label: String,
-    val primary: Color,
-    val secondary: Color,
-    val tertiary: Color,
-    val previewSurface: Color,
-    val previewOnSurface: Color
-)
-
-private val themeShowcases = listOf(
-    ThemeShowcase(
-        id = "system",
-        label = "System",
-        primary = Color(0xFF4C662B),
-        secondary = Color(0xFF586249),
-        tertiary = Color(0xFF38656A),
-        previewSurface = Color(0xFFF9FAEF),
-        previewOnSurface = Color(0xFF1A1C16)
-    ),
-    ThemeShowcase(
-        id = "botanical",
-        label = "Botanical",
-        primary = Color(0xFF4F6632),
-        secondary = Color(0xFF58634A),
-        tertiary = Color(0xFF6A5F27),
-        previewSurface = Color(0xFFFAFAF0),
-        previewOnSurface = Color(0xFF303429)
-    ),
-    ThemeShowcase(
-        id = "light",
-        label = "Light",
-        primary = Color(0xFF30588F),
-        secondary = Color(0xFF5A6B85),
-        tertiary = Color(0xFF6B5E8A),
-        previewSurface = Color(0xFFFDFBFF),
-        previewOnSurface = Color(0xFF1A1C1E)
-    ),
-    ThemeShowcase(
-        id = "dark",
-        label = "Dark",
-        primary = Color(0xFFAAC7FF),
-        secondary = Color(0xFFBEC6DC),
-        tertiary = Color(0xFFDDBCE0),
-        previewSurface = Color(0xFF131316),
-        previewOnSurface = Color(0xFFE3E2E9)
-    ),
-    ThemeShowcase(
-        id = "amoled",
-        label = "AMOLED",
-        primary = Color(0xFFBBDEFB),
-        secondary = Color(0xFF90A4AE),
-        tertiary = Color(0xFF80CBC4),
-        previewSurface = Color(0xFF000000),
-        previewOnSurface = Color(0xFFFFFFFF)
-    ),
-    ThemeShowcase(
-        id = "contrast",
-        label = "High contrast",
-        primary = Color(0xFF000000),
-        secondary = Color(0xFF1A1A1A),
-        tertiary = Color(0xFF424242),
-        previewSurface = Color(0xFFFFFFFF),
-        previewOnSurface = Color(0xFF000000)
+@Composable
+private fun SeedGroupHeader(title: String) {
+    Text(
+        title,
+        style = MaterialTheme.typography.labelLarge,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        modifier = Modifier.semantics { heading() }
     )
-)
+}
+
+private fun seedSwatches(seed: CalcUThemeSeeds.Seed): List<Color> {
+    if (seed.id == "botanical") {
+        return listOf(
+            Color(0xFF4F6632),
+            Color(0xFFDCE7C7),
+            Color(0xFF6A5F27),
+            Color(0xFFFAFAF0)
+        )
+    }
+    return runCatching {
+        val palette = TonalPalette.fromInt(seed.argb)
+        listOf(
+            Color(palette.tone(40)),
+            Color(palette.tone(90)),
+            Color(palette.tone(60)),
+            Color(palette.tone(95))
+        )
+    }.getOrDefault(
+        listOf(
+            Color(seed.argb),
+            Color(seed.argb),
+            Color(seed.argb),
+            Color(seed.argb)
+        )
+    )
+}
 
 @Composable
-private fun ThemePreviewCard(
-    showcase: ThemeShowcase,
+private fun SeedGrid(
+    seeds: List<CalcUThemeSeeds.Seed>,
+    selectedId: String,
+    onSelect: (String) -> Unit
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        seeds.chunked(3).forEach { row ->
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                row.forEach { seed ->
+                    SeedTile(
+                        label = seed.label,
+                        swatches = seedSwatches(seed),
+                        selected = selectedId == seed.id,
+                        onClick = { onSelect(seed.id) },
+                        modifier = Modifier.weight(1f)
+                    )
+                }
+                repeat(3 - row.size) {
+                    Spacer(Modifier.weight(1f))
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun SeedTile(
+    label: String,
+    swatches: List<Color>,
     selected: Boolean,
     onClick: () -> Unit,
     modifier: Modifier = Modifier
@@ -733,51 +770,144 @@ private fun ThemePreviewCard(
     val borderColor = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant
     val borderWidth = if (selected) 2.dp else 1.dp
     Column(
-        modifier = modifier.width(104.dp)
-            .clip(RoundedCornerShape(16.dp))
-            .border(borderWidth, borderColor, RoundedCornerShape(16.dp))
+        modifier = modifier
+            .clip(MaterialTheme.shapes.medium)
+            .border(borderWidth, borderColor, MaterialTheme.shapes.medium)
             .background(MaterialTheme.colorScheme.surface)
             .selectable(selected = selected, onClick = onClick, role = Role.RadioButton)
             .padding(12.dp),
-        verticalArrangement = Arrangement.spacedBy(8.dp)
+        verticalArrangement = Arrangement.spacedBy(8.dp),
+        horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        Box(
+        SwatchPreview(swatches = swatches, selected = selected)
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(4.dp, Alignment.CenterHorizontally),
             modifier = Modifier.fillMaxWidth()
-                .size(width = 80.dp, height = 64.dp)
-                .clip(RoundedCornerShape(12.dp))
-                .background(showcase.previewSurface),
-            contentAlignment = Alignment.Center
         ) {
             Text(
-                text = "Aa",
-                style = MaterialTheme.typography.titleLarge,
+                text = label,
+                style = MaterialTheme.typography.bodySmall,
                 fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal,
-                color = showcase.previewOnSurface,
-                textAlign = TextAlign.Center
+                color = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.weight(1f, fill = false)
             )
+            if (selected) {
+                Icon(
+                    imageVector = Icons.Filled.Check,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(16.dp)
+                )
+            }
         }
+    }
+}
+
+@Composable
+private fun SwatchPreview(
+    swatches: List<Color>,
+    selected: Boolean
+) {
+    val first = swatches.getOrElse(0) { MaterialTheme.colorScheme.primary }
+    val second = swatches.getOrElse(1) { MaterialTheme.colorScheme.secondaryContainer }
+    val third = swatches.getOrElse(2) { MaterialTheme.colorScheme.tertiary }
+    val fourth = swatches.getOrElse(3) { MaterialTheme.colorScheme.surfaceContainerHigh }
+    Box(
+        modifier = Modifier.fillMaxWidth()
+            .height(56.dp)
+            .clip(MaterialTheme.shapes.small)
+    ) {
+        Column(Modifier.fillMaxSize()) {
+            Row(Modifier.weight(1f)) {
+                Box(Modifier.weight(1f).fillMaxHeight().background(first))
+                Box(Modifier.weight(1f).fillMaxHeight().background(second))
+            }
+            Row(Modifier.weight(1f)) {
+                Box(Modifier.weight(1f).fillMaxHeight().background(third))
+                Box(Modifier.weight(1f).fillMaxHeight().background(fourth))
+            }
+        }
+        if (selected) {
+            Box(
+                modifier = Modifier.align(Alignment.TopEnd)
+                    .padding(4.dp)
+                    .size(20.dp)
+                    .clip(CircleShape)
+                    .background(MaterialTheme.colorScheme.primary),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = Icons.Filled.Check,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.onPrimary,
+                    modifier = Modifier.size(14.dp)
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun DynamicSeedTile(
+    selected: Boolean,
+    dynamicOn: Boolean,
+    onSelect: () -> Unit,
+    onDynamicChange: (Boolean) -> Unit
+) {
+    val borderColor = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant
+    val borderWidth = if (selected) 2.dp else 1.dp
+    val swatches = listOf(
+        MaterialTheme.colorScheme.primary,
+        MaterialTheme.colorScheme.secondaryContainer,
+        MaterialTheme.colorScheme.tertiary,
+        MaterialTheme.colorScheme.surfaceContainerHigh
+    )
+    Column(
+        modifier = Modifier.fillMaxWidth()
+            .clip(MaterialTheme.shapes.medium)
+            .border(borderWidth, borderColor, MaterialTheme.shapes.medium)
+            .background(MaterialTheme.colorScheme.surface)
+            .selectable(selected = selected, onClick = onSelect, role = Role.RadioButton)
+            .padding(12.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        SwatchPreview(swatches = swatches, selected = selected)
         Row(
             modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(6.dp, Alignment.CenterHorizontally),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Box(
-                modifier = Modifier.size(20.dp).clip(CircleShape).background(showcase.primary)
-            )
-            Box(
-                modifier = Modifier.size(20.dp).clip(CircleShape).background(showcase.secondary)
-            )
-            Box(
-                modifier = Modifier.size(20.dp).clip(CircleShape).background(showcase.tertiary)
+            Column(modifier = Modifier.weight(1f)) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
+                    Text(
+                        "Dynamic",
+                        style = MaterialTheme.typography.bodySmall,
+                        fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal,
+                        color = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface
+                    )
+                    if (selected) {
+                        Icon(
+                            imageVector = Icons.Filled.Check,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(16.dp)
+                        )
+                    }
+                }
+                Text(
+                    "System wallpaper color",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+            Switch(
+                checked = dynamicOn,
+                onCheckedChange = onDynamicChange
             )
         }
-        Text(
-            text = showcase.label,
-            style = MaterialTheme.typography.bodySmall,
-            fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal,
-            color = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
-            textAlign = TextAlign.Center,
-            modifier = Modifier.fillMaxWidth()
-        )
     }
 }

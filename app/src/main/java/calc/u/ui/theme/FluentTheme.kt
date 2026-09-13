@@ -97,6 +97,14 @@ object FluentElevation {
 }
 
 object FluentExpressive {
+    // Verified 2026-09-13 against M3 1.4.0 stable sources (BOM 2025.09.01):
+    // MotionScheme + MaterialTheme(motionScheme) + Typography *-Emphasized +
+    // ExperimentalMaterial3ExpressiveApi are all `internal`, and Button(shapes=...),
+    // ToggleButton, LoadingIndicator/wavy progress exist only in 1.5.0-alpha
+    // (forbidden: no alpha/beta/rc). So no M3-expressive install here — Lato +
+    // sizes + -0.25sp tracking below are kept as the expressive stand-ins.
+    // Full expressive install waits on the M3 1.5 stable wave (needs user sign-off:
+    // likely Kotlin >2.0.21 + compileSdk >34).
     val HeroCardShape = RoundedCornerShape(28.dp)
     val GroupCardShape = RoundedCornerShape(16.dp)
     // Group headers follow labelLarge spec (token-only, no behavior).
@@ -310,6 +318,70 @@ private val BotanicalDark = darkColorScheme(
 // values above; no new hues introduced.
 
 /**
+ * Seed catalogue: single source of truth for the theme picker and [CalcUTheme].
+ *
+ * Seed ids are stable storage ids — never rename them: backups and restores
+ * compare the raw id string. Display labels may change freely.
+ *
+ * Groups (picker order):
+ * - Dynamic: pseudo-seed "system" (wallpaper color when dynamic is on, API 31+).
+ * - Botanical: custom light/dark schemes (representative argb = light primary).
+ * - Classics: Ocean/Forest/Sunset/Grape/Slate/Mono/Amber.
+ * - Vivid: Nord/Dracula/Tokyo/Gruvbox/Catppuccin/Kanagawa/Rosé Pine.
+ *
+ * Legacy ids "light", "dark", "amoled", "contrast" are NOT seeds: they stay
+ * resolvable in [CalcUTheme] for backup compat but are hidden from the picker
+ * (covered by Mode + AMOLED toggle instead). All seeds are free forever.
+ */
+object CalcUThemeSeeds {
+    data class Seed(val id: String, val label: String, val argb: Int)
+
+    val botanical = Seed("botanical", "Botanical", 0xFF4F6632.toInt())
+
+    val classics = listOf(
+        Seed("ocean", "Ocean", 0xFF0061A4.toInt()),
+        Seed("forest", "Forest", 0xFF1B6B4A.toInt()),
+        Seed("sunset", "Sunset", 0xFFB23C17.toInt()),
+        Seed("grape", "Grape", 0xFF6B4DAB.toInt()),
+        Seed("slate", "Slate", 0xFF78909C.toInt()),
+        Seed("mono", "Mono", 0xFF9AA0A6.toInt()),
+        Seed("amber", "Amber", 0xFFFF8F00.toInt())
+    )
+
+    val vivid = listOf(
+        Seed("nord", "Nord", 0xFF5E81AC.toInt()),
+        Seed("dracula", "Dracula", 0xFFBD93F9.toInt()),
+        Seed("tokyo", "Tokyo", 0xFF7AA2F7.toInt()),
+        Seed("gruvbox", "Gruvbox", 0xFFD79921.toInt()),
+        Seed("catppuccin", "Catppuccin", 0xFFCBA6F7.toInt()),
+        Seed("kanagawa", "Kanagawa", 0xFF7E9CD8.toInt()),
+        Seed("rosepine", "Rosé Pine", 0xFFEBBCBA.toInt())
+    )
+
+    val allById: Map<String, Seed> =
+        (listOf(botanical) + classics + vivid).associateBy { it.id }
+
+    fun argbFor(id: String): Int? = allById[id]?.argb
+}
+
+private fun ColorScheme.withPureBlackBackground(): ColorScheme = copy(
+    background = Color.Black,
+    surface = Color.Black,
+    surfaceVariant = Color(0xFF141414),
+    onBackground = Color(0xFFE6E6E6),
+    onSurface = Color(0xFFE6E6E6),
+    onSurfaceVariant = Color(0xFFC6C6C6),
+    surfaceContainerLowest = Color.Black,
+    surfaceContainerLow = Color(0xFF0B0B0B),
+    surfaceContainer = Color(0xFF141414),
+    surfaceContainerHigh = Color(0xFF1E1E1E),
+    surfaceContainerHighest = Color(0xFF2A2A2A),
+    inverseSurface = Color(0xFFE6E6E6),
+    inverseOnSurface = Color(0xFF121212),
+    outlineVariant = Color(0xFF2A2A2A)
+)
+
+/**
  * Radii lock: extraSmall 4 / small 8 / medium 12 / large 16 / extraLarge 28.
  * Hero surfaces use extraLarge (28), grouped cards use large (16). Frozen —
  * do not change without a design review.
@@ -402,58 +474,77 @@ fun seedScheme(seedArgb: Int, dark: Boolean): ColorScheme {
     }
 }
 
+/**
+ * App theme entry point.
+ *
+ * Resolution order (highest precedence first):
+ * 1. AMOLED toggle ([amoled]): forces pure-black background/surfaces on top of
+ *    whatever scheme resolved below.
+ * 2. Mode ([mode]): "light" forces the light variant, "dark" forces the dark
+ *    variant, "system" (default) defers to the seed id / system setting.
+ * 3. Seed id ([theme]): "system" follows the system dark setting, "light"
+ *    pins light, "dark" pins dark (both flippable by [mode]), custom seeds
+ *    resolve via [CalcUThemeSeeds] + [seedScheme]. Legacy ids "amoled" and
+ *    "contrast" still resolve to [FluentAmoled]/[FluentContrast] for backup
+ *    compat but are hidden from the picker.
+ * 4. Dynamic wallpaper ([dynamic] on API 31+): "system"/"light"/"dark" bases
+ *    use the wallpaper-derived scheme; seed schemes stay tonal by design.
+ *
+ * Seed id strings are never renamed so backups keep working. [mode] and
+ * [amoled] are additive with safe defaults, so existing call sites such as
+ * `CalcUTheme(theme = theme) { ... }` compile unchanged.
+ */
 @Composable
 fun CalcUTheme(
     theme: String = "system",
     dark: Boolean = isSystemInDarkTheme(),
     dynamic: Boolean = true,
+    mode: String = "system",
+    amoled: Boolean = false,
     content: @Composable () -> Unit
 ) {
     val context = LocalContext.current
-    val scheme = if (dynamic && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-        when (theme) {
-            "light" -> dynamicLightColorScheme(context)
-            "dark" -> dynamicDarkColorScheme(context)
-            "amoled" -> FluentAmoled
-            "contrast" -> FluentContrast
-            "botanical" -> if (dark) BotanicalDark else BotanicalLight
-            "ocean" -> seedScheme(0xFF0061A4.toInt(), dark)
-            "forest" -> seedScheme(0xFF1B6B4A.toInt(), dark)
-            "sunset" -> seedScheme(0xFFB23C17.toInt(), dark)
-            "grape" -> seedScheme(0xFF6B4DAB.toInt(), dark)
-            "nord" -> seedScheme(0xFF5E81AC.toInt(), dark)
-            "dracula" -> seedScheme(0xFFBD93F9.toInt(), dark)
-            "tokyo" -> seedScheme(0xFF7AA2F7.toInt(), dark)
-            "gruvbox" -> seedScheme(0xFFD79921.toInt(), dark)
-            "catppuccin" -> seedScheme(0xFFCBA6F7.toInt(), dark)
-            "kanagawa" -> seedScheme(0xFF7E9CD8.toInt(), dark)
-            "rosepine" -> seedScheme(0xFFEBBCBA.toInt(), dark)
-            "mono" -> seedScheme(0xFF9AA0A6.toInt(), dark)
-            "amber" -> seedScheme(0xFFFF8F00.toInt(), dark)
-            "slate" -> seedScheme(0xFF78909C.toInt(), dark)
-            else -> if (dark) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context)
-        }
-    } else when (theme) {
-        "light" -> FluentLight
-        "dark" -> FluentDark
+    val legacy = when (theme) {
         "amoled" -> FluentAmoled
         "contrast" -> FluentContrast
-        "botanical" -> if (dark) BotanicalDark else BotanicalLight
-        "ocean" -> seedScheme(0xFF0061A4.toInt(), dark)
-        "forest" -> seedScheme(0xFF1B6B4A.toInt(), dark)
-        "sunset" -> seedScheme(0xFFB23C17.toInt(), dark)
-        "grape" -> seedScheme(0xFF6B4DAB.toInt(), dark)
-        "nord" -> seedScheme(0xFF5E81AC.toInt(), dark)
-        "dracula" -> seedScheme(0xFFBD93F9.toInt(), dark)
-        "tokyo" -> seedScheme(0xFF7AA2F7.toInt(), dark)
-        "gruvbox" -> seedScheme(0xFFD79921.toInt(), dark)
-        "catppuccin" -> seedScheme(0xFFCBA6F7.toInt(), dark)
-        "kanagawa" -> seedScheme(0xFF7E9CD8.toInt(), dark)
-        "rosepine" -> seedScheme(0xFFEBBCBA.toInt(), dark)
-        "mono" -> seedScheme(0xFF9AA0A6.toInt(), dark)
-        "amber" -> seedScheme(0xFFFF8F00.toInt(), dark)
-        "slate" -> seedScheme(0xFF78909C.toInt(), dark)
-        else -> if (dark) FluentDark else FluentLight
+        else -> null
     }
+    if (legacy != null) {
+        val scheme = if (amoled) legacy.withPureBlackBackground() else legacy
+        MaterialTheme(colorScheme = scheme, shapes = FluentShapes, typography = fluentType(), content = content)
+        return
+    }
+    val normalizedMode = if (mode == "light" || mode == "dark") mode else "system"
+    val seedDark = when (theme) {
+        "light" -> false
+        "dark" -> true
+        else -> dark
+    }
+    val effectiveDark = when (normalizedMode) {
+        "light" -> false
+        "dark" -> true
+        else -> seedDark
+    }
+    val useDynamic = dynamic && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S
+    val base = when (theme) {
+        "light", "dark", "system" ->
+            if (useDynamic) {
+                if (effectiveDark) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context)
+            } else {
+                if (effectiveDark) FluentDark else FluentLight
+            }
+        "botanical" -> if (effectiveDark) BotanicalDark else BotanicalLight
+        else -> {
+            val argb = CalcUThemeSeeds.argbFor(theme)
+            if (argb != null) {
+                seedScheme(argb, effectiveDark)
+            } else if (useDynamic) {
+                if (effectiveDark) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context)
+            } else {
+                if (effectiveDark) FluentDark else FluentLight
+            }
+        }
+    }
+    val scheme = if (amoled) base.withPureBlackBackground() else base
     MaterialTheme(colorScheme = scheme, shapes = FluentShapes, typography = fluentType(), content = content)
 }

@@ -170,12 +170,15 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         setContent {
             val theme by settingsRepo.theme.collectAsStateWithLifecycle(initialValue = "system")
+            val themeMode by settingsRepo.themeMode.collectAsStateWithLifecycle(initialValue = "system")
+            val themeAmoled by settingsRepo.amoled.collectAsStateWithLifecycle(initialValue = false)
+            val dynamicColor by settingsRepo.dynamicColor.collectAsStateWithLifecycle(initialValue = true)
             val keepOn by settingsRepo.keepScreenOn.collectAsStateWithLifecycle(initialValue = false)
             LaunchedEffect(keepOn) {
                 if (keepOn) window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
                 else window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
             }
-            CalcUTheme(theme = theme) {
+            CalcUTheme(theme = theme, mode = themeMode, amoled = themeAmoled, dynamic = dynamicColor) {
                 val tourSeen by settingsRepo.tourSeen.collectAsStateWithLifecycle(initialValue = true)
                 if (!tourSeen) {
                     val tourScope = rememberCoroutineScope()
