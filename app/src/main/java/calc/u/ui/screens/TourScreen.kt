@@ -1,5 +1,7 @@
 package calc.u.ui.screens
 
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -39,6 +41,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
@@ -157,12 +160,26 @@ fun TourScreen(
                 modifier = Modifier.fillMaxWidth().padding(vertical = 16.dp)
             ) {
                 repeat(TourPages.size) { i ->
+                    val selected = i == pagerState.currentPage
+                    val dotColor by animateColorAsState(
+                        targetValue = if (selected) {
+                            MaterialTheme.colorScheme.primary
+                        } else {
+                            MaterialTheme.colorScheme.surfaceVariant
+                        },
+                        label = "tourDotColor"
+                    )
+                    val dotScale by animateFloatAsState(
+                        targetValue = if (selected) 1.35f else 1f,
+                        label = "tourDotScale"
+                    )
                     Box(
-                        modifier = Modifier.padding(horizontal = 4.dp).size(8.dp).clip(CircleShape)
-                            .background(
-                                if (i == pagerState.currentPage) MaterialTheme.colorScheme.primary
-                                else MaterialTheme.colorScheme.surfaceVariant
-                            )
+                        modifier = Modifier
+                            .padding(horizontal = 4.dp)
+                            .size(8.dp)
+                            .scale(dotScale)
+                            .clip(CircleShape)
+                            .background(dotColor)
                     )
                 }
             }
