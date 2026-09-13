@@ -27,6 +27,7 @@ jobs:
       - name: Prove APK was created
         run: ls -lh app/build/outputs/apk/debug/ && du -h app/build/outputs/apk/debug/*.apk
       - name: Upload debug APK artifact
+        continue-on-error: true
         uses: actions/upload-artifact@v4
         with:
           name: calcu-debug
@@ -49,6 +50,7 @@ jobs:
         if: env.KEYSTORE_PATH != ''
         run: $ANDROID_HOME/build-tools/34.0.0/apksigner verify --print-certs app/build/outputs/apk/release/*.apk | head -5
       - name: Upload release APK artifact
+        continue-on-error: true
         uses: actions/upload-artifact@v4
         with:
           name: calcu-release
