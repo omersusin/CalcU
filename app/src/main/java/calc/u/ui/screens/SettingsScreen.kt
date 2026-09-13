@@ -1,6 +1,7 @@
 package calc.u.ui.screens
 
 import android.os.Build
+import android.annotation.SuppressLint
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
@@ -703,6 +704,7 @@ private fun SeedGroupHeader(title: String) {
     )
 }
 
+@SuppressLint("RestrictedApi")
 private fun seedSwatches(seed: CalcUThemeSeeds.Seed): List<Color> {
     if (seed.id == "botanical") {
         return listOf(
