@@ -73,7 +73,7 @@ fun staggerDelayItem(index: Int): Int = minOf(80 + 45 * index, 360)
 private fun cascadeEnter(delayMillis: Int) =
     fadeIn(tween(CascadeDuration, delayMillis = delayMillis, easing = CascadeEasing)) +
         slideInVertically(tween(CascadeDuration, delayMillis = delayMillis, easing = CascadeEasing)) { density ->
-            with(density) { 18.dp.roundToPx() }
+            with(density) { 18.dp.toPx().roundToInt() }
         }
 
 @Composable
