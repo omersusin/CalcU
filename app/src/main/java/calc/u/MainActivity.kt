@@ -195,10 +195,12 @@ class MainActivity : ComponentActivity() {
                 if (!tourSeen) {
                     val tourScope = rememberCoroutineScope()
                     val tourKeypad by settingsRepo.keypadLayout.collectAsStateWithLifecycle(initialValue = "simple")
+                    val tourKeypadShape by settingsRepo.keypadShape.collectAsStateWithLifecycle(initialValue = "circles")
                     val tourMemory by settingsRepo.memoryRow.collectAsStateWithLifecycle(initialValue = true)
                     TourScreen(
                         onDone = { tourScope.launch { settingsRepo.setTourSeen() } },
                         keypadLayout = tourKeypad,
+                        keypadShape = tourKeypadShape,
                         onKeypadLayout = { tourScope.launch { settingsRepo.setKeypadLayout(it) } },
                         showMemoryRow = tourMemory,
                         onMemoryRow = { tourScope.launch { settingsRepo.setMemoryRow(it) } }

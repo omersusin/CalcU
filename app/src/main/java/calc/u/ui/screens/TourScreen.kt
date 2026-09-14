@@ -43,6 +43,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
+import calc.u.ui.theme.keyShape
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
@@ -95,6 +96,7 @@ fun TourScreen(
     onDone: () -> Unit,
     modifier: Modifier = Modifier,
     keypadLayout: String = "simple",
+    keypadShape: String = "circles",
     onKeypadLayout: (String) -> Unit = {},
     showMemoryRow: Boolean = true,
     onMemoryRow: (Boolean) -> Unit = {}
@@ -115,6 +117,7 @@ fun TourScreen(
                 if (page.isLayoutPicker) {
                     KeypadLayoutTourPage(
                         keypadLayout = keypadLayout,
+                        keypadShape = keypadShape,
                         onKeypadLayout = onKeypadLayout,
                         showMemoryRow = showMemoryRow,
                         onMemoryRow = onMemoryRow
@@ -210,6 +213,7 @@ fun TourScreen(
 @Composable
 private fun KeypadLayoutTourPage(
     keypadLayout: String,
+    keypadShape: String,
     onKeypadLayout: (String) -> Unit,
     showMemoryRow: Boolean,
     onMemoryRow: (Boolean) -> Unit,
@@ -260,6 +264,7 @@ private fun KeypadLayoutTourPage(
                 }
                 KeypadMiniPreview(
                     layout = KeypadLayoutOptions[selectedIndex],
+                    keypadShape = keypadShape,
                     showMemoryRow = showMemoryRow,
                     modifier = Modifier.widthIn(max = 240.dp)
                 )
@@ -286,10 +291,12 @@ private fun KeypadLayoutTourPage(
 @Composable
 private fun KeypadMiniPreview(
     layout: String,
+    keypadShape: String,
     showMemoryRow: Boolean,
     modifier: Modifier = Modifier
 ) {
     val gap = 4.dp
+    val shape = keyShape(keypadShape)
     val digitColor = MaterialTheme.colorScheme.secondaryContainer
     val sciColor = MaterialTheme.colorScheme.tertiaryContainer
     val opColor = MaterialTheme.colorScheme.primaryContainer
@@ -311,7 +318,7 @@ private fun KeypadMiniPreview(
                     horizontalArrangement = Arrangement.spacedBy(gap)
                 ) {
                     repeat(4) {
-                        MiniKey(color = sciColor, height = 8.dp, modifier = Modifier.weight(1f))
+                        MiniKey(color = sciColor, height = 8.dp, shape = shape, modifier = Modifier.weight(1f))
                     }
                 }
             }
@@ -336,7 +343,7 @@ private fun KeypadMiniPreview(
                     horizontalArrangement = Arrangement.spacedBy(gap)
                 ) {
                     repeat(4) {
-                        MiniKey(color = sciColor, height = 10.dp, modifier = Modifier.weight(1f))
+                        MiniKey(color = sciColor, height = 10.dp, shape = shape, modifier = Modifier.weight(1f))
                     }
                 }
             }
@@ -354,7 +361,7 @@ private fun KeypadMiniPreview(
                             lastCol || (wideCols && col == cols - 2) -> opColor
                             else -> digitColor
                         }
-                        MiniKey(color = color, height = 16.dp, modifier = Modifier.weight(1f))
+                        MiniKey(color = color, height = 16.dp, shape = shape, modifier = Modifier.weight(1f))
                     }
                 }
             }
@@ -362,9 +369,9 @@ private fun KeypadMiniPreview(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(gap)
             ) {
-                MiniKey(color = sciColor, height = 12.dp, modifier = Modifier.weight(1f))
-                MiniKey(color = digitColor, height = 12.dp, modifier = Modifier.weight(1f))
-                MiniKey(color = eqColor, height = 12.dp, modifier = Modifier.weight(1f))
+                MiniKey(color = sciColor, height = 12.dp, shape = shape, modifier = Modifier.weight(1f))
+                MiniKey(color = digitColor, height = 12.dp, shape = shape, modifier = Modifier.weight(1f))
+                MiniKey(color = eqColor, height = 12.dp, shape = shape, modifier = Modifier.weight(1f))
             }
         }
     }
@@ -374,9 +381,10 @@ private fun KeypadMiniPreview(
 private fun MiniKey(
     color: androidx.compose.ui.graphics.Color,
     height: Dp,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    shape: androidx.compose.ui.graphics.Shape = MaterialTheme.shapes.extraSmall
 ) {
     Box(
-        modifier = modifier.height(height).clip(MaterialTheme.shapes.extraSmall).background(color)
+        modifier = modifier.height(height).clip(shape).background(color)
     )
 }
