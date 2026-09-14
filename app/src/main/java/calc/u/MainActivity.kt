@@ -35,6 +35,12 @@ import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.QrCode
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.material.icons.filled.ShortText
 import androidx.compose.material.icons.filled.ShowChart
 import androidx.compose.material.icons.filled.Straighten
@@ -112,6 +118,7 @@ import calc.u.core.HealthLabContent
 import calc.u.core.NumberLabContent
 import calc.u.ui.screens.TourScreen
 import calc.u.ui.theme.CalcUTheme
+import calc.u.ui.theme.ExpressiveSprings
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.launch
 import javax.inject.Inject
@@ -379,7 +386,25 @@ class MainActivity : ComponentActivity() {
                                     NavHost(
                                         navController = nav,
                                         startDestination = startRoute,
-                                        modifier = Modifier.widthIn(max = 840.dp).fillMaxSize()
+                                        modifier = Modifier.widthIn(max = 840.dp).fillMaxSize(),
+                                        enterTransition = {
+                                            fadeIn(animationSpec = ExpressiveSprings.EffectsDefault) +
+                                                slideInHorizontally(
+                                                    animationSpec = ExpressiveSprings.SpatialFastOffset,
+                                                    initialOffsetX = { it / 6 }
+                                                )
+                                        },
+                                        exitTransition = {
+                                            fadeOut(animationSpec = ExpressiveSprings.SpatialFast)
+                                        },
+                                        popEnterTransition = {
+                                            fadeIn(animationSpec = ExpressiveSprings.EffectsDefault) +
+                                                scaleIn(initialScale = 0.97f, animationSpec = ExpressiveSprings.SpatialFast)
+                                        },
+                                        popExitTransition = {
+                                            fadeOut(animationSpec = ExpressiveSprings.SpatialFast) +
+                                                scaleOut(targetScale = 0.97f, animationSpec = ExpressiveSprings.SpatialFast)
+                                        }
                                     ) {
                                         composable("home") { Centered { ToolsHub(onOpen = { go(it) }) } }
                                         composable("calc") { Centered { CalculatorScreen() } }

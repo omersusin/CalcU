@@ -1,9 +1,10 @@
 name: Android CI
 on:
   push:
-    branches: [ main ]
+    branches: [ main, god-experiment ]
   pull_request:
     branches: [ main ]
+  workflow_dispatch:
 
 jobs:
   debug:
@@ -87,8 +88,15 @@ jobs:
         with:
           name: calcu-release
           path: apks/release
-      - name: Attach APKs to rolling latest release
+      - name: Attach APKs to release
         run: |
           ls -lh apks/debug/ apks/release/
-          gh release delete latest --cleanup-tag -y || true
-          gh release create latest apks/debug/*.apk apks/release/*.apk --title "Latest build" --notes "Debug + signed release APKs from main (${{ github.sha }})."
+          if [ "${{ github.ref_name }}" = "main" ]; then
+            TAG="latest"
+            TITLE="Latest build"
+          else
+            TAG="${{ github.ref_name }}"
+            TITLE="Build @ $TAG"
+          fi
+          gh release delete "$TAG" --cleanup-tag -y || true
+          gh release create "$TAG" apks/debug/*.apk apks/release/*.apk --title "$TITLE" --notes "Debug + signed release APKs (${{ github.ref_name }} @ ${{ github.sha }})."
