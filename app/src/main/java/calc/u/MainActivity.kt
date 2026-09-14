@@ -119,6 +119,7 @@ import javax.inject.Inject
 data class Dest(val route: String, val label: String, val icon: ImageVector)
 
 private val MainDests = listOf(
+    Dest("home", "Home", Icons.Filled.Apps),
     Dest("calc", "Calculator", Icons.Filled.Calculate),
     Dest("graph", "Graph", Icons.Filled.ShowChart)
 )
@@ -210,7 +211,7 @@ class MainActivity : ComponentActivity() {
                 val nav = rememberNavController()
                     val drawer = rememberDrawerState(DrawerValue.Closed)
                     val scope = rememberCoroutineScope()
-                    val startRoute = intent?.getStringExtra("dest")?.takeIf { it in AllRoutes } ?: "calc"
+                    val startRoute = intent?.getStringExtra("dest")?.takeIf { it in AllRoutes } ?: "home"
                     var route by remember { mutableStateOf(startRoute) }
                     var overflowOpen by remember { mutableStateOf(false) }
                     var showAbout by remember { mutableStateOf(false) }
@@ -219,7 +220,7 @@ class MainActivity : ComponentActivity() {
                     fun go(r: String) {
                         val safe = r.takeIf { it in AllRoutes } ?: return
                         route = safe
-                        runCatching { nav.navigate(safe) { launchSingleTop = true; popUpTo("calc") } }
+                        runCatching { nav.navigate(safe) { launchSingleTop = true; popUpTo("home") } }
                     }
                     BoxWithConstraints(Modifier.fillMaxSize()) {
                         val expanded = maxWidth >= 1008.dp
@@ -295,7 +296,7 @@ class MainActivity : ComponentActivity() {
                                             }
                                         },
                                         actions = {
-                                            IconButton(onClick = { go("tools") }) {
+                                            IconButton(onClick = { go("home") }) {
                                                 Icon(Icons.Filled.Search, contentDescription = "Search tools")
                                             }
                                             IconButton(onClick = { overflowOpen = true }) {
@@ -380,6 +381,7 @@ class MainActivity : ComponentActivity() {
                                         startDestination = startRoute,
                                         modifier = Modifier.widthIn(max = 840.dp).fillMaxSize()
                                     ) {
+                                        composable("home") { Centered { ToolsHub(onOpen = { go(it) }) } }
                                         composable("calc") { Centered { CalculatorScreen() } }
                                         composable("graph") { Centered { GraphScreen() } }
                                         composable("convert") { Centered { ConvertersScreen() } }
