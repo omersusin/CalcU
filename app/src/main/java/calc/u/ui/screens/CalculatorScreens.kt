@@ -257,7 +257,8 @@ private fun ShrinkText(
     maxLines: Int = 2,
     align: TextAlign = TextAlign.End,
     overflow: TextOverflow = TextOverflow.Clip,
-    floorSp: Float = 10f
+    floorSp: Float = 10f,
+    softWrap: Boolean = true
 ) {
     val startSp = runCatching { style.fontSize.value }.getOrDefault(20f)
     var sizeSp by remember(text, startSp) { mutableStateOf(startSp) }
@@ -270,7 +271,7 @@ private fun ShrinkText(
         color = color,
         maxLines = maxLines,
         overflow = overflow,
-        softWrap = false,
+        softWrap = softWrap,
         textAlign = align,
         modifier = modifier,
         onTextLayout = { result ->
@@ -411,7 +412,7 @@ private fun CalculatorDisplayCard(
                             color = MaterialTheme.colorScheme.onSurface,
                             maxLines = 2,
                             align = TextAlign.End,
-                            overflow = TextOverflow.Ellipsis,
+                            overflow = TextOverflow.Clip,
                             floorSp = 20f,
                             modifier = Modifier.fillMaxWidth()
                                 .pointerInput(Unit) {
