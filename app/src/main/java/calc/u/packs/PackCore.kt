@@ -2,8 +2,8 @@ package calc.u.packs
 
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.builtins.SetSerializer
-import kotlinx.serialization.builtins.serializer
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.serializer
 import java.security.MessageDigest
 
 const val RUNTIME_ID = "duktape-js-1"
