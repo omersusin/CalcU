@@ -61,6 +61,10 @@
 # --- JBCrypt (reflection-free static entry points, keep for safety) ---
 -keep class org.mindrot.jbcrypt.** { *; }
 
+# --- Duktape (JNI bridge for the pack JS runtime) ---
+-keep class com.squareup.duktape.** { *; }
+-dontwarn com.squareup.duktape.**
+
 # --- Material color utilities (Hct, TonalPalette used by the theme engine) ---
 -keep class com.android.base.materialcolorutilities.** { *; }
 -dontwarn com.android.base.materialcolorutilities.**

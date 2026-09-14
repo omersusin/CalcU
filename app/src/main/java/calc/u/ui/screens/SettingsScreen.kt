@@ -743,6 +743,10 @@ fun SettingsScreen(vm: SettingsViewModel = hiltViewModel()) {
                         "Lato typeface by Lukasz Dziedzic (SIL Open Font License 1.1); see assets/licenses/OFL-Lato.txt.",
                         style = MaterialTheme.typography.bodyMedium
                     )
+                    Text(
+                        "Installable tool packs run on duktape-android by Square, Inc. (Apache License 2.0); see assets/licenses/Apache-Duktape.txt.",
+                        style = MaterialTheme.typography.bodyMedium
+                    )
                 }
             }
         }

@@ -94,6 +94,7 @@ dependencies {
     testImplementation(libs.junit)
     implementation(libs.zxing.core)
     implementation(libs.jbcrypt)
+    implementation(libs.duktape)
     implementation(libs.material.color.utilities)
     implementation(libs.camera.core)
     implementation(libs.camera.camera2)

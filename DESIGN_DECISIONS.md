@@ -8,6 +8,7 @@ anchor for the ongoing M3E overhaul. Read it before starting any build work.
 - **Delete: CANCELLED.** "better delete calcu" is reversed. Repo stays, work continues.
 - **Current build:** AGP 8.13.0 / Kotlin 2.3.20 / KSP 2.3.12 / Hilt 2.58 / Compose BOM 2026.06 (material3 1.4.0).
 - **CI (2026-09-14):** split into two parallel jobs to cut wall-clock — `debug` (test + assembleDebug + lint + upload) and `release` (signed assembleRelease + verify + upload) run on separate runners; `publish` gathers both artifacts and refreshes the rolling `latest` release after both succeed.
+- **Network scope (2026-09-14):** local-only lock lifted by user vote. Only downloadable tool/library packs may use the network; cloud backup/sync + accounts stay parked (see `docs/future/`).
 - **Home navigation (2026-09-14):** the Tools hub is now the app's **home** screen. App opens on the hub (welcome header, search, favourites, recents, categorized reorderable grid); the FAB opens the calculator; the calculator/graph stay on the rail; the drawer remains secondary. `home` is the back-stack anchor (`popUpTo("home")`), so every tool pops back to the hub.
 - **Depth audit result (2026-09-14):** the code is NOT stub-laden — zero `!!`, zero `TODO()`/`NotImplementedError`, zero TODO comments. The "AI-made / shallow" feeling is driven by *specific screen bugs + perceptual finish*, not dead code. Work below targets those real gaps, not a rewrite.
 

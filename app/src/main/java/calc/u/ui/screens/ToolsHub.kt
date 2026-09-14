@@ -151,7 +151,8 @@ private val HubTools = listOf(
     ToolEntry("Compass", "Sensors", "sensors"),
     ToolEntry("Spirit level", "Sensors", "sensors"),
     ToolEntry("Sound meter", "Sensors", "sensors"),
-    ToolEntry("Activity analyze", "History", "analyze")
+    ToolEntry("Activity analyze", "History", "analyze"),
+    ToolEntry("Packs", "System", "packs")
 )
 
 private val RouteLabels = mapOf(
@@ -172,6 +173,7 @@ private val RouteLabels = mapOf(
     "sensors" to "Sensors",
     "ruler" to "Ruler",
     "analyze" to "Analyze",
+    "packs" to "Packs",
     "tools" to "Tools",
     "settings" to "Settings"
 )

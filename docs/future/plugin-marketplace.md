@@ -1,7 +1,10 @@
-# Future idea: in-app runtimes + installable tool/library packs (NOT approved)
+# In-app runtimes + installable tool/library packs (APPROVED, scoped)
 
-Status: parked. Decided 2026-09-14 — do NOT build now. Revisit only with an
-explicit user vote (tools still need scope votes per AGENTS.md).
+Status: approved 2026-09-14 — on-demand downloadable packs only. Cloud
+backup/sync and accounts remain parked (separate future notes).
+Scope rules: packs install on demand (never bundled), hash-pinned +
+signature-checked, sandboxed (no network/storage for pack code), copyleft
+code never bundled (Apache-2.0/MIT only, with attribution).
 
 ## The idea
 - Embed script runtimes (Python is only an example — JS, Lua, or others count
@@ -12,9 +15,10 @@ explicit user vote (tools still need scope votes per AGENTS.md).
 - APK size: a Python runtime alone dwarfs the 5.7 MB R8 release build.
 - Security: downloading + executing code needs sandboxing, pack signing, and
   version/pinning policy.
-- Locks it must respect: local-only forever, free forever (no ads/IAP),
-  clean-room only (no GPL/PolyForm/ unlicensed code — Apache-2.0/MIT only,
-  with attribution), offline-first after install.
+- Locks it must respect: on-device by default (only pack downloads use the
+  network), free forever (no ads/IAP), clean-room only (no GPL/PolyForm/
+  unlicensed code — Apache-2.0/MIT only, with attribution), offline use
+  after install.
 - Store policy risk: dynamically downloaded executable code is a Play-policy
   minefield; needs legal/policy review before any implementation.
 

@@ -26,6 +26,7 @@ import androidx.compose.material.icons.filled.Category
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Code
 import androidx.compose.material.icons.filled.Description
+import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.Insights
 import androidx.compose.material.icons.filled.Explore
 import androidx.compose.material.icons.filled.Favorite
@@ -102,6 +103,7 @@ import calc.u.ui.screens.MathScreen
 import calc.u.ui.screens.SettingsScreen
 import calc.u.ui.screens.StepsScreen
 import calc.u.ui.screens.TextCalcScreen
+import calc.u.ui.screens.PacksScreen
 import calc.u.ui.screens.TextDataScreen
 import calc.u.ui.screens.TimeLabScreen
 import calc.u.ui.screens.ElectroScreen
@@ -151,6 +153,7 @@ private val ToolDests = listOf(
     Dest("healthlab", "Health Lab", Icons.Filled.Favorite),
     Dest("sensors", "Sensors", Icons.Filled.Explore),
     Dest("analyze", "Analyze", Icons.Filled.BarChart),
+    Dest("packs", "Packs", Icons.Filled.Download),
     Dest("tools", "Tools", Icons.Filled.Apps)
 )
 
@@ -165,7 +168,7 @@ private val DrawerGroups = listOf(
     DrawerGroup("Electro+Network", listOf("electro")),
     DrawerGroup("Text+Data", listOf("textdata", "textcalc", "qrscan")),
     DrawerGroup("Everyday", listOf("everyday", "ruler", "health", "healthlab")),
-    DrawerGroup("System", listOf("sensors", "analyze", "tools"))
+    DrawerGroup("System", listOf("sensors", "analyze", "packs", "tools"))
 )
 
 private val SettingsDest = Dest("settings", "Settings", Icons.Filled.Settings)
@@ -438,6 +441,7 @@ class MainActivity : ComponentActivity() {
                                                 )
                                             }
                                         }
+                                        composable("packs") { Centered { PacksScreen() } }
                                         composable("tools") { Centered { ToolsHub(onOpen = { go(it) }) } }
                                         composable("settings") { Centered { SettingsScreen() } }
                                     }

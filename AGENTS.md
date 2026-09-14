@@ -29,7 +29,10 @@ Detailed rundowns with proof links every round.
 Free forever: no ads, no IAP, no tracking.
 
 ## Sync (locked)
-Local-only forever. JSON backup covers portability. No accounts, no cloud.
+On-device by default. Only tool/library pack downloads may use the network
+(user vote 2026-09-14: packs install on demand, everything else stays local).
+JSON backup covers portability. Accounts and cloud sync are parked in
+docs/future — not approved.
 
 ## i18n (locked)
 English + Turkish first. (Fluent refs purged 2026-09-12; fork deletion needs

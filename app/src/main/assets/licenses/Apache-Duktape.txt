@@ -1,0 +1,12 @@
+Duktape Android attribution (Apache License 2.0)
+
+The JS runtime used for installable tool packs is powered by
+duktape-android by Square, Inc.
+
+Copyright (c) Square, Inc.
+
+Licensed under the Apache License, Version 2.0. Under that license the
+library may be used, modified and redistributed (including in binary form
+bundled with this software) with attribution. This file records that
+attribution. The full license text is available at
+https://www.apache.org/licenses/LICENSE-2.0
