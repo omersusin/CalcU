@@ -54,6 +54,7 @@ import com.google.zxing.qrcode.QRCodeWriter
 import com.google.zxing.qrcode.decoder.ErrorCorrectionLevel
 import java.security.MessageDigest
 import java.util.Base64
+import kotlinx.serialization.json.Json
 import kotlinx.coroutines.delay
 import kotlin.math.ceil
 
@@ -78,6 +79,7 @@ fun TextDataScreen() {
                     "unix" to "Unix",
                     "totp" to "TOTP",
                     "cipher" to "Cipher",
+                    "jwt" to "JWT",
                     "textplus" to "Text+",
                     "diff" to "Diff",
                     "csvjson" to "CSV/JSON",
@@ -102,6 +104,7 @@ fun TextDataScreen() {
                 "unix" -> UnixTimeCard()
                 "totp" -> TotpCard()
                 "cipher" -> CipherCard()
+                "jwt" -> JwtCard()
                 "textplus" -> TextPlusScreen()
                 "diff" -> DiffScreen()
                 "csvjson" -> CsvJsonScreen()
@@ -1305,6 +1308,78 @@ fun CipherCard() {
         Button(onClick = { runCatching { clipboard.setText(AnnotatedString(output)) } }) { Text("Copy") }
     }
 }
+
+@Composable
+@Composable
+fun JwtCard() {
+    var input by remember { mutableStateOf("") }
+    val clipboard = LocalClipboardManager.current
+    val res = remember(input) {
+        runCatching {
+            val parts = input.trim().split(".")
+            require(parts.size == 3) { "need header.payload.signature" }
+            Triple(
+                prettyJsonLocal(jwtPartLocal(parts[0])),
+                prettyJsonLocal(jwtPartLocal(parts[1])),
+                parts[2]
+            )
+        }
+    }
+    val errMsg = res.exceptionOrNull()?.let { "invalid token: ${it.message ?: "decode failed"}" }
+    LazyColumn(Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+        item {
+            SectionCard("JWT") {
+                OutlinedTextField(
+                    value = input,
+                    onValueChange = { input = it },
+                    label = { Text("header.payload.signature") },
+                    modifier = Modifier.fillMaxWidth()
+                )
+                HorizontalDivider()
+                val decoded = res.getOrNull()
+                if (input.isBlank()) {
+                    ResultLine("Result", "—")
+                } else if (errMsg != null || decoded == null) {
+                    Text(errMsg ?: "decode failed", color = MaterialTheme.colorScheme.error)
+                } else {
+                    Text("Header", style = MaterialTheme.typography.titleSmall)
+                    Text(
+                        decoded.first,
+                        style = MaterialTheme.typography.bodySmall.copy(fontFamily = FontFamily.Monospace)
+                    )
+                    Text("Payload", style = MaterialTheme.typography.titleSmall)
+                    Text(
+                        decoded.second,
+                        style = MaterialTheme.typography.bodySmall.copy(fontFamily = FontFamily.Monospace)
+                    )
+                    ResultLine("Signature", decoded.third.ifBlank { "—" })
+                    Text(
+                        "Decode only — signature is not verified.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Button(
+                        onClick = {
+                            runCatching {
+                                clipboard.setText(AnnotatedString(decoded.first + "\n" + decoded.second))
+                            }
+                        }
+                    ) { Text("Copy JSON") }
+                }
+            }
+        }
+    }
+}
+
+private fun jwtPartLocal(part: String): String {
+    val padded = part + "=".repeat((4 - part.length % 4) % 4)
+    return Base64.getUrlDecoder().decode(padded).toString(Charsets.UTF_8)
+}
+
+private fun prettyJsonLocal(raw: String): String = runCatching {
+    val el = Json.parseToJsonElement(raw)
+    Json { prettyPrint = true }.encodeToString(el)
+}.getOrDefault(raw)
 
 @Composable
 fun TextPlusScreen() {
