@@ -45,10 +45,19 @@ class NumPadState {
     var text by mutableStateOf("")
     var show by mutableStateOf(false)
     var onCommit: (String) -> Unit by mutableStateOf({})
+    var plain by mutableStateOf(false)
+    var decimal by mutableStateOf(true)
 
-    fun open(current: String, onCommit: (String) -> Unit) {
+    fun open(
+        current: String,
+        onCommit: (String) -> Unit,
+        plain: Boolean = false,
+        decimal: Boolean = true
+    ) {
         text = current
         this.onCommit = onCommit
+        this.plain = plain
+        this.decimal = decimal
         show = true
     }
 }
@@ -179,19 +188,36 @@ fun NumPadSheet(state: NumPadState, title: String) {
                 singleLine = true,
                 shape = MaterialTheme.shapes.large
             )
-            val rows = listOf(
-                listOf("AC", "()", "%", "÷"),
-                listOf("7", "8", "9", "×"),
-                listOf("4", "5", "6", "−"),
-                listOf("1", "2", "3", "+"),
-                listOf("0", "00", ".", "⌫")
-            )
+            val rows = if (state.plain) {
+                listOf(
+                    listOf("7", "8", "9"),
+                    listOf("4", "5", "6"),
+                    listOf("1", "2", "3"),
+                    listOf("0", ".", "⌫")
+                )
+            } else {
+                listOf(
+                    listOf("AC", "()", "%", "÷"),
+                    listOf("7", "8", "9", "×"),
+                    listOf("4", "5", "6", "−"),
+                    listOf("1", "2", "3", "+"),
+                    listOf("0", "00", ".", "⌫")
+                )
+            }
             fun onKey(k: String) {
-                when (k) {
-                    "AC" -> state.text = ""
-                    "⌫" -> state.text = state.text.dropLast(1)
-                    "()" -> state.text = smartParen(state.text)
-                    else -> state.text += k
+                if (state.plain) {
+                    when (k) {
+                        "⌫" -> state.text = state.text.dropLast(1)
+                        "." -> if (state.decimal && !state.text.contains(".")) state.text += "."
+                        else -> if (k.length == 1 && k[0].isDigit()) state.text += k
+                    }
+                } else {
+                    when (k) {
+                        "AC" -> state.text = ""
+                        "⌫" -> state.text = state.text.dropLast(1)
+                        "()" -> state.text = smartParen(state.text)
+                        else -> state.text += k
+                    }
                 }
             }
             fun isTonal(k: String): Boolean =

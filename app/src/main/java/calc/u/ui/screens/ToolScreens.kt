@@ -340,7 +340,7 @@ private fun NumField(
     integer: Boolean = false
 ) {
     val pad = calc.u.ui.rememberNumPadState()
-    Box(modifier.fillMaxWidth().clickable { pad.open(value, onChange) }) {
+    Box(modifier.fillMaxWidth().clickable { pad.open(value, onChange, plain = true, decimal = !integer) }) {
         OutlinedTextField(
             value = value,
             onValueChange = {},
