@@ -197,7 +197,11 @@ class CalcViewModel @Inject constructor(
         val st = _uiState.value
         val mode = effectiveMode(st)
         Engine.parseAssignment(st.input, mode)?.let { a ->
-            _variables.update { it + (a.name to a.value) }
+            _variables.update { cur ->
+                val next = cur + (a.name to a.value)
+                if (next.size <= 50) next
+                else next.entries.drop(next.size - 50).associate { it.key to it.value }
+            }
             persistVariables()
             val r = Engine.format(a.value, decimals.value, numberFormat.value, fractions.value)
             _uiState.update { s -> s.copy(result = "✓ ${a.name} = $r", input = st.input) }
