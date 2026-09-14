@@ -1,6 +1,8 @@
 package calc.u.packs
 
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.builtins.SetSerializer
+import kotlinx.serialization.builtins.serializer
 import kotlinx.serialization.json.Json
 import java.security.MessageDigest
 
@@ -41,12 +43,14 @@ internal val packJson = Json { ignoreUnknownKeys = true }
 
 fun parseManifest(raw: String): PackManifest = packJson.decodeFromString(raw)
 
-fun encodeManifest(m: PackManifest): String = packJson.encodeToString(m)
+fun encodeManifest(m: PackManifest): String =
+    packJson.encodeToString(PackManifest.serializer(), m)
 
 fun parseCatalog(raw: String): PackCatalog =
     runCatching { packJson.decodeFromString<PackCatalog>(raw) }.getOrDefault(PackCatalog())
 
-fun encodeEnabled(ids: Set<String>): String = packJson.encodeToString(ids)
+fun encodeEnabled(ids: Set<String>): String =
+    packJson.encodeToString(SetSerializer(serializer<String>()), ids)
 
 fun decodeEnabled(raw: String): Set<String> =
     runCatching { packJson.decodeFromString<Set<String>>(raw) }.getOrDefault(emptySet())
