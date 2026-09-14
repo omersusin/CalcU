@@ -101,17 +101,11 @@ class SettingsRepository @Inject constructor(@ApplicationContext private val ctx
     private val variablesKey = stringPreferencesKey("calc_variables")
 
     val variables: Flow<Map<String, String>> = ctx.settingsDataStore.data.map { prefs ->
-        runCatching {
-            (prefs[variablesKey] ?: "").split(";").mapNotNull { part ->
-                val eq = part.indexOf("=")
-                if (eq <= 0) null else part.take(eq) to part.drop(eq + 1)
-            }.toMap()
-        }.getOrDefault(emptyMap())
+        decodeVariables(prefs[variablesKey] ?: "")
     }.catch { emit(emptyMap()) }
 
     suspend fun setVariables(value: Map<String, String>) {
-        val encoded = value.entries.joinToString(";") { (k, v) -> "$k=$v" }.take(4000)
-        runCatching { ctx.settingsDataStore.edit { it[variablesKey] = encoded } }
+        runCatching { ctx.settingsDataStore.edit { it[variablesKey] = encodeVariables(value) } }
     }
 
     private val numberFormatKey = stringPreferencesKey("grouping")
@@ -213,3 +207,14 @@ class SettingsRepository @Inject constructor(@ApplicationContext private val ctx
         runCatching { ctx.settingsDataStore.edit { it[keypadShapeKey] = coerced } }
     }
 }
+
+internal fun encodeVariables(value: Map<String, String>): String =
+    value.entries.joinToString(";") { (k, v) -> "$k=$v" }.take(4000)
+
+internal fun decodeVariables(raw: String): Map<String, String> =
+    runCatching {
+        raw.split(";").mapNotNull { part ->
+            val eq = part.indexOf("=")
+            if (eq <= 0) null else part.take(eq) to part.drop(eq + 1)
+        }.toMap()
+    }.getOrDefault(emptyMap())
