@@ -147,7 +147,7 @@ fun PacksScreen(vm: PacksViewModel = hiltViewModel()) {
         if (installed.isEmpty()) {
             item { Text("Nothing installed yet.", color = MaterialTheme.colorScheme.onSurfaceVariant) }
         }
-        items(installed, key = { it.id }) { pack ->
+        items(installed, key = { "installed-${it.id}" }) { pack ->
             val on = enabled.contains(pack.id)
             SectionCard("${pack.name} v${pack.version}") {
                 Text(
@@ -210,7 +210,7 @@ fun PacksScreen(vm: PacksViewModel = hiltViewModel()) {
                 modifier = Modifier.semantics { heading() }
             )
         }
-        items(catalog, key = { it.id }) { entry ->
+        items(catalog, key = { "catalog-${it.id}" }) { entry ->
             val have = installed.firstOrNull { it.id == entry.id }
             SectionCard(entry.name) {
                 Text(
