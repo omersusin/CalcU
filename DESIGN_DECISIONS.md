@@ -6,7 +6,9 @@ anchor for the ongoing M3E overhaul. Read it before starting any build work.
 
 ## Status snapshot
 - **Delete: CANCELLED.** "better delete calcu" is reversed. Repo stays, work continues.
-- **Current build:** green. AGP 8.13.0 / Kotlin 2.3.20 / KSP 2.3.12 / Hilt 2.58 / Compose BOM 2026.06 (material3 1.4.0). CI runs test → assemble → lint → signed release APK attach.
+- **Current build:** AGP 8.13.0 / Kotlin 2.3.20 / KSP 2.3.12 / Hilt 2.58 / Compose BOM 2026.06 (material3 1.4.0).
+- **CI (2026-09-14):** split into two parallel jobs to cut wall-clock — `debug` (test + assembleDebug + lint + upload) and `release` (signed assembleRelease + verify + upload) run on separate runners; `publish` gathers both artifacts and refreshes the rolling `latest` release after both succeed.
+- **Home navigation (2026-09-14):** the Tools hub is now the app's **home** screen. App opens on the hub (welcome header, search, favourites, recents, categorized reorderable grid); the FAB opens the calculator; the calculator/graph stay on the rail; the drawer remains secondary. `home` is the back-stack anchor (`popUpTo("home")`), so every tool pops back to the hub.
 - **Depth audit result (2026-09-14):** the code is NOT stub-laden — zero `!!`, zero `TODO()`/`NotImplementedError`, zero TODO comments. The "AI-made / shallow" feeling is driven by *specific screen bugs + perceptual finish*, not dead code. Work below targets those real gaps, not a rewrite.
 
 ## Locked design direction (user-confirmed)
@@ -37,12 +39,12 @@ anchor for the ongoing M3E overhaul. Read it before starting any build work.
 - Same aesthetic goal regardless of tool.
 
 ## Concrete bug / work inventory (from user reports)
-- [ ] Calculator: 8-digit "…" cap + "numbers also shown at top" confusion (#158) — likely `AutoSizingText` shrink + history-row: clarify result line vs expression line.
-- [ ] IME keyboard never triggers on some input fields (#109) → app-wide shared numeric keypad.
-- [ ] Onboarding keypad layout buttons don't work / keypad shape doesn't change though changed in settings (#155, #157).
-- [ ] Sensors: pure-black card + cards in different colors / boxes cut in half (#102–106).
-- [ ] Home hub + search + favorites nav rework.
-- [ ] App-wide shared numeric keypad wiring.
+- [x] Calculator: 8-digit "…" cap + "numbers also shown at top" confusion (#158) — fixed by stopping ellipsis on long results and letting them wrap to a second line so the result line reads as result and the expression line as expression (`a7f1c88`).
+- [x] IME keyboard never triggers on some input fields (#109) → app-wide shared numeric keypad; numeric inputs route through the shared bottom-sheet keypad (`4cf6933`, `a6afa2c`).
+- [x] Onboarding keypad layout buttons don't work / keypad shape doesn't change though changed in settings (#155, #157) → keypad shape is now global via `LocalKeyShape` and the tour mini-preview reflects it live (`e92a752`, `90dc194`).
+- [x] Sensors: pure-black card + cards in different colors / boxes cut in half (#102–106) → sensor content is now scrollable so compass/level/sound cards no longer clip on short screens (`cfcae83`); cards use tonal `surfaceContainer` colors (no hardcoded colors), so coloration stays theme-consistent in light/dark/AMOLED.
+- [x] Home hub + search + favorites nav rework → the hub is the home/start screen, drawer secondary (`debbca7`).
+- [x] App-wide shared numeric keypad wiring → numeric fields are wired through the shared bottom-sheet keypad (`4cf6933`, `a6afa2c`).
 
 ## Navigation / theme facts to not forget
 - Theme entry: `CalcUTheme(theme, dark, dynamic, mode, amoled, customSeedArgb)` in
