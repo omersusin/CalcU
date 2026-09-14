@@ -59,7 +59,6 @@ import kotlinx.coroutines.delay
 import java.time.LocalDate
 import java.time.Period
 import java.time.format.TextStyle
-import java.time.temporal.ChronoUnit
 import java.util.Locale
 import kotlin.math.cos
 import kotlin.math.sin
@@ -108,34 +107,22 @@ fun DatesScreen() {
     }.getOrDefault("")
     val ageRes = remember(birth) {
         runCatching {
-            val b = LocalDate.parse(birth.trim())
-            val today = LocalDate.now()
-            require(!b.isAfter(today)) { "birth date is in the future" }
-            val p = Period.between(b, today)
-            val totalDays = ChronoUnit.DAYS.between(b, today)
-            var next = b.withYearSafe(today.year)
-            if (!next.isAfter(today)) next = next.plusYears(1)
-            Triple(p, totalDays, ChronoUnit.DAYS.between(today, next))
+            TimeLab.ageOn(LocalDate.parse(birth.trim()), LocalDate.now())
         }
     }
     val intervalRes = remember(from, to) {
         runCatching {
-            val a = LocalDate.parse(from.trim())
-            val b = LocalDate.parse(to.trim())
-            ChronoUnit.DAYS.between(a, b)
+            TimeLab.daysBetween(LocalDate.parse(from.trim()), LocalDate.parse(to.trim()))
         }
     }
     val shiftRes = remember(base, amount, unit, sign) {
         runCatching {
-            val d = LocalDate.parse(base.trim())
-            val n = amount.trim().toLong()
-            val moved = when (unit) {
-                "Weeks" -> d.plusWeeks(n)
-                "Months" -> d.plusMonths(n)
-                "Years" -> d.plusYears(n)
-                else -> d.plusDays(n)
-            }
-            if (sign == "−") d.plusDays(ChronoUnit.DAYS.between(moved, d)) else moved
+            TimeLab.shiftDate(
+                LocalDate.parse(base.trim()),
+                amount.trim().toLong(),
+                unit,
+                minus = sign == "−"
+            )
         }
     }
     LazyColumn(Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(16.dp)) {
@@ -159,11 +146,10 @@ fun DatesScreen() {
                         color = MaterialTheme.colorScheme.error
                     )
                 } else {
-                    val (p, totalDays, untilNext) = age
-                    ResultLine("Age", "${p.years}y ${p.months}m ${p.days}d")
-                    ResultLine("Total days", totalDays.toString())
+                    ResultLine("Age", "${age.years}y ${age.months}m ${age.days}d")
+                    ResultLine("Total days", age.totalDays.toString())
                     ResultLine("Born", weekdayOf(LocalDate.parse(birth.trim())))
-                    ResultLine("Next birthday", "in $untilNext days")
+                    ResultLine("Next birthday", "in ${age.daysUntilBirthday} days")
                 }
             }
         }
@@ -243,10 +229,6 @@ fun DatesScreen() {
         }
     }
 }
-
-private fun LocalDate.withYearSafe(year: Int): LocalDate = runCatching {
-    this.withYear(year)
-}.getOrDefault(this)
 
 @Composable
 fun StopwatchScreen() {

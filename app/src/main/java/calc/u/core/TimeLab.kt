@@ -40,6 +40,42 @@ object TimeLab {
         val cs = (t % 1000) / 10
         return Triple(min, sec, cs)
     }
+
+    data class AgeInfo(
+        val years: Int,
+        val months: Int,
+        val days: Int,
+        val totalDays: Long,
+        val daysUntilBirthday: Long
+    )
+
+    fun safeWithYear(d: java.time.LocalDate, year: Int): java.time.LocalDate =
+        runCatching { d.withYear(year) }.getOrDefault(d)
+
+    fun ageOn(birth: java.time.LocalDate, today: java.time.LocalDate): AgeInfo {
+        require(!birth.isAfter(today)) { "birth date is in the future" }
+        val p = java.time.Period.between(birth, today)
+        var next = safeWithYear(birth, today.year)
+        while (!next.isAfter(today)) next = next.plusYears(1)
+        return AgeInfo(
+            p.years, p.months, p.days,
+            java.time.temporal.ChronoUnit.DAYS.between(birth, today),
+            java.time.temporal.ChronoUnit.DAYS.between(today, next)
+        )
+    }
+
+    fun daysBetween(a: java.time.LocalDate, b: java.time.LocalDate): Long =
+        java.time.temporal.ChronoUnit.DAYS.between(a, b)
+
+    fun shiftDate(d: java.time.LocalDate, n: Long, unit: String, minus: Boolean): java.time.LocalDate {
+        val moved = when (unit) {
+            "Weeks" -> d.plusWeeks(n)
+            "Months" -> d.plusMonths(n)
+            "Years" -> d.plusYears(n)
+            else -> d.plusDays(n)
+        }
+        return if (minus) d.plusDays(java.time.temporal.ChronoUnit.DAYS.between(moved, d)) else moved
+    }
 }
 
 typealias Lap = TimeLab.Lap

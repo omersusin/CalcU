@@ -27,6 +27,74 @@ class TimeLabTest {
         assertEquals(TimeLab.Lap(1, 500L, 500L), laps[0])
     }
 
+    @Test fun ageGolden() {
+        val age = TimeLab.ageOn(
+            java.time.LocalDate.parse("2000-01-01"),
+            java.time.LocalDate.parse("2026-09-14")
+        )
+        assertEquals(26, age.years)
+        assertEquals(8, age.months)
+        assertEquals(13, age.days)
+        assertTrue(age.totalDays > 9000)
+        assertTrue(age.daysUntilBirthday in 1..366)
+    }
+
+    @Test fun ageLeapBirthday() {
+        val age = TimeLab.ageOn(
+            java.time.LocalDate.parse("2000-02-29"),
+            java.time.LocalDate.parse("2025-03-01")
+        )
+        assertEquals(25, age.years)
+        assertTrue(age.daysUntilBirthday in 1..366)
+    }
+
+    @Test fun ageFutureThrows() {
+        try {
+            TimeLab.ageOn(
+                java.time.LocalDate.parse("2030-01-01"),
+                java.time.LocalDate.parse("2026-09-14")
+            )
+            fail("expected failure for future birth date")
+        } catch (_: IllegalArgumentException) {
+        }
+    }
+
+    @Test fun intervalSigned() {
+        assertEquals(
+            30L,
+            TimeLab.daysBetween(
+                java.time.LocalDate.parse("2026-01-01"),
+                java.time.LocalDate.parse("2026-01-31")
+            )
+        )
+        assertEquals(
+            -30L,
+            TimeLab.daysBetween(
+                java.time.LocalDate.parse("2026-01-31"),
+                java.time.LocalDate.parse("2026-01-01")
+            )
+        )
+    }
+
+    @Test fun shiftRoundTrip() {
+        val d = java.time.LocalDate.parse("2026-01-31")
+        assertEquals(
+            java.time.LocalDate.parse("2026-02-28"),
+            TimeLab.shiftDate(d, 1, "Months", minus = false)
+        )
+        assertEquals(
+            d,
+            TimeLab.shiftDate(
+                TimeLab.shiftDate(d, 40, "Days", minus = false),
+                40, "Days", minus = true
+            )
+        )
+        assertEquals(
+            java.time.LocalDate.parse("2025-01-31"),
+            TimeLab.shiftDate(d, 1, "Years", minus = true)
+        )
+    }
+
     @Test fun pomoRounds() {
         val cfg = TimeLab.PomoConfig()
         assertEquals(4, cfg.roundsUntilLong)
