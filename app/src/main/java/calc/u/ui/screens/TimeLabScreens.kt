@@ -32,6 +32,7 @@ import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -55,6 +56,11 @@ import calc.u.ui.CalcUNumberBox
 import calc.u.ui.ResultLine
 import calc.u.ui.SectionCard
 import kotlinx.coroutines.delay
+import java.time.LocalDate
+import java.time.Period
+import java.time.format.TextStyle
+import java.time.temporal.ChronoUnit
+import java.util.Locale
 import kotlin.math.cos
 import kotlin.math.sin
 
@@ -73,7 +79,7 @@ fun TimeLabScreen() {
     var tab by remember { mutableStateOf("stopwatch") }
     Column(Modifier.fillMaxSize().padding(16.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
         LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            items(listOf("stopwatch" to "Stopwatch", "timer" to "Timer", "pomodoro" to "Pomodoro")) { (id, label) ->
+            items(listOf("stopwatch" to "Stopwatch", "timer" to "Timer", "pomodoro" to "Pomodoro", "dates" to "Dates")) { (id, label) ->
                 FilterChip(selected = tab == id, onClick = { tab = id }, label = { Text(label) })
             }
         }
@@ -81,11 +87,166 @@ fun TimeLabScreen() {
             when (tab) {
                 "timer" -> TimerScreen()
                 "pomodoro" -> PomodoroScreen()
+                "dates" -> DatesScreen()
                 else -> StopwatchScreen()
             }
         }
     }
 }
+
+@Composable
+fun DatesScreen() {
+    var birth by rememberSaveable { mutableStateOf("") }
+    var from by rememberSaveable { mutableStateOf("") }
+    var to by rememberSaveable { mutableStateOf("") }
+    var base by rememberSaveable { mutableStateOf("") }
+    var amount by rememberSaveable { mutableStateOf("") }
+    var unit by rememberSaveable { mutableStateOf("Days") }
+    var sign by rememberSaveable { mutableStateOf("+") }
+    fun weekdayOf(d: LocalDate): String = runCatching {
+        d.dayOfWeek.getDisplayName(TextStyle.FULL, Locale.getDefault())
+    }.getOrDefault("")
+    val ageRes = remember(birth) {
+        runCatching {
+            val b = LocalDate.parse(birth.trim())
+            val today = LocalDate.now()
+            require(!b.isAfter(today)) { "birth date is in the future" }
+            val p = Period.between(b, today)
+            val totalDays = ChronoUnit.DAYS.between(b, today)
+            var next = b.withYearSafe(today.year)
+            if (!next.isAfter(today)) next = next.plusYears(1)
+            Triple(p, totalDays, ChronoUnit.DAYS.between(today, next))
+        }
+    }
+    val intervalRes = remember(from, to) {
+        runCatching {
+            val a = LocalDate.parse(from.trim())
+            val b = LocalDate.parse(to.trim())
+            ChronoUnit.DAYS.between(a, b)
+        }
+    }
+    val shiftRes = remember(base, amount, unit, sign) {
+        runCatching {
+            val d = LocalDate.parse(base.trim())
+            val n = amount.trim().toLong()
+            val moved = when (unit) {
+                "Weeks" -> d.plusWeeks(n)
+                "Months" -> d.plusMonths(n)
+                "Years" -> d.plusYears(n)
+                else -> d.plusDays(n)
+            }
+            if (sign == "−") d.plusDays(ChronoUnit.DAYS.between(moved, d)) else moved
+        }
+    }
+    LazyColumn(Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+        item {
+            SectionCard("Age") {
+                OutlinedTextField(
+                    value = birth,
+                    onValueChange = { birth = it },
+                    label = { Text("Birth date (yyyy-MM-dd)") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth()
+                )
+                OutlinedButton(onClick = { birth = "2000-01-01" }) { Text("Try 2000-01-01") }
+                HorizontalDivider()
+                val age = ageRes.getOrNull()
+                if (birth.isBlank()) {
+                    ResultLine("Age", "—")
+                } else if (age == null) {
+                    Text(
+                        ageRes.exceptionOrNull()?.message ?: "invalid date",
+                        color = MaterialTheme.colorScheme.error
+                    )
+                } else {
+                    val (p, totalDays, untilNext) = age
+                    ResultLine("Age", "${p.years}y ${p.months}m ${p.days}d")
+                    ResultLine("Total days", totalDays.toString())
+                    ResultLine("Born", weekdayOf(LocalDate.parse(birth.trim())))
+                    ResultLine("Next birthday", "in $untilNext days")
+                }
+            }
+        }
+        item {
+            SectionCard("Interval") {
+                OutlinedTextField(
+                    value = from,
+                    onValueChange = { from = it },
+                    label = { Text("From (yyyy-MM-dd)") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth()
+                )
+                OutlinedTextField(
+                    value = to,
+                    onValueChange = { to = it },
+                    label = { Text("To (yyyy-MM-dd)") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth()
+                )
+                OutlinedButton(onClick = { to = LocalDate.now().toString() }) { Text("To = today") }
+                HorizontalDivider()
+                val days = intervalRes.getOrNull()
+                if (from.isBlank() || to.isBlank()) {
+                    ResultLine("Between", "—")
+                } else if (days == null) {
+                    Text(
+                        intervalRes.exceptionOrNull()?.message ?: "invalid date",
+                        color = MaterialTheme.colorScheme.error
+                    )
+                } else {
+                    val d = kotlin.math.abs(days)
+                    ResultLine("Days", d.toString())
+                    ResultLine("Weeks", "${d / 7}w ${d % 7}d")
+                    val p = Period.between(LocalDate.parse(from.trim()), LocalDate.parse(to.trim()))
+                    ResultLine("Months", "${kotlin.math.abs(p.toTotalMonths())}m ${kotlin.math.abs(p.days)}d")
+                }
+            }
+        }
+        item {
+            SectionCard("Add / subtract") {
+                OutlinedTextField(
+                    value = base,
+                    onValueChange = { base = it },
+                    label = { Text("Date (yyyy-MM-dd)") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth()
+                )
+                OutlinedTextField(
+                    value = amount,
+                    onValueChange = { amount = it.filter { c -> c.isDigit() } },
+                    label = { Text("Amount") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth()
+                )
+                LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    items(listOf("+", "−")) { s ->
+                        FilterChip(selected = sign == s, onClick = { sign = s }, label = { Text(s) })
+                    }
+                    items(listOf("Days", "Weeks", "Months", "Years")) { u ->
+                        FilterChip(selected = unit == u, onClick = { unit = u }, label = { Text(u) })
+                    }
+                }
+                HorizontalDivider()
+                val shifted = shiftRes.getOrNull()
+                if (base.isBlank() || amount.isBlank()) {
+                    ResultLine("Result", "—")
+                } else if (shifted == null) {
+                    Text(
+                        shiftRes.exceptionOrNull()?.message ?: "invalid input",
+                        color = MaterialTheme.colorScheme.error
+                    )
+                } else {
+                    ResultLine("Date", shifted.toString())
+                    ResultLine("Weekday", weekdayOf(shifted))
+                }
+            }
+        }
+    }
+}
+
+private fun LocalDate.withYearSafe(year: Int): LocalDate = runCatching {
+    this.withYear(year)
+}.getOrDefault(this)
 
 @Composable
 fun StopwatchScreen() {
