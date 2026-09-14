@@ -67,8 +67,6 @@ const val SUCCESS = 1
 const val WARNING = 2
 const val ERROR = 3
 
-private val NumericInput = Regex("-?[0-9]*[.,]?[0-9]*([eE][+-]?[0-9]*)?")
-
 @Composable
 fun CalcUNumberBox(
     value: String,
@@ -85,6 +83,31 @@ fun CalcUNumberBox(
     integer: Boolean = false
 ) {
     var lastValid by remember { mutableStateOf(value) }
+    val pad = rememberNumPadState()
+    fun applyCommit(raw: String) {
+        val normalized = raw.replace(',', '.')
+        if (normalized.isEmpty()) {
+            lastValid = ""
+            onValueChange("")
+            return
+        }
+        if (normalized.toDoubleOrNull() == null) {
+            onValueChange(lastValid)
+            return
+        }
+        var d = normalized.toDoubleOrNull()
+        if (d != null) {
+            if (min != null) d = maxOf(min, d)
+            if (max != null) d = minOf(max, d)
+        }
+        val text = when {
+            d == null -> normalized
+            integer -> d.toLong().toString()
+            else -> normalized
+        }
+        lastValid = text
+        onValueChange(text)
+    }
     fun spin(delta: Double) {
         val base = value.toDoubleOrNull() ?: min ?: 0.0
         var nv = base + delta
@@ -100,56 +123,43 @@ fun CalcUNumberBox(
             style = MaterialTheme.typography.labelMedium,
             color = if (isError) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant
         )
-        OutlinedTextField(
-            value = value,
-            onValueChange = { next ->
-                if (next.isEmpty() || next.matches(NumericInput)) {
-                    // Normalize locale decimal comma live so "3,5" computes as 3.5.
-                    val normalized = next.replace(',', '.')
-                    lastValid = normalized
-                    onValueChange(normalized)
-                }
-                // else: ignore the keystroke (never yank text back — that
-                // fights the IME and makes typing impossible).
-            },
-            placeholder = { if (placeholder != null) Text(placeholder) },
-            singleLine = true,
-            isError = isError,
-            shape = MaterialTheme.shapes.large,
-            keyboardOptions = KeyboardOptions(
-                keyboardType = if (integer) KeyboardType.Number else KeyboardType.Decimal
-            ),
-            keyboardActions = KeyboardActions(onDone = {
-                val normalized = value.replace(',', '.')
-                if (normalized != value) onValueChange(normalized)
-                if (normalized.toDoubleOrNull() == null && normalized.isNotEmpty()) onValueChange(lastValid)
-            }),
-            trailingIcon = {
-                if (spinMode == SpinMode.Inline) {
-                    Row {
-                        Box(
-                            Modifier.size(40.dp).clickable(
-                                interactionSource = remember { MutableInteractionSource() },
-                                indication = LocalIndication.current
-                            ) { spin(smallChange) }.semantics { contentDescription = "Increase" },
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Icon(Icons.Filled.KeyboardArrowUp, contentDescription = null)
-                        }
-                        Box(
-                            Modifier.size(40.dp).clickable(
-                                interactionSource = remember { MutableInteractionSource() },
-                                indication = LocalIndication.current
-                            ) { spin(-smallChange) }.semantics { contentDescription = "Decrease" },
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Icon(Icons.Filled.KeyboardArrowDown, contentDescription = null)
+        Box(Modifier.fillMaxWidth().clickable { pad.open(value, { applyCommit(it) }, plain = true, decimal = !integer) }) {
+            OutlinedTextField(
+                value = value,
+                onValueChange = {},
+                readOnly = true,
+                placeholder = { if (placeholder != null) Text(placeholder) },
+                singleLine = true,
+                isError = isError,
+                shape = MaterialTheme.shapes.large,
+                trailingIcon = {
+                    if (spinMode == SpinMode.Inline) {
+                        Row {
+                            Box(
+                                Modifier.size(40.dp).clickable(
+                                    interactionSource = remember { MutableInteractionSource() },
+                                    indication = LocalIndication.current
+                                ) { spin(smallChange) }.semantics { contentDescription = "Increase" },
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(Icons.Filled.KeyboardArrowUp, contentDescription = null)
+                            }
+                            Box(
+                                Modifier.size(40.dp).clickable(
+                                    interactionSource = remember { MutableInteractionSource() },
+                                    indication = LocalIndication.current
+                                ) { spin(-smallChange) }.semantics { contentDescription = "Decrease" },
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(Icons.Filled.KeyboardArrowDown, contentDescription = null)
+                            }
                         }
                     }
-                }
-            },
-            modifier = Modifier.fillMaxWidth()
-        )
+                },
+                modifier = Modifier.fillMaxWidth()
+            )
+        }
+        if (pad.show) NumPadSheet(pad, label)
         if (supportingText != null) {
             Text(
                 supportingText,
