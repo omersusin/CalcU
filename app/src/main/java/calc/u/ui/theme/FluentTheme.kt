@@ -19,6 +19,7 @@ import androidx.compose.material3.dynamicDarkColorScheme
 import androidx.compose.material3.dynamicLightColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.ReadOnlyComposable
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
@@ -764,9 +765,14 @@ fun CalcUTheme(
     mode: String = "system",
     amoled: Boolean = false,
     customSeedArgb: Int? = null,
+    keypadShape: String = "circles",
     content: @Composable () -> Unit
 ) {
     val context = LocalContext.current
+    val keyShape = keyShape(keypadShape)
+    val shapedContent: @Composable () -> Unit = {
+        CompositionLocalProvider(LocalKeyShape provides keyShape) { content() }
+    }
     val legacy = when (theme) {
         "amoled" -> FluentAmoled
         "contrast" -> FluentContrast
@@ -774,7 +780,7 @@ fun CalcUTheme(
     }
     if (legacy != null) {
         val scheme = if (amoled) legacy.withPureBlackBackground() else legacy
-        MaterialTheme(colorScheme = scheme, shapes = FluentShapes, typography = fluentType(), content = content)
+        MaterialTheme(colorScheme = scheme, shapes = FluentShapes, typography = fluentType(), content = shapedContent)
         return
     }
     val normalizedMode = if (mode == "light" || mode == "dark") mode else "system"
@@ -820,5 +826,5 @@ fun CalcUTheme(
         }
     }
     val scheme = if (amoled) base.withPureBlackBackground() else base
-    MaterialTheme(colorScheme = scheme, shapes = FluentShapes, typography = fluentType(), content = content)
+    MaterialTheme(colorScheme = scheme, shapes = FluentShapes, typography = fluentType(), content = shapedContent)
 }

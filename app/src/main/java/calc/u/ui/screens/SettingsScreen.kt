@@ -433,7 +433,7 @@ fun SettingsScreen(vm: SettingsViewModel = hiltViewModel()) {
                         }
                     }
                     Text(
-                        "Keypad shape is applied live through keyShape() via LocalKeyShape in CalculatorScreens — no follow-up needed.",
+                        "Keypad shape applies live app-wide: CalcUTheme provides the global LocalKeyShape so the calculator, onboarding preview, and the shared numeric keypad all follow it.",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )

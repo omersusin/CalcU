@@ -1,5 +1,8 @@
 package calc.u.ui
 
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -9,7 +12,6 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Clear
@@ -33,9 +35,11 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
+import calc.u.ui.theme.LocalKeyShape
 
 class NumPadState {
     var text by mutableStateOf("")
@@ -72,13 +76,20 @@ private fun RowScope.PadKey(
     tonal: Boolean,
     onClick: () -> Unit
 ) {
-    val modifier = Modifier.weight(1f).height(56.dp)
-    val circle = CircleShape
+    val interactionSource = remember { MutableInteractionSource() }
+    val pressed by interactionSource.collectIsPressedAsState()
+    val scale by animateFloatAsState(if (pressed) 0.92f else 1f)
+    val modifier = Modifier.weight(1f).height(56.dp).graphicsLayer {
+        scaleX = scale
+        scaleY = scale
+    }
+    val keyShape = LocalKeyShape.current
     if (label == "AC") {
         Button(
             onClick = onClick,
+            interactionSource = interactionSource,
             modifier = modifier,
-            shape = circle,
+            shape = keyShape,
             colors = ButtonDefaults.buttonColors(
                 containerColor = MaterialTheme.colorScheme.tertiaryContainer,
                 contentColor = MaterialTheme.colorScheme.onTertiaryContainer
@@ -91,8 +102,9 @@ private fun RowScope.PadKey(
     if (isPadOperator(label)) {
         FilledTonalButton(
             onClick = onClick,
+            interactionSource = interactionSource,
             modifier = modifier,
-            shape = circle,
+            shape = keyShape,
             colors = ButtonDefaults.filledTonalButtonColors(
                 containerColor = MaterialTheme.colorScheme.secondaryContainer,
                 contentColor = MaterialTheme.colorScheme.onSecondaryContainer
@@ -103,11 +115,21 @@ private fun RowScope.PadKey(
         return
     }
     if (tonal) {
-        FilledTonalButton(onClick = onClick, modifier = modifier, shape = circle) {
+        FilledTonalButton(
+            onClick = onClick,
+            interactionSource = interactionSource,
+            modifier = modifier,
+            shape = keyShape
+        ) {
             Text(label, style = MaterialTheme.typography.titleLarge, maxLines = 1)
         }
     } else {
-        OutlinedButton(onClick = onClick, modifier = modifier, shape = circle) {
+        OutlinedButton(
+            onClick = onClick,
+            interactionSource = interactionSource,
+            modifier = modifier,
+            shape = keyShape
+        ) {
             Text(label, style = MaterialTheme.typography.titleLarge, maxLines = 1)
         }
     }

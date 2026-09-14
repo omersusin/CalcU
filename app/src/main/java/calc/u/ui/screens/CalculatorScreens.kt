@@ -67,7 +67,6 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
-import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -110,6 +109,7 @@ import calc.u.ui.SectionCard
 import calc.u.ui.WARNING
 import calc.u.ui.theme.ExpressiveSprings
 import calc.u.ui.theme.FluentMotion
+import calc.u.ui.theme.LocalKeyShape
 import calc.u.ui.theme.keyShape
 import calc.u.ui.tintExpression
 import kotlinx.coroutines.delay
@@ -126,7 +126,6 @@ import androidx.compose.material.icons.filled.ZoomIn
 import androidx.compose.material.icons.filled.ZoomOut
 import androidx.compose.material3.Checkbox
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalConfiguration
@@ -148,8 +147,6 @@ private fun historyNote(entry: String): String =
     if (entry.count { it == '|' } >= 2) entry.substringAfterLast("|") else ""
 
 private val MiniGraphHint = Regex("(sin|cos|tan|asin|acos|atan|log|ln|sqrt|\\^|/|\\*|\\(|\\d)")
-
-private val LocalKeyShape = compositionLocalOf<Shape> { CircleShape }
 
 @Composable
 private fun DisplayMiniGraph(input: String, modifier: Modifier = Modifier) {

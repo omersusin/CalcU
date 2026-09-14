@@ -186,11 +186,12 @@ class MainActivity : ComponentActivity() {
             val dynamicColor by settingsRepo.dynamicColor.collectAsStateWithLifecycle(initialValue = true)
             val customSeed by settingsRepo.customSeedArgb.collectAsStateWithLifecycle(initialValue = null)
             val keepOn by settingsRepo.keepScreenOn.collectAsStateWithLifecycle(initialValue = false)
+            val keypadShape by settingsRepo.keypadShape.collectAsStateWithLifecycle(initialValue = "circles")
             LaunchedEffect(keepOn) {
                 if (keepOn) window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
                 else window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
             }
-            CalcUTheme(theme = theme, mode = themeMode, amoled = themeAmoled, dynamic = dynamicColor, customSeedArgb = customSeed) {
+            CalcUTheme(theme = theme, mode = themeMode, amoled = themeAmoled, dynamic = dynamicColor, customSeedArgb = customSeed, keypadShape = keypadShape) {
                 val tourSeen by settingsRepo.tourSeen.collectAsStateWithLifecycle(initialValue = true)
                 if (!tourSeen) {
                     val tourScope = rememberCoroutineScope()
