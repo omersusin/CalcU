@@ -122,6 +122,8 @@ private val HubTools = listOf(
     ToolEntry("Stopwatch", "Time", "time"),
     ToolEntry("Timer", "Time", "time"),
     ToolEntry("Pomodoro", "Time", "time"),
+    ToolEntry("Age calculator", "Time", "time"),
+    ToolEntry("Date interval", "Time", "time"),
     ToolEntry("Resistor", "Electro", "electro"),
     ToolEntry("Divider / LED / RC", "Electro", "electro"),
     ToolEntry("Subnet", "Network", "electro"),
