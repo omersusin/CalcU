@@ -522,6 +522,39 @@ private fun CalculatorModeChips(
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
+private fun VariablesStrip(
+    variables: Map<String, java.math.BigDecimal>,
+    onInsert: (String) -> Unit,
+    onDelete: (String) -> Unit,
+    onClear: () -> Unit
+) {
+    if (variables.isEmpty()) return
+    Row(
+        Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+        horizontalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        variables.entries.sortedBy { it.key }.forEach { (name, value) ->
+            val label = runCatching {
+                value.stripTrailingZeros().toPlainString().take(12)
+            }.getOrDefault("…")
+            AssistChip(
+                onClick = { onInsert(name) },
+                label = { Text("$name = $label") },
+                trailingIcon = {
+                    Icon(
+                        Icons.Filled.Close,
+                        contentDescription = "Delete $name",
+                        modifier = Modifier.size(16.dp).clickable { onDelete(name) }
+                    )
+                }
+            )
+        }
+        AssistChip(onClick = onClear, label = { Text("Clear") })
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
+@Composable
 fun CalculatorScreen(vm: CalcViewModel = hiltViewModel()) {
     val st by vm.uiState.collectAsStateWithLifecycle()
     val vibration by vm.vibration.collectAsStateWithLifecycle()
@@ -532,6 +565,7 @@ fun CalculatorScreen(vm: CalcViewModel = hiltViewModel()) {
     val keypadLayout by vm.keypadLayout.collectAsStateWithLifecycle()
     val keyShapeId by vm.keypadShape.collectAsStateWithLifecycle()
     val activity by vm.activity.collectAsStateWithLifecycle()
+    val variables by vm.variables.collectAsStateWithLifecycle()
     val haptics = LocalHapticFeedback.current
     fun tapFeedback() {
         if (vibration) haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
@@ -648,6 +682,12 @@ fun CalculatorScreen(vm: CalcViewModel = hiltViewModel()) {
                     Modifier.weight(1f).fillMaxHeight().verticalScroll(rememberScrollState()),
                     verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
+                    VariablesStrip(
+                        variables = variables,
+                        onInsert = { justEvaluated = false; vm.onInput(it) },
+                        onDelete = { vm.onDeleteVariable(it) },
+                        onClear = { vm.onClearVariables() }
+                    )
                     CalculatorModeChips(
                         angleMode = st.angleMode,
                         inverse = inverse,
@@ -730,6 +770,12 @@ fun CalculatorScreen(vm: CalcViewModel = hiltViewModel()) {
                     compact = false,
                     justEvaluated = justEvaluated,
                     onPaste = { pasted -> justEvaluated = false; vm.onInput(pasted) }
+                )
+                VariablesStrip(
+                    variables = variables,
+                    onInsert = { justEvaluated = false; vm.onInput(it) },
+                    onDelete = { vm.onDeleteVariable(it) },
+                    onClear = { vm.onClearVariables() }
                 )
                 CalculatorModeChips(
                     angleMode = st.angleMode,
