@@ -55,6 +55,7 @@ import com.google.zxing.qrcode.decoder.ErrorCorrectionLevel
 import java.security.MessageDigest
 import java.util.Base64
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonElement
 import kotlinx.coroutines.delay
 import kotlin.math.ceil
 
@@ -1310,7 +1311,6 @@ fun CipherCard() {
 }
 
 @Composable
-@Composable
 fun JwtCard() {
     var input by remember { mutableStateOf("") }
     val clipboard = LocalClipboardManager.current
@@ -1378,7 +1378,7 @@ private fun jwtPartLocal(part: String): String {
 
 private fun prettyJsonLocal(raw: String): String = runCatching {
     val el = Json.parseToJsonElement(raw)
-    Json { prettyPrint = true }.encodeToString(el)
+    Json { prettyPrint = true }.encodeToString(JsonElement.serializer(), el)
 }.getOrDefault(raw)
 
 @Composable
