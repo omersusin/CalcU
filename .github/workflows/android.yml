@@ -100,3 +100,5 @@ jobs:
           fi
           gh release delete "$TAG" --cleanup-tag -y || true
           gh release create "$TAG" apks/debug/*.apk apks/release/*.apk --title "$TITLE" --notes "Debug + signed release APKs (${{ github.ref_name }} @ ${{ github.sha }})."
+        env:
+          GH_TOKEN: ${{ github.token }}
