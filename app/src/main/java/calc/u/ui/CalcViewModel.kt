@@ -116,6 +116,26 @@ class CalcViewModel @Inject constructor(
                 }
             }
         }
+        viewModelScope.launch {
+            runCatching {
+                settingsRepo.variables.collect { stored ->
+                    _variables.value = runCatching {
+                        stored.mapNotNull { (k, v) ->
+                            if (k.isBlank()) null
+                            else runCatching { k to BigDecimal(v) }.getOrNull()
+                        }.toMap()
+                    }.getOrDefault(emptyMap())
+                }
+            }
+        }
+    }
+
+    private fun persistVariables() {
+        viewModelScope.launch {
+            runCatching {
+                settingsRepo.setVariables(_variables.value.mapValues { it.value.toPlainString() })
+            }
+        }
     }
 
     fun onInput(s: String) {
@@ -178,6 +198,7 @@ class CalcViewModel @Inject constructor(
         val mode = effectiveMode(st)
         Engine.parseAssignment(st.input, mode)?.let { a ->
             _variables.update { it + (a.name to a.value) }
+            persistVariables()
             val r = Engine.format(a.value, decimals.value, numberFormat.value, fractions.value)
             _uiState.update { s -> s.copy(result = "✓ ${a.name} = $r", input = st.input) }
             viewModelScope.launch { runCatching { historyRepo.push(st.input, a.value.toPlainString()) } }
@@ -253,8 +274,8 @@ class CalcViewModel @Inject constructor(
     }
     fun onMemClear() { _uiState.update { it.copy(memory = 0.0) } }
 
-    fun onDeleteVariable(name: String) { _variables.update { it - name } }
-    fun onClearVariables() { _variables.update { emptyMap() } }
+    fun onDeleteVariable(name: String) { _variables.update { it - name }; persistVariables() }
+    fun onClearVariables() { _variables.update { emptyMap() }; persistVariables() }
     fun onClearHistory() { viewModelScope.launch { runCatching { historyRepo.clear() } } }
     fun onHistoryTap(entry: String) {
         val body = runCatching {

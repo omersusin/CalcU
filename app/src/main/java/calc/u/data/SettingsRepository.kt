@@ -98,6 +98,22 @@ class SettingsRepository @Inject constructor(@ApplicationContext private val ctx
         runCatching { ctx.settingsDataStore.edit { it[historyCapKey] = coerced } }
     }
 
+    private val variablesKey = stringPreferencesKey("calc_variables")
+
+    val variables: Flow<Map<String, String>> = ctx.settingsDataStore.data.map { prefs ->
+        runCatching {
+            (prefs[variablesKey] ?: "").split(";").mapNotNull { part ->
+                val eq = part.indexOf("=")
+                if (eq <= 0) null else part.take(eq) to part.drop(eq + 1)
+            }.toMap()
+        }.getOrDefault(emptyMap())
+    }.catch { emit(emptyMap()) }
+
+    suspend fun setVariables(value: Map<String, String>) {
+        val encoded = value.entries.joinToString(";") { (k, v) -> "$k=$v" }.take(4000)
+        runCatching { ctx.settingsDataStore.edit { it[variablesKey] = encoded } }
+    }
+
     private val numberFormatKey = stringPreferencesKey("grouping")
 
     val numberFormat: Flow<String> = ctx.settingsDataStore.data.map { it[numberFormatKey] ?: "locale" }.catch { emit("locale") }
