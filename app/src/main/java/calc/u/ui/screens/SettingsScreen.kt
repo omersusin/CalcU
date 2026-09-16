@@ -200,7 +200,7 @@ fun SettingsScreen(vm: SettingsViewModel = hiltViewModel()) {
     val keypadShape by vm.keypadShape.collectAsStateWithLifecycle()
     var showCustomSheet by remember { mutableStateOf(false) }
     LazyColumn(
-        Modifier.fillMaxSize().padding(vertical = 16.dp),
+        Modifier.fillMaxSize().padding(horizontal = 16.dp, vertical = 16.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
         item {
