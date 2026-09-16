@@ -112,7 +112,6 @@ import calc.u.ui.theme.ExpressiveSprings
 import calc.u.ui.theme.FluentMotion
 import calc.u.ui.theme.LocalKeyShape
 import calc.u.ui.theme.LocalKeyVibration
-import calc.u.ui.theme.LocalKeyVibration
 import calc.u.ui.theme.keyShape
 import calc.u.ui.tintExpression
 import kotlinx.coroutines.delay
@@ -1163,8 +1162,9 @@ private fun CalcKey(
         if (active) scheme.onPrimary else baseContent,
         label = "calc-key-content"
     )
+    val vibrationEnabled = LocalKeyVibration.current
     fun fireTap() {
-        if (LocalKeyVibration.current) {
+        if (vibrationEnabled) {
             runCatching { view.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP) }
             runCatching { haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove) }
         }
@@ -1322,6 +1322,7 @@ private fun BackKey(
         if (active) scheme.onPrimary else scheme.onSurface,
         label = "back-content"
     )
+    val vibrationEnabled = LocalKeyVibration.current
     Box(
         modifier = modifier.heightIn(min = 48.dp).height(48.dp)
             .graphicsLayer(scaleX = scale, scaleY = scale)
@@ -1331,7 +1332,7 @@ private fun BackKey(
                 interactionSource = interactions,
                 indication = LocalIndication.current,
                 onClick = {
-                    if (LocalKeyVibration.current) {
+                    if (vibrationEnabled) {
                         runCatching { view.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP) }
                         runCatching { haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove) }
                     }
