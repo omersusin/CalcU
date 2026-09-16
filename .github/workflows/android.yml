@@ -17,7 +17,9 @@ jobs:
           distribution: temurin
           java-version: '17'
       - name: Accept Android SDK licenses
-        run: yes | sdkmanager --licenses >/dev/null || true
+        run: |
+          echo "$ANDROID_HOME/cmdline-tools/latest/bin:$ANDROID_HOME/cmdline-tools/bin" >> "$GITHUB_PATH"
+          sdkmanager --licenses >/dev/null || true
       - run: sdkmanager "platform-tools" "platforms;android-36" "build-tools;36.0.0"
       - uses: gradle/actions/setup-gradle@v4
         with:
@@ -46,7 +48,9 @@ jobs:
           distribution: temurin
           java-version: '17'
       - name: Accept Android SDK licenses
-        run: yes | sdkmanager --licenses >/dev/null || true
+        run: |
+          echo "$ANDROID_HOME/cmdline-tools/latest/bin:$ANDROID_HOME/cmdline-tools/bin" >> "$GITHUB_PATH"
+          sdkmanager --licenses >/dev/null || true
       - run: sdkmanager "platform-tools" "platforms;android-36" "build-tools;36.0.0"
       - uses: gradle/actions/setup-gradle@v4
         with:
