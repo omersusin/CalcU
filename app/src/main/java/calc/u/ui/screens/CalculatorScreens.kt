@@ -29,6 +29,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.Spacer
@@ -110,6 +111,8 @@ import calc.u.ui.WARNING
 import calc.u.ui.theme.ExpressiveSprings
 import calc.u.ui.theme.FluentMotion
 import calc.u.ui.theme.LocalKeyShape
+import calc.u.ui.theme.LocalKeyVibration
+import calc.u.ui.theme.LocalKeyVibration
 import calc.u.ui.theme.keyShape
 import calc.u.ui.tintExpression
 import kotlinx.coroutines.delay
@@ -312,7 +315,7 @@ private fun CalculatorDisplayCard(
         ) {
             Column(
                 Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp)
-                    .then(if (compact) Modifier.verticalScroll(displayScroll) else Modifier.fillMaxWidth().wrapContentHeight())
+                    .then(if (compact) Modifier.verticalScroll(displayScroll) else Modifier.wrapContentHeight())
                     .animateContentSize(),
                 verticalArrangement = Arrangement.spacedBy(8.dp),
                 horizontalAlignment = Alignment.End
