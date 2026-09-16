@@ -115,6 +115,7 @@ fun PacksScreen(vm: PacksViewModel = hiltViewModel()) {
     val catalog by vm.catalog.collectAsStateWithLifecycle()
     val scope = rememberCoroutineScope()
     var status by remember { mutableStateOf<String?>(null) }
+    var statusIsError by remember { mutableStateOf(false) }
     var inputs by remember { mutableStateOf(mapOf<String, String>()) }
     var outputs by remember { mutableStateOf(mapOf<String, String>()) }
     var busy by remember { mutableStateOf(false) }
@@ -134,7 +135,11 @@ fun PacksScreen(vm: PacksViewModel = hiltViewModel()) {
         }
         if (status != null) {
             item {
-                Text(status ?: "", color = MaterialTheme.colorScheme.error)
+                Text(
+                    status ?: "",
+                    color = if (statusIsError) MaterialTheme.colorScheme.error
+                    else MaterialTheme.colorScheme.primary
+                )
             }
         }
         item {
@@ -196,7 +201,10 @@ fun PacksScreen(vm: PacksViewModel = hiltViewModel()) {
                                 val res = vm.runTool(pack.id, tool.function, inputs[key] ?: "")
                                 busy = false
                                 res.onSuccess { outputs = outputs + (key to it.ifBlank { "—" }) }
-                                    .onFailure { status = it.message ?: "run failed" }
+                                    .onFailure {
+                                        status = it.message ?: "run failed"
+                                        statusIsError = true
+                                    }
                             }
                         }, enabled = !busy) { Text("Run ${tool.label}") }
                     }
@@ -239,7 +247,13 @@ fun PacksScreen(vm: PacksViewModel = hiltViewModel()) {
                                 status = null
                                 val err = vm.install(entry)
                                 busy = false
-                                status = err ?: "${entry.name} installed"
+                                if (err != null) {
+                                    statusIsError = true
+                                    status = err
+                                } else {
+                                    statusIsError = false
+                                    status = "${entry.name} installed"
+                                }
                             }
                         }, enabled = !busy) {
                             Text(if (have == null) "Install" else "Update")

@@ -356,7 +356,7 @@ class MainActivity : ComponentActivity() {
                                     )
                                 },
                                 floatingActionButton = {
-                                    if (route != "calc" && !expanded) {
+                                    if (route != "calc" && route != "home" && !expanded) {
                                         JumpToCalcFab(onJump = { go("calc") })
                                     }
                                 }

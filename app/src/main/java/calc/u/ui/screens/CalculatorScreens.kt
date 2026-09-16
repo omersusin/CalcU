@@ -149,7 +149,7 @@ private fun historyNote(entry: String): String =
 private val MiniGraphHint = Regex("(sin|cos|tan|asin|acos|atan|log|ln|sqrt|\\^|/|\\*|\\(|\\d)")
 
 @Composable
-private fun DisplayMiniGraph(input: String, modifier: Modifier = Modifier) {
+private fun DisplayMiniGraph(input: String, angleDeg: Boolean, modifier: Modifier = Modifier) {
     val trimmed = input.trim()
     if (trimmed.isEmpty()) return
     if (!XSubst.containsMatchIn(trimmed)) return
@@ -188,7 +188,7 @@ private fun DisplayMiniGraph(input: String, modifier: Modifier = Modifier) {
             var px = 0f
             while (px <= w) {
                 val mx = ((px - w / 2) / ppu).toDouble()
-                val y = evalGraphAt(trimmed, mx)
+                val y = evalGraphAt(trimmed, mx, angleDeg)
                 if (y.isFinite()) {
                     val py = (h / 2 - y * ppu).toFloat()
                     val p = Offset(px, py)
@@ -294,6 +294,7 @@ private fun CalculatorDisplayCard(
     modifier: Modifier = Modifier,
     compact: Boolean = false,
     justEvaluated: Boolean = false,
+    graphAngleDeg: Boolean = true,
     onPaste: (String) -> Unit = {}
 ) {
     val clipboard = LocalClipboardManager.current
@@ -311,7 +312,7 @@ private fun CalculatorDisplayCard(
         ) {
             Column(
                 Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp)
-                    .then(if (compact) Modifier.verticalScroll(displayScroll) else Modifier.fillMaxHeight())
+                    .then(if (compact) Modifier.verticalScroll(displayScroll) else Modifier.fillMaxWidth().wrapContentHeight())
                     .animateContentSize(),
                 verticalArrangement = Arrangement.spacedBy(8.dp),
                 horizontalAlignment = Alignment.End
@@ -445,7 +446,7 @@ private fun CalculatorDisplayCard(
                 }
             }
         }
-        DisplayMiniGraph(input = graphInput, modifier = Modifier.heightIn(max = 120.dp))
+        DisplayMiniGraph(input = graphInput, angleDeg = graphAngleDeg, modifier = Modifier.heightIn(max = 120.dp))
     }
 }
 
@@ -627,7 +628,10 @@ fun CalculatorScreen(vm: CalcViewModel = hiltViewModel()) {
         }
     }
     Box(Modifier.fillMaxSize()) {
-        CompositionLocalProvider(LocalKeyShape provides keyShape(keyShapeId)) {
+        CompositionLocalProvider(
+            LocalKeyShape provides keyShape(keyShapeId),
+            LocalKeyVibration provides vibration
+        ) {
         val isLandscape = LocalConfiguration.current.orientation == Configuration.ORIENTATION_LANDSCAPE
         if (isLandscape) {
             Row(
@@ -659,6 +663,7 @@ fun CalculatorScreen(vm: CalcViewModel = hiltViewModel()) {
                         } else "",
                         graphInput = st.input,
                         showCopy = st.result.isNotBlank(),
+                        graphAngleDeg = st.angleDeg,
                         onSuggestion = { s ->
                             tapFeedback()
                             justEvaluated = false
@@ -706,7 +711,6 @@ fun CalculatorScreen(vm: CalcViewModel = hiltViewModel()) {
                     )
                     Keypad(
                         onKey = { k ->
-                            tapFeedback()
                             when (k) {
                                 "=" -> { vm.onEquals(); justEvaluated = true }
                                 "ANS" -> { justEvaluated = false; vm.onAns() }
@@ -714,8 +718,8 @@ fun CalculatorScreen(vm: CalcViewModel = hiltViewModel()) {
                                 else -> { justEvaluated = false; vm.onInput(k) }
                             }
                         },
-                        onClear = { tapFeedback(); justEvaluated = false; vm.onClear() },
-                        onBack = { tapFeedback(); justEvaluated = false; vm.onBackspace() },
+                        onClear = { justEvaluated = false; vm.onClear() },
+                        onBack = { justEvaluated = false; vm.onBackspace() },
                         onBackLong = {
                             if (vibration) haptics.performHapticFeedback(HapticFeedbackType.LongPress)
                             justEvaluated = false
@@ -753,6 +757,7 @@ fun CalculatorScreen(vm: CalcViewModel = hiltViewModel()) {
                     } else "",
                     graphInput = st.input,
                     showCopy = st.result.isNotBlank(),
+                    graphAngleDeg = st.angleDeg,
                     onSuggestion = { s ->
                         tapFeedback()
                         justEvaluated = false
@@ -795,7 +800,6 @@ fun CalculatorScreen(vm: CalcViewModel = hiltViewModel()) {
                 )
                 Keypad(
                     onKey = { k ->
-                        tapFeedback()
                         when (k) {
                             "=" -> { vm.onEquals(); justEvaluated = true }
                             "ANS" -> { justEvaluated = false; vm.onAns() }
@@ -803,8 +807,8 @@ fun CalculatorScreen(vm: CalcViewModel = hiltViewModel()) {
                             else -> { justEvaluated = false; vm.onInput(k) }
                         }
                     },
-                    onClear = { tapFeedback(); justEvaluated = false; vm.onClear() },
-                    onBack = { tapFeedback(); justEvaluated = false; vm.onBackspace() },
+                    onClear = { justEvaluated = false; vm.onClear() },
+                    onBack = { justEvaluated = false; vm.onBackspace() },
                     onBackLong = {
                         if (vibration) haptics.performHapticFeedback(HapticFeedbackType.LongPress)
                         justEvaluated = false
@@ -1157,8 +1161,10 @@ private fun CalcKey(
         label = "calc-key-content"
     )
     fun fireTap() {
-        runCatching { view.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP) }
-        runCatching { haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove) }
+        if (LocalKeyVibration.current) {
+            runCatching { view.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP) }
+            runCatching { haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove) }
+        }
         runCatching { view.playSoundEffect(SoundEffectConstants.CLICK) }
         pulsed = true
         onClick()
@@ -1322,8 +1328,10 @@ private fun BackKey(
                 interactionSource = interactions,
                 indication = LocalIndication.current,
                 onClick = {
-                    runCatching { view.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP) }
-                    runCatching { haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove) }
+                    if (LocalKeyVibration.current) {
+                        runCatching { view.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP) }
+                        runCatching { haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove) }
+                    }
                     runCatching { view.playSoundEffect(SoundEffectConstants.CLICK) }
                     pulsed = true
                     onBack()
@@ -1626,10 +1634,10 @@ private fun niceGraphStep(pxPerUnit: Float): Double {
     return nice * mag
 }
 
-private fun evalGraphAt(expr: String, x: Double): Double {
+private fun evalGraphAt(expr: String, x: Double, angleDeg: Boolean): Double {
     if (expr.isBlank()) return Double.NaN
     return try {
-        Engine.eval(XSubst.replace(expr, "($x)"), true).getOrNull()?.toDouble() ?: Double.NaN
+        Engine.eval(XSubst.replace(expr, "($x)"), angleDeg).getOrNull()?.toDouble() ?: Double.NaN
     } catch (e: Exception) {
         Double.NaN
     }
@@ -1641,6 +1649,7 @@ fun GraphScreen() {
     var gExpr by remember { mutableStateOf("x^2/10-2") }
     var fOn by remember { mutableStateOf(true) }
     var gOn by remember { mutableStateOf(true) }
+    var angleDeg by remember { mutableStateOf(true) }
     val defaultScale = 40f
     var view by remember { mutableStateOf(GraphView(scale = defaultScale)) }
     var canvasPx by remember { mutableStateOf(IntSize.Zero) }
@@ -1683,13 +1692,13 @@ fun GraphScreen() {
         var i = 0
         while (i <= 120) {
             val x = view.centerX - span + 2 * span * i / 120.0
-            if (evalGraphAt(expr, x).isFinite()) return true
+            if (evalGraphAt(expr, x, angleDeg).isFinite()) return true
             i++
         }
         return false
     }
-    val fValid = remember(fExpr, fOn, view) { hasValid(fExpr, fOn) }
-    val gValid = remember(gExpr, gOn, view) { hasValid(gExpr, gOn) }
+    val fValid = remember(fExpr, fOn, view, angleDeg) { hasValid(fExpr, fOn) }
+    val gValid = remember(gExpr, gOn, view, angleDeg) { hasValid(gExpr, gOn) }
     val noneValid = (fOn || gOn) && !fValid && !gValid
     LazyColumn(
         Modifier.fillMaxSize().padding(vertical = 16.dp),
@@ -1697,6 +1706,21 @@ fun GraphScreen() {
     ) {
         item {
             SectionCard("Functions") {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    FilterChip(
+                        selected = angleDeg,
+                        onClick = { angleDeg = true },
+                        label = { Text("DEG") }
+                    )
+                    FilterChip(
+                        selected = !angleDeg,
+                        onClick = { angleDeg = false },
+                        label = { Text("RAD") }
+                    )
+                }
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
@@ -1751,8 +1775,8 @@ fun GraphScreen() {
                                                     fun fmt(v: Double) = if (!v.isFinite()) "—" else runCatching { "%.2f".format(v) }.getOrDefault("—")
                                                     val parts = buildList {
                                                         add("x=" + fmt(mx))
-                                                        if (fOn) add("f=" + fmt(evalGraphAt(fExpr, mx)))
-                                                        if (gOn) add("g=" + fmt(evalGraphAt(gExpr, mx)))
+                                                        if (fOn) add("f=" + fmt(evalGraphAt(fExpr, mx, angleDeg)))
+                                                        if (gOn) add("g=" + fmt(evalGraphAt(gExpr, mx, angleDeg)))
                                                     }
                                                     readout = parts.joinToString(", ") + "  y=" + fmt(my)
                                                 }
@@ -1813,7 +1837,7 @@ fun GraphScreen() {
                                     var px = 0f
                                     while (px <= w) {
                                         val mx = view.centerX + (px - w / 2) / ppu
-                                        val y = evalGraphAt(expr, mx)
+                                        val y = evalGraphAt(expr, mx, angleDeg)
                                         if (y.isFinite()) {
                                             val py = (h / 2 - (y - view.centerY) * ppu).toFloat()
                                             val p = Offset(px, py)

@@ -48,9 +48,11 @@ import androidx.compose.material.icons.filled.ExpandLess
 import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.GridOn
+import androidx.compose.material.icons.filled.Inventory2
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.QrCode
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.ShortText
 import androidx.compose.material.icons.filled.ShowChart
 import androidx.compose.material.icons.filled.Star
@@ -152,7 +154,8 @@ private val HubTools = listOf(
     ToolEntry("Spirit level", "Sensors", "sensors"),
     ToolEntry("Sound meter", "Sensors", "sensors"),
     ToolEntry("Activity analyze", "History", "analyze"),
-    ToolEntry("Packs", "System", "packs")
+    ToolEntry("Packs", "System", "packs"),
+    ToolEntry("Settings", "System", "settings")
 )
 
 private val RouteLabels = mapOf(
@@ -232,6 +235,8 @@ private fun toolIcon(entry: ToolEntry): ImageVector = when (entry.route) {
     "ruler" -> Icons.Filled.Straighten
     "sensors" -> Icons.Filled.Explore
     "analyze" -> Icons.Filled.BarChart
+    "packs" -> Icons.Filled.Inventory2
+    "settings" -> Icons.Filled.Settings
     else -> Icons.Filled.Apps
 }
 

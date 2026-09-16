@@ -5,3 +5,5 @@ import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.ui.graphics.Shape
 
 val LocalKeyShape = compositionLocalOf<Shape> { CircleShape }
+
+val LocalKeyVibration = compositionLocalOf { true }
